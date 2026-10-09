@@ -1,0 +1,8 @@
+.DS_Store
+.env
+# NOVE-KURULUM.md §3: bunlar git'e girmez
+formlar/gelen/
+sirket-log/
+
+# Bilgi kasası: kendi git deposu var, proje deposuna girmez
+kasa/

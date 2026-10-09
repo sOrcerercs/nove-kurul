@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nove AI · Kurul Ofisi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Changa+One&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <nav class="nav" aria-label="Adımlar">
+    <span id="n0" aria-current="step">Giriş</span>
+    <span id="n1">Hoş geldin</span>
+    <span id="n2">Ofis</span>
+  </nav>
+
+  <div class="world" id="world">
+    <div class="cloudspin" id="cloudspin"><div class="drift" id="clouddrift"></div></div>
+    <div class="globe" id="globe"></div>
+    <div class="spin" id="spin">
+      <div class="drift" id="ringspin"></div>
+      <div class="item" id="headItem">
+        <h1 class="headline" id="headline">Welcome to<br>Nove AI</h1>
+      </div>
+      <div class="item" id="formItem">
+        <form class="login" id="login" novalidate>
+          <div class="field">
+            <label for="email">E-posta</label>
+            <input id="email" name="email" type="email" autocomplete="username" placeholder="ad.soyad@nove.group" inputmode="email">
+          </div>
+          <div class="field">
+            <label for="pass">Şifre</label>
+            <div class="inwrap">
+              <input id="pass" name="pass" type="password" autocomplete="current-password" placeholder="••••••••">
+              <button class="peek" type="button" id="peek" aria-controls="pass" aria-pressed="false">Göster</button>
+            </div>
+          </div>
+          <button class="go" type="submit" id="go">Giriş yap</button>
+          <p class="err" id="err" role="alert"></p>
+          <p class="hint" id="hint">Demo modu: herhangi bir e-posta ve şifre kabul edilir.</p>
+        </form>
+      </div>
+      <div class="item" id="greetItem" aria-live="polite">
+        <div class="greet-inner" id="greetInner">
+          <div class="headline" id="greetText">Hoş geldin,<br><span id="gname">Kağan</span><small>Kurul ofisin hazırlanıyor</small></div>
+          <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <svg class="wind" id="wind" aria-hidden="true"></svg>
+</div>
+
+<section class="app" id="app" aria-label="Nove Kurul Ofisi">
+  <header>
+    <div class="brandrow">
+      <div class="brand">NOVE GROUP</div>
+      <div class="sub">Yönetim Kurulu · Ajan Ofisi</div>
+    </div>
+    <nav class="tabs" aria-label="Bölümler">
+      <a href="#ofis" class="on" id="tabOfis">Ofis</a>
+      <a href="#defter" id="tabDefter">Yanıt defteri</a>
+    </nav>
+    <div class="grow"></div>
+    <div class="clock" id="clock">—</div>
+    <div class="user">
+      <div class="avatar" id="avatar">YK</div>
+      <div class="uname"><span id="uname">Kurul üyesi</span><small>Kurul üyesi</small></div>
+      <button class="logout" id="logout" type="button">Çıkış</button>
+    </div>
+  </header>
+
+  <main id="ofisAna">
+    <div class="row">
+      <div class="col">
+        <div>
+          <h1>Danışmanlar odalarında</h1>
+          <div class="desc">Kurula soru sorun — Q&amp;A Danışmanı alır, İş Dağıtımcı ilgili danışmana götürür, Denetçi kontrol eder, CEO Ajanı son kararı verir. Satış ekibi her satışta zili çalar.</div>
+        </div>
+        <form class="ask" id="ask">
+          <div class="askrow">
+            <label class="sr" for="question">Kurula sorunuz</label>
+            <input id="question" autocomplete="off" placeholder="Kurula sorunuzu yazın…">
+            <button class="send" id="send" type="submit">Soruyu gönder</button>
+          </div>
+          <div class="chips" id="chips"><span>Örnek</span></div>
+        </form>
+        <div class="stagebox" id="stagebox">
+          <div class="stagehint"><div>Bir danışmana tıklayın, sonra zemine tıklayın — oraya yürür</div></div>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="seg" role="tablist">
+          <button type="button" role="tab" id="segAkis" aria-selected="true">Soru akışı</button>
+          <button type="button" role="tab" id="segAjan" aria-selected="false">Ajan kartı</button>
+        </div>
+        <div id="panel"></div>
+      </aside>
+    </div>
+
+    <section class="defter" id="defter">
+      <div class="defter-h"><h2>Yanıt defteri</h2><span id="defterAdet">3 kayıt</span></div>
+      <div class="tablewrap">
+        <div class="tbl">
+          <div class="tr th"><div>TARİH</div><div>SORU</div><div>BÖLÜM</div><div>DENETÇİ</div><div>CEO KARARI</div></div>
+          <div id="defterRows"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Nove Group · Yönetim Kurulu ajan platformu · prototip</footer>
+  </main>
+</section>
+
+<script src="ofis3d-v4.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>
