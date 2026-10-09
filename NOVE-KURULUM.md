@@ -411,6 +411,8 @@ panel/
 Her faz, bir öncekinin çalıştığı görüldükten sonra açılır (kagan-sirketi K11).
 
 ### Faz 0 · Sunucu hazırlığı
+> **Durum (09.10.2026):** başlamadı — şirketten kaynak bekliyor (API anahtarı, NIM, sunucu, S4). Faz 1–3 beklemeden yerelde ilerler.
+
 ```bash
 sudo adduser --system --group --home /srv/nove-kurul nove-ajan
 sudo apt install -y python3 git caddy
@@ -424,6 +426,8 @@ sudo -u nove-ajan claude --version
 - [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (S8)
 
 ### Faz 1 · Repo ve iskelet temizliği
+> **Durum (09.10.2026):** başladı — yerelde, `~/Desktop/Nove AI` deposunun `faz-1` dalında. Sunucu gelince depo `/srv/nove-kurul`'a taşınır.
+
 ```bash
 cd /srv/nove-kurul
 git clone --depth 1 <kagan-sirketi özel repo> nove-kurul && cd nove-kurul
@@ -440,6 +444,8 @@ python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt 
 - [ ] `python3 bin/ayar.py` ve testler yeşil
 
 ### Faz 2 · Denetçi ve CEO
+> **Durum (09.10.2026):** belge kısmı hazır (`sirket/DENETCI.md`, `sirket/CEO-KIMLIGI.md`); kod Faz 1'den sonra.
+
 - [x] `sirket/DENETCI.md` ve `sirket/CEO-KIMLIGI.md` taslakları yazıldı (09.10.2026) — Kağan'ın revizesini bekliyor
 - [ ] `bekci.py` §4'teki değişiklikler: yönerge, üçlü kontrol, telefon/TC deseni
 - [ ] `tests/fikstur/bekci/` altına `telefon-sizmis.md` ve `hesap-tutmuyor.md` eklendi
@@ -447,6 +453,9 @@ python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt 
 - [ ] `python3 bin/bekci_karsilastir.py` ile NIM'in yeni fikstürlerde doğru karar verdiği görüldü
 
 ### Faz 3 · Soru akışı (panelsiz, komut satırından)
+> **Durum (09.10.2026):** belge kısmı hazır (`sirket/QA-DANISMANI.md`, `sirket/IS-DAGITIMCI.md`); kod Faz 2'den sonra.
+
+- [x] `sirket/QA-DANISMANI.md` ve `sirket/IS-DAGITIMCI.md` görev tanımları yazıldı (09.10.2026) — Kağan'ın revizesini bekliyor
 - [ ] `bin/soru_kapisi.py`: `--yeni "<soru>" --soran <kişi>` → `gelen/` + soru kaydı · `--ilet <id>`
 - [ ] `dagitici.py`: `s-<id>` ve `r-<id>` zincir kuralları, `takim.md`'deki `anahtar_kelimeler:` alanından yönlendirme, `--cakisma`
 - [ ] Uçtan uca kuru koşu:
@@ -456,6 +465,8 @@ python3 bin/dagitici.py --kuru
 ```
 
 ### Faz 4 · İlk danışman: **Kalite**
+> **Durum (09.10.2026):** başlamadı — önce S7 (bütçe onayı). `takimlar/kalite/takim.md` boş duruyor.
+
 Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatti` örnek alınır: `QA_READONLY_URL`, `qa_ozet.py`
 ve `qa-koclugu-kurgusu` taşınır.
 - [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
@@ -463,6 +474,8 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
 
 ### Faz 5 · Panel
+> **Durum (09.10.2026):** kısmen — panel demo verisiyle çalışıyor; `panel.py` yok.
+
 - [x] Giriş ekranı ve Kurul Ofisi `panel/` altında, demo verisiyle çalışıyor (09.10.2026)
 - [ ] Orijinal `.dc.html` + `support.js` Claude Design'dan dışa aktarıldı (14 Aralık'tan önce)
 - [ ] `bin/panel.py`: `sahne.py` temel alınır. `POST /api/giris`, `POST /api/cikis` (§8c), `POST /api/soru`, `GET /api/durum`, `GET /api/olaylar` (SSE), `GET /api/yanitlar` (role göre süzülür), `POST /api/crm/satis`
@@ -471,11 +484,15 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [ ] Caddy + systemd birimleri (`deploy/`)
 
 ### Faz 6 · Yönetici danışmanları
+> **Durum (09.10.2026):** başlamadı — `takim.md` dosyaları boş açıldı.
+
 - [ ] Formlar gönderildi: Finans, OKR, Raporlama, Satış Müdürü (+ boş odalar)
 - [ ] Her form gelince: revize → `onayli/` → `formdan_takim.py` → kuru koşu → 3 gerçek soru → devreye alma
 - [ ] Bir danışman ancak **verisi bağlıysa** devreye girer. Verisi olmayan danışman sahnede "kurulumda" olarak görünür
 
 ### Faz 7 · Satış ekibi ve zil — S1 netleşince açılır
+> **Durum (09.10.2026):** kapalı — S1 bekliyor.
+
 - [ ] CRM bağlantısı kurulur (§8a): salt okunur API anahtarı ya da webhook → `bin/crm_zil.py` → `sirket-log/zil.jsonl` → panelde zil olayı
 - [ ] Test: sahte bir "satış yapıldı" olayı zili bir kez çaldırır. Aynı olay iki kez gelirse zil ikinci kez çalmaz
 
