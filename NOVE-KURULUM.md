@@ -11,7 +11,7 @@
 
 | Kaynak | Ne alındı |
 |---|---|
-| `~/kagan-sirketi` (VS Code projesi) | **Başlangıç noktası.** Sürücü katmanı, bekçinin NIM → OpenAI → Haiku sırası, karar defteri, Telegram komut kapısı, `sahne/` paneli, 430 test. **Denetçi** tanımı (`bin/bekci.py`, `docs/03-bekci.md`), **patron** tanımı (`sirket/AJAN-KIMLIGI.md`, CEO'nun temeli) ve ANAYASA'nın beş maddesi |
+| `~/kagan-sirketi` (VS Code projesi) | **Başlangıç noktası.** Sürücü katmanı, bekçinin NIM → OpenAI → Haiku sırası, karar defteri, `sahne.py`, testler (Faz 1'de 266'sı taşındı). **Denetçi** tanımı (`bin/bekci.py`, `docs/03-bekci.md`), **patron** tanımı (`sirket/AJAN-KIMLIGI.md`, CEO'nun temeli) ve ANAYASA'nın beş maddesi |
 | Claude Design — *Nove Kurul Ofisi 3D v4* | Rol listesi, 8 adımlı soru akışı, ofis yerleşimi, satış ekibi ve zil, "+ Boş oda", Yanıt defteri sekmesi (eski adı: Karar defteri) |
 | Nove AI giriş tasarımı (09.10.2026) | Dönen dünya üstünde "Welcome to Nove AI" girişi, e-posta + şifre formu, "Hoş geldin" geçişi ve ofise dalış. Dosyalar `panel/` altında (§8c) |
 
@@ -426,7 +426,21 @@ sudo -u nove-ajan claude --version
 - [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (S8)
 
 ### Faz 1 · Repo ve iskelet temizliği
-> **Durum (09.10.2026):** başladı — yerelde, `~/Desktop/Nove AI` deposunun `faz-1` dalında. Sunucu gelince depo `/srv/nove-kurul`'a taşınır.
+> **Durum (09.10.2026):** yerelde tamamlandı — `faz-1` dalında, 266 test yeşil (8'i taşınmayan kit belgelerini aradığı için atlanıyor).
+> Sunucu gelince depo `/srv/nove-kurul`'a taşınır.
+>
+> **Bu fazda verilen kararlar:**
+> - kagan-sirketi'nin commit'lenmiş hâli kopyalandı (geçmiş ve upstream yok, N5); `LICENSE` birebir aynı.
+> - Kişisel takımlar ve onlara ait betik, yetenek ve testler taşınmadı (`okr_*`, `qa_ozet`, `repo_ozet`, `claude_gecmis`,
+>   5 yetenek). `qa_ozet.py` ve `qa-koclugu-kurgusu` Faz 4'te Kalite için uyarlanarak gelir.
+> - **Telegram taşınmadı.** Nove'nin arayüzü panel; Q&A Danışmanı Faz 3'te yazılırken kagan-sirketi'deki
+>   `telegram_dinle.py` yalnız örnek olarak okunur.
+> - `dagitici.ZINCIR` ve `gunluk.ZAMANLI` boş: Nove soru odaklı; `s-`/`r-` zinciri Faz 3'te, zamanlı iş yalnız
+>   bir danışman formunda "Tempo" istenirse gelir.
+> - **"Kurulumda" koda girdi:** `takim.md`'si tanımsız (frontmatter'sız) danışman koşturulmaz, ajan dosyası
+>   üretilmez, dağıtıma girmez (`ayar.kurulumda_mi`, `ayar.kurulu_takimlar`; `tests/test_kurulumda.py`).
+> - Soru akışı sabitleri `bin/ayar.py`'ye eklendi: `SORU_BUTCESI_USD`, `KURUL_UYESI_GUNLUK_SORU`, `BEKCI_MAKS_RED`,
+>   `CEO_ACIK`, `CEO_MAKS_RED`, `CEO_BUTCESI_USD`, `CEO_SURESI_SN`.
 
 ```bash
 cd /srv/nove-kurul
@@ -437,11 +451,11 @@ git remote add origin <nove-kurul özel repo>
 git rm -r takimlar/{kasa-bakimi,haftalik-rapor,karar-takibi,qa-hatti,okr-takip} okr/ qa/
 python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt ya da kaldır
 ```
-- [ ] `LICENSE` olduğu gibi duruyor (MIT; telif satırı silinmez, değiştirilmez — lisansın tek koşulu bu)
-- [ ] `CLAUDE.md`, `README.md`, `ANAYASA.md` (§7), `sirket/AJAN-KIMLIGI.md` Nove'ye uyarlandı
-- [ ] `bin/ayar.py` tavanları §9'a göre ayarlandı
-- [ ] `.claude/settings.json` → `permissions.deny`: `.env`, `yanitlar/**`, `formlar/onayli/**`
-- [ ] `python3 bin/ayar.py` ve testler yeşil
+- [x] `LICENSE` olduğu gibi duruyor (MIT; telif satırı silinmez, değiştirilmez — lisansın tek koşulu bu)
+- [x] `CLAUDE.md`, `README.md`, `ANAYASA.md` (§7), `sirket/AJAN-KIMLIGI.md` Nove'ye uyarlandı
+- [x] `bin/ayar.py` tavanları §9'a göre ayarlandı
+- [x] `.claude/settings.json` → `permissions.deny`: `.env`, `yanitlar/**`, `formlar/onayli/**`
+- [x] `python3 bin/ayar.py` ve testler yeşil
 
 ### Faz 2 · Denetçi ve CEO
 > **Durum (09.10.2026):** belge kısmı hazır (`sirket/DENETCI.md`, `sirket/CEO-KIMLIGI.md`); kod Faz 1'den sonra.
