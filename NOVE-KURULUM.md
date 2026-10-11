@@ -458,12 +458,13 @@ python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt 
 - [x] `python3 bin/ayar.py` ve testler yeşil
 
 ### Faz 2 · Denetçi ve CEO
-> **Durum (09.10.2026):** belge kısmı hazır (`sirket/DENETCI.md`, `sirket/CEO-KIMLIGI.md`); kod Faz 1'den sonra.
+> **Durum (12.10.2026):** kod `faz-2` dalında, 314 test yeşil (8 atlanan). Kalan: NIM ölçümü (anahtar bekliyor, Faz 0)
+> ve iki belgenin revizesi. `ceo.py` soru kaydını okur; kaydı ve içindeki `## Denetçi` bölümünü Faz 3'te sürücü yazar.
 
 - [x] `sirket/DENETCI.md` ve `sirket/CEO-KIMLIGI.md` taslakları yazıldı (09.10.2026) — Kağan'ın revizesini bekliyor
-- [ ] `bekci.py` §4'teki değişiklikler: yönerge, üçlü kontrol, telefon/TC deseni
-- [ ] `tests/fikstur/bekci/` altına `telefon-sizmis.md` ve `hesap-tutmuyor.md` eklendi
-- [ ] `sirket/CEO-KIMLIGI.md` + `bin/ceo.py` + `tests/test_ceo.py` (yalnız Bekçi kabulünden sonra çalışır, karar şeması, bozuk JSON → red, en fazla 1 düzeltme turu)
+- [x] `bekci.py` §4'teki değişiklikler: yönerge, üçlü kontrol, telefon/TC deseni (12.10.2026)
+- [x] `tests/fikstur/bekci/` altına `telefon-sizmis.md` ve `hesap-tutmuyor.md` eklendi (12.10.2026)
+- [x] `sirket/CEO-KIMLIGI.md` + `bin/ceo.py` + `tests/test_ceo.py` (yalnız Bekçi kabulünden sonra çalışır, karar şeması, bozuk JSON → red, en fazla 1 düzeltme turu)
 - [ ] `python3 bin/bekci_karsilastir.py` ile NIM'in yeni fikstürlerde doğru karar verdiği görüldü
 
 ### Faz 3 · Soru akışı (panelsiz, komut satırından)
