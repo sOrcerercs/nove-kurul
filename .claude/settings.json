@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Write(./yanitlar/**)",
+      "Edit(./yanitlar/**)",
+      "Write(./formlar/onayli/**)",
+      "Edit(./formlar/onayli/**)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/bin/bekci.py",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

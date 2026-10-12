@@ -1,8 +1,26 @@
-.DS_Store
+# Sırlar — `.env` git'e girmez, izni 600 (NOVE-KURULUM.md §8)
 .env
-# NOVE-KURULUM.md §3: bunlar git'e girmez
-formlar/gelen/
+.env.*
+!.env.example
+*.local
+.kos.lock
+
+# Koşu girdileri, çıktıları ve logları makineye özgüdür — git'e girmez.
+# Veri dosyaları ve sorular şirket içi bilgi ve kişisel veri taşıyabilir (ANAYASA §2).
+takimlar/*/kosu/
+takimlar/*/cikti/
+takimlar/*/gelen/
+takimlar/*/veri/
 sirket-log/
+*.jsonl
+
+# NOVE-KURULUM.md §3: bunlar git'e girmez
+gelen/
+formlar/gelen/
 
 # Bilgi kasası: kendi git deposu var, proje deposuna girmez
 kasa/
+
+.DS_Store
+__pycache__/
+*.pyc
