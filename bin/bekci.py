@@ -12,6 +12,8 @@
 
 Modlar:
   Stop hook (stdin JSON): takım ve koşu dosyası `SIRKET_TAKIM` / `SIRKET_KOSU` ortamından okunur.
+      Kurul sorusu koşusunda `SIRKET_TASLAK` da gelir: kurula gidecek yanıt odur, koşu kaydıyla
+      birlikte denetlenir; yazılmamışsa karar red (danışman aynı oturumda yazar).
       red → {"decision":"block","reason":...} (en fazla 2 kez), kabul → sessiz.
   `--dogrudan <takim> [kosu]`: hook dışından denetle, kararı JSON bas.
 
@@ -289,6 +291,7 @@ def _kaydet(kok, takim, kosu, karar):
     red = int(onceki.get("red_sayisi_7g", 0)) + (1 if karar["karar"] == "red" else 0)
     ayar.durum_guncelle(takim, {"bekci": {**onceki, "son_karar": karar["karar"],
                                           "gerekce": karar["gerekce"], "red_sayisi_7g": red,
+                                          "kontrol": karar.get("kontrol"),
                                           "zaman": ayar.simdi_iso()}}, kok)
     with open(kosu, "a", encoding="utf-8") as dosya:
         dosya.write(f"\n\n## Bekçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
@@ -300,10 +303,18 @@ def _kaydet(kok, takim, kosu, karar):
                                 "kosu": Path(kosu).name, **karar}, ensure_ascii=False) + "\n")
 
 
-def denetle(kok, takim, kosu):
-    """Bir koşu kaydını denetler, kararı kaydeder ve döner."""
+def denetle(kok, takim, kosu, taslak=None):
+    """Bir koşu kaydını (ve kurul sorusunda yanıt taslağını) denetler, kararı kaydeder ve döner."""
     kok = Path(kok)
     metin = _oku(kosu)
+    taslak_metni = _oku(taslak) if taslak else None
+    if taslak is not None and not (taslak_metni or "").strip():
+        karar = {"karar": "red", "gerekce": f"kurula gidecek yanıt yazılmadı: {Path(taslak).name} yok ya da boş",
+                 "ihlal_edilen_kural": "yanıt taslağı", "kontrol": None}
+        _kaydet(kok, takim, kosu, karar)
+        return karar
+    if taslak_metni:
+        metin = f"{metin}\n\n## Kurula gidecek yanıt ({Path(taslak).name})\n\n{taslak_metni}"
     if not metin.strip():
         karar = {"karar": "red", "gerekce": "koşu kaydı boş — ajan SIRKET_KOSU dosyasını yazmadı",
                  "ihlal_edilen_kural": "koşu kaydı", "kontrol": None}
@@ -323,9 +334,9 @@ def _deneme_sayaci(kosu):
     return Path(kosu).parent / ".bekci-deneme"
 
 
-def engelle_mi(kok, takim, kosu):
+def engelle_mi(kok, takim, kosu, taslak=None):
     """Stop hook kararı: red ise ve deneme hakkı kaldıysa True (ajanı düzeltmeye gönder)."""
-    karar = denetle(kok, takim, kosu)
+    karar = denetle(kok, takim, kosu, taslak=taslak)
     sayac = _deneme_sayaci(kosu)
     if karar["karar"] != "red":
         sayac.unlink(missing_ok=True)
@@ -354,11 +365,12 @@ def _hook():
     kosu = os.environ.get("SIRKET_KOSU") or _son_kosu(KOK, takim)
     if not kosu:
         return 0
+    taslak = Path(os.environ["SIRKET_TASLAK"]) if os.environ.get("SIRKET_TASLAK") else None
     if veri.get("stop_hook_active"):  # ikinci durma: engelleme, ama son kararı yeniden ver
-        denetle(KOK, takim, kosu)
+        denetle(KOK, takim, kosu, taslak=taslak)
         _deneme_sayaci(kosu).unlink(missing_ok=True)
         return 0
-    if engelle_mi(KOK, takim, kosu):
+    if engelle_mi(KOK, takim, kosu, taslak=taslak):
         gerekce = (ayar.durum_oku(takim).get("bekci") or {}).get("gerekce", "")
         print(json.dumps({"decision": "block",
                           "reason": f"🛑 BEKÇİ RED: {gerekce}\nKoşu kaydını ({kosu}) düzelt, sonra bitir."},
