@@ -49,6 +49,16 @@ class TcKimlikTesti(unittest.TestCase):
     def test_on_bir_haneli_tc_yakalanir(self):
         self.assertIn("TC kimlik numarası", bekci.on_kontrol("TC: 12345678950 olan hasta"))
 
+    def test_saglama_hanesi_tutmayan_on_bir_hane_tc_sayilmaz(self):
+        """Karar (12.10.2026): yalnız geçerli TC yakalanır; 11 haneli sipariş/hesap no red almaz."""
+        for sayi in ("12345678901", "12345678951", "98765432100"):
+            with self.subTest(sayi=sayi):
+                self.assertNotIn("TC kimlik numarası", bekci.on_kontrol(f"hesap no {sayi}"))
+
+    def test_metindeki_ikinci_sayi_gecerliyse_yakalanir(self):
+        """İlk 11 hane geçersiz diye arama durmaz."""
+        self.assertIn("TC kimlik numarası", bekci.on_kontrol("no 12345678901, TC 10000000146"))
+
     def test_sifirla_baslayan_on_bir_hane_tc_sayilmaz(self):
         """TC sıfırla başlamaz; 05321234567 telefondur."""
         self.assertNotIn("TC kimlik numarası", bekci.on_kontrol("05321234567"))

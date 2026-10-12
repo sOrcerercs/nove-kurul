@@ -30,6 +30,9 @@
 | N9 | **Zilde temsilci adı görünmez.** Sahnede yalnız masa numarası kullanılır. Ayrıntıya sonra inilecek |
 | N10 | **Kurul üyesi Yanıt defterinde yalnız kendi sorularını görür.** Bu artık varsayım değil, karardır |
 | N11 | **Panele giriş e-posta ve şifreyle yapılır.** Google Workspace / oauth2-proxy girişi kullanılmaz. Giriş ekranı Nove AI giriş tasarımıdır (`panel/`); doğrulamayı `panel.py` yapar (§8c) |
+| N12 | **Denetçi'nin üçlü kontrolünde biri `kaldi` ise karar `red`'dir**, model `kabul` dese bile (12.10.2026) |
+| N13 | **TC kimlik deseni sağlama hanesiyle çalışır:** yalnız geçerli TC numarası yakalanır (12.10.2026) |
+| N14 | **Şemasız yollarda (NIM, Haiku) `kontrol` alanı eksikse karar korunur**, kontrol "yapılmadı" yazılır; panelde ışıklar gri (12.10.2026) |
 
 ---
 

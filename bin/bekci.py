@@ -57,9 +57,27 @@ ON_KONTROL = {
     "telefon numarası": re.compile(
         r"(?<![\d+])(?:(?:\+|00)90[\s.-]?)?\(?0?5\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?!\d)"
         r"|(?<![\d+])(?:(?:\+|00)90[\s.-]?\(?0?|\(?0)[2-4]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?!\d)"),
-    # Sağlama hanesi bilerek kontrol edilmiyor: yanlış red görülürse eklenir (sirket/DENETCI.md).
-    "TC kimlik numarası": re.compile(r"(?<![\d.,])[1-9]\d{10}(?![\d.,]\d|\d)"),
+    "TC kimlik numarası": None,   # aşağıda: desen + sağlama hanesi
 }
+
+
+def tc_gecerli_mi(sayi):
+    """TC kimlik no sağlama haneleri: 10. hane = (tekler×7 − çiftler) mod 10, 11. hane = ilk 10'un toplamı mod 10."""
+    h = [int(c) for c in sayi]
+    return (len(h) == 11 and h[0] != 0
+            and (sum(h[0:9:2]) * 7 - sum(h[1:8:2])) % 10 == h[9]
+            and sum(h[:10]) % 10 == h[10])
+
+
+class _TcDeseni:
+    """11 haneli sayı + sağlama hanesi (karar 12.10.2026): sipariş/hesap no'su yanlış red almaz."""
+    ADAY = re.compile(r"(?<![\d.,])[1-9]\d{10}(?![\d.,]\d|\d)")
+
+    def search(self, metin):
+        return next((e for e in self.ADAY.finditer(metin) if tc_gecerli_mi(e.group())), None)
+
+
+ON_KONTROL["TC kimlik numarası"] = _TcDeseni()
 KONTROLLER = ("kaynak", "hesap", "tutarlilik")
 KONTROL_DEGERLERI = ["gecti", "kaldi", "uygulanmaz"]
 YANIT_SEMASI = {
