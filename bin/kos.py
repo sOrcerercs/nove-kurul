@@ -42,9 +42,17 @@ SONHAZIRLIK_TAVANI_SN = 120         # koşu sonrası adım kısa olmalı; uzun i
 
 
 def kosu_yolu(takim, zaman_iso, kok=None):
-    """takimlar/<takim>/kosu/YYYY-MM-DD-HHMM.md"""
+    """takimlar/<takim>/kosu/YYYY-MM-DD-HHMM.md — dosya varsa -2, -3 …
+
+    Aynı dakikadaki ikinci koşu (ör. CEO reddinden hemen sonraki düzeltme) ilkinin kaydına yazarsa, ilk
+    koşunun `## Bekçi` bölümü yeni koşunun denetlendiği sanılır ve eski karar yeni yanıta kopyalanır."""
     damga = zaman_iso[:16].replace("T", "-").replace(":", "")
-    return Path(kok or KOK) / "takimlar" / takim / "kosu" / f"{damga}.md"
+    dizin = Path(kok or KOK) / "takimlar" / takim / "kosu"
+    yol, sira = dizin / f"{damga}.md", 1
+    while yol.exists():
+        sira += 1
+        yol = dizin / f"{damga}-{sira}.md"
+    return yol
 
 
 def _goreli(yol, kok=None):

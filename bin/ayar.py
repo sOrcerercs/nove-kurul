@@ -47,7 +47,7 @@ TAKIM_KISA_ADLARI = {          # telefonda ve panelde kısa yazılsın diye; tek
     "satis": "satis-muduru",
 }
 
-KOSU_DOSYA_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-\d{4}\.md$")   # grup birebir korunur
+KOSU_DOSYA_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-\d{4}(?:-\d+)?\.md$")   # grup birebir korunur; -2: aynı dakikada ikinci koşu
 MALIYET_DESENI = re.compile(r"maliyet:\s*([\d.]+)\s*USD", re.IGNORECASE)
 
 

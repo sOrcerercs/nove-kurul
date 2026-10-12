@@ -146,5 +146,32 @@ class SoruKaydinaKopyaTesti(Kurulum):
         self.assertEqual(gorulen["durum"], "yapiliyor")
 
 
+
+class KosuYoluTesti(unittest.TestCase):
+    """Aynı dakikadaki ikinci koşu ilkinin kaydına yazmaz: eski '## Bekçi' yeni koşunun kararı sanılmasın."""
+
+    def setUp(self):
+        self.kok = Path(tempfile.mkdtemp())
+
+    def test_bos_dakikada_eski_ad(self):
+        self.assertEqual(kos.kosu_yolu("finans", "2026-10-12T12:00:00+03:00", self.kok).name, "2026-10-12-1200.md")
+
+    def test_ayni_dakikada_ikinci_koşu_ek_alir(self):
+        ilk = kos.kosu_yolu("finans", "2026-10-12T12:00:00+03:00", self.kok)
+        ilk.parent.mkdir(parents=True)
+        ilk.write_text("## Bekçi\n- karar: **kabul**\n", encoding="utf-8")
+        ikinci = kos.kosu_yolu("finans", "2026-10-12T12:00:30+03:00", self.kok)
+        self.assertEqual(ikinci.name, "2026-10-12-1200-2.md")
+        ikinci.write_text("x", encoding="utf-8")
+        self.assertEqual(kos.kosu_yolu("finans", "2026-10-12T12:00:50+03:00", self.kok).name, "2026-10-12-1200-3.md")
+
+    def test_ekli_kayit_gunluk_kosu_sayisina_girer(self):
+        dizin = self.kok / "takimlar" / "finans" / "kosu"
+        dizin.mkdir(parents=True)
+        for ad in ("2026-10-12-1200.md", "2026-10-12-1200-2.md"):
+            (dizin / ad).write_text("x", encoding="utf-8")
+        self.assertEqual(ayar.bugunku_kosu_sayisi(self.kok, "finans", "2026-10-12"), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
