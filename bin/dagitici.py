@@ -312,6 +312,14 @@ def sorulari_isle(kok, simdi=None, kuru=False, haiku=haiku_sinifla):
 # --- soru → sonraki adım (Görev 2) ---------------------------------------------
 
 BITMIS = ("alındı", "iletildi", "onaylanamadı", "yönlendirilemedi")
+CEO_PAYI_SN = 120          # CEO süre tavanının üstüne: bu kadar sonra hâlâ karar yoksa ceo.py düşmüş sayılır
+CEO_EN_FAZLA_BASLATMA = 2  # karar yazmayan CEO bir kez yeniden başlatılır, sonra soru onaylanamadı
+
+
+def _ceo_baslatmalari(metin):
+    """Son Denetçi kararından sonraki CEO başlatma zamanları (eskiden yeniye)."""
+    son_tur = metin.rsplit("\n## Denetçi\n", 1)[-1]
+    return re.findall(r"^## CEO başlatıldı\n- zaman: (\S+)", son_tur, flags=re.MULTILINE)
 
 
 def _ceo_baslat(kok, soru_id):
@@ -341,14 +349,21 @@ def _sonraki_adim(kok, metin, simdi):
         gerekce = soru_kaydi.bolum_alani(metin, "## Denetçi", "gerekçe") or "-"
         return "onaylanamadı", f"Denetçi: {karar} — {gerekce}"
     if kim == "denetci":
-        if durum == "CEO'da":
-            return None, "CEO kontrolü sürüyor"
+        baslatmalar = _ceo_baslatmalari(metin)
+        if durum == "CEO'da" and baslatmalar:
+            gecen = (simdi - datetime.fromisoformat(baslatmalar[-1])).total_seconds()
+            if gecen <= ayar.CEO_SURESI_SN + CEO_PAYI_SN:
+                return None, "CEO kontrolü sürüyor"
+            if len(baslatmalar) >= CEO_EN_FAZLA_BASLATMA:
+                return "onaylanamadı", f"CEO {len(baslatmalar)} kez başlatıldı, karar yazmadı (bkz. sirket-log/ceo.log)"
         if harcanan + ayar.CEO_BUTCESI_USD > ayar.SORU_BUTCESI_USD:
             return "onaylanamadı", f"soru bütçesi doldu: {harcanan:.2f} USD harcandı, CEO kontrolüne yetmiyor"
         if not ayar.mesaide_mi(simdi):
             return "bekle", f"mesai dışı ({ayar.MESAI_METNI}) — CEO kontrolü sabah"
         if ayar.gunluk_maliyet(kok, simdi.strftime("%Y-%m-%d")) >= ayar.GUNLUK_MALIYET_TAVANI_USD:
             return "bekle", "şirket günlük bütçesi doldu — CEO kontrolü ertesi gün"
+        if durum == "CEO'da" and baslatmalar:
+            return "ceo", f"CEO {int(gecen // 60)} dk'dır yanıt vermedi — yeniden başlatılıyor"
         return "ceo", "Denetçi kabul etti"
     if karar in ("onay", "yapilmadi"):
         return "iletildi", "iki imza tamam" if karar == "onay" else "CEO kontrolü yapılmadı"
@@ -383,6 +398,7 @@ def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
         try:
             if adim == "ceo":
                 soru_kaydi.durum_yaz(yol, "CEO'da")
+                soru_kaydi.bolum_ekle(yol, f"## CEO başlatıldı\n- zaman: {simdi.isoformat(timespec='seconds')}\n")
                 ceo_baslat(kok, yol.stem)
             elif adim == "iletildi":
                 ilet(kok, yol.stem)

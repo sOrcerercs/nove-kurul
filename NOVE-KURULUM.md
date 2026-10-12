@@ -36,6 +36,7 @@
 | N15 | **Q&A ön kontrolleri:** günlük 10 soruyu dolduranın 11. sorusu reddedilir · şirket günü 40 USD doluysa soru ertesi güne bekler · 3 kelimeden kısa soru geri döner · aynı kişi aynı soruyu 10 dk içinde sorarsa ikinci kayıt açılmaz (12.10.2026) |
 | N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026) |
 | N17 | **Soruyu adımdan adıma İş Dağıtımcı otomatik taşır:** Denetçi kararını soru kaydına sürücü kopyalar, CEO'yu dağıtıcı başlatır, CEO reddinde `r-` açar, onayda iletir (12.10.2026) |
+| N18 | **Denetçi'nin son kararı `red` ya da `atlandi` ise soru "onaylanamadı" olur:** CEO'ya gitmez, Yanıt defterine Denetçi'nin gerekçesiyle girer (12.10.2026) |
 
 ---
 

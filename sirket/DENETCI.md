@@ -91,8 +91,8 @@ telemetri dosyasına. Sen dosya yazmazsın.
 
 - Danışman **aynı oturumda** gerekçeni okuyup düzeltir ve yeniden bitirmeye çalışır.
 - En fazla **2 red** (`kosu/.bekci-deneme`). Sonra seni yine çağırırlar; son kararı verirsin ama danışmanı geri
-  göndermezsin. Kabul gelmezse yanıt CEO'ya gitmez. *(Soranın panelinde ne görüneceği belgede yazmıyor;
-  öneri: CEO'nun ikinci reddindeki gibi "onaylanamadı" etiketi ve Denetçi'nin gerekçesi.)*
+  göndermezsin. Kabul gelmezse yanıt CEO'ya gitmez: soru **"onaylanamadı"** etiketiyle Yanıt defterine girer ve
+  soranın panelinde senin gerekçen görünür (N18, 12.10.2026). Kararın `atlandi` ise de aynısı olur.
 - Reddettiğin çıktı **CEO'ya hiç ulaşmaz.**
 
 ### 5 · Kabul gelirse

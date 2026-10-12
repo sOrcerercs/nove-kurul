@@ -188,5 +188,49 @@ class DagitTesti(Kurulum):
         kostur.assert_called_once_with(self.kok, "finans")
 
 
+
+class CeoTakilmaTesti(Kurulum):
+    """ceo.py karar yazmadan düşerse soru 'CEO'da' kalmasın (süre tavanı + 2 dk pay)."""
+    GEC = timedelta(seconds=ayar.CEO_SURESI_SN + 121)
+
+    def test_baslatma_zamani_kayda_yazilir(self):
+        self.ekle(DENETCI_KABUL)
+        self.ilerlet()
+        self.assertEqual(sk.bolum_alani(self.yol.read_text(encoding="utf-8"), "## CEO başlatıldı", "zaman"),
+                         OGLEN.isoformat(timespec="seconds"))
+
+    def test_sure_icinde_beklenir(self):
+        self.ekle(DENETCI_KABUL)
+        self.ilerlet()
+        self.assertEqual(self.ilerlet(simdi=OGLEN + timedelta(minutes=6)), [])
+        self.ceo.assert_called_once()
+
+    def test_sure_asilinca_bir_kez_yeniden_baslatilir(self):
+        self.ekle(DENETCI_KABUL)
+        self.ilerlet()
+        adimlar = self.ilerlet(simdi=OGLEN + self.GEC)
+        self.assertEqual(adimlar[0]["adim"], "ceo")
+        self.assertIn("yanıt vermedi", adimlar[0]["sebep"])
+        self.assertEqual(self.ceo.call_count, 2)
+
+    def test_ikinci_kez_de_yanit_yoksa_onaylanamadi(self):
+        self.ekle(DENETCI_KABUL)
+        self.ilerlet()
+        self.ilerlet(simdi=OGLEN + self.GEC)
+        adimlar = self.ilerlet(simdi=OGLEN + 2 * self.GEC)
+        self.assertEqual(adimlar[0]["adim"], "onaylanamadı")
+        self.assertIn("CEO", self.ilet.call_args.kwargs["onaylanamadi"])
+        self.assertEqual(self.ceo.call_count, 2)
+
+    def test_duzeltmeden_sonraki_ceo_turu_sayaci_sifirdan_baslar(self):
+        """Önceki turun başlatmaları yeni Denetçi kabulünden sonrakine sayılmaz."""
+        self.ekle(DENETCI_KABUL, "## CEO başlatıldı\n- zaman: 2026-10-12T11:00:00+03:00\n",
+                  "## CEO başlatıldı\n- zaman: 2026-10-12T11:10:00+03:00\n", CEO_RED, DENETCI_KABUL)
+        sk.durum_yaz(self.yol, "Denetçi: kabul")
+        self.ilerlet()
+        adimlar = self.ilerlet(simdi=OGLEN + self.GEC)
+        self.assertEqual(adimlar[0]["adim"], "ceo")
+
+
 if __name__ == "__main__":
     unittest.main()
