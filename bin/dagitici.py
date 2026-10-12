@@ -5,6 +5,9 @@
    önce `takim.md`'lerdeki `anahtar_kelimeler:` tablosu (LLM yok); eşleşme yoksa ya da berabere ise
    yalnız aktif danışmanlar arasından Haiku seçer. Gerekçe soru kaydına `## Dağıtım` olarak yazılır,
    danışmanın kuyruğuna `s-<soru-id>` düşer. Seçilemezse soru tahminle kimseye gitmez: `yönlendirilemedi`.
+0b. **Soru → sonraki adım** (§2 adım 5–8). Soru kaydındaki son karar bölümüne bakar: Denetçi kabul → CEO
+   başlar; CEO red → `r-<soru-id>` (en fazla `CEO_MAKS_RED`); CEO onay → kurula iletilir; Denetçi
+   red/atlandi, ikinci CEO reddi ya da biten soru bütçesi → "onaylanamadı" etiketiyle deftere girer.
 
 1. **Karar → sonraki adım.** Bir takımın kuyruğundaki madde "tamam" olunca zincirin devamı
    `ZINCIR` tablosundan okunur ve bir sonraki takımın kuyruğuna yazılır.
@@ -29,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
 import kos  # noqa: E402
+import soru_kapisi  # noqa: E402
 import soru_kaydi  # noqa: E402
 
 KOK = ayar.KOK
@@ -305,6 +309,94 @@ def sorulari_isle(kok, simdi=None, kuru=False, haiku=haiku_sinifla):
     return [k for k in (yonlendir(kok, sid, haiku=haiku, kuru=kuru) for sid in yonlendirilecek_sorular(kok)) if k]
 
 
+# --- soru → sonraki adım (Görev 2) ---------------------------------------------
+
+BITMIS = ("alındı", "iletildi", "onaylanamadı", "yönlendirilemedi")
+
+
+def _ceo_baslat(kok, soru_id):
+    """bin/ceo.py <soru-id> arka planda (kos gibi); çağıran bloklanmaz."""
+    (Path(kok) / "sirket-log").mkdir(parents=True, exist_ok=True)
+    log = open(Path(kok) / "sirket-log" / "ceo.log", "a")
+    subprocess.Popen([sys.executable, str(Path(kok) / "bin" / "ceo.py"), soru_id],
+                     stdout=log, stderr=log, cwd=str(kok), start_new_session=True)
+
+
+def _bulgular(metin):
+    """Son CEO reddinin bulguları ('  1. …' satırları) — r- maddesinin notu."""
+    govde = soru_kaydi.bolum(metin, "## CEO — karar: red") or ""
+    satirlar = [s.strip() for s in govde.splitlines() if re.match(r"^\s+\d+\. ", s)]
+    return "\n".join(satirlar) or soru_kaydi.bolum_alani(metin, "## CEO — karar: red", "gerekçe") or ""
+
+
+def _sonraki_adim(kok, metin, simdi):
+    """(adim, sebep) — adim: ceo | bekle | iletildi | düzeltme | onaylanamadı | None (yapılacak yok)."""
+    gecmis = soru_kaydi.kararlar(metin)
+    if not gecmis:
+        return None, "danışman yanıtı bekleniyor"
+    kim, karar = gecmis[-1]
+    durum = soru_kaydi.alan(metin, "durum")
+    harcanan = soru_kaydi.harcanan(metin)
+    if kim == "denetci" and karar != "kabul":
+        gerekce = soru_kaydi.bolum_alani(metin, "## Denetçi", "gerekçe") or "-"
+        return "onaylanamadı", f"Denetçi: {karar} — {gerekce}"
+    if kim == "denetci":
+        if durum == "CEO'da":
+            return None, "CEO kontrolü sürüyor"
+        if harcanan + ayar.CEO_BUTCESI_USD > ayar.SORU_BUTCESI_USD:
+            return "onaylanamadı", f"soru bütçesi doldu: {harcanan:.2f} USD harcandı, CEO kontrolüne yetmiyor"
+        if not ayar.mesaide_mi(simdi):
+            return "bekle", f"mesai dışı ({ayar.MESAI_METNI}) — CEO kontrolü sabah"
+        if ayar.gunluk_maliyet(kok, simdi.strftime("%Y-%m-%d")) >= ayar.GUNLUK_MALIYET_TAVANI_USD:
+            return "bekle", "şirket günlük bütçesi doldu — CEO kontrolü ertesi gün"
+        return "ceo", "Denetçi kabul etti"
+    if karar in ("onay", "yapilmadi"):
+        return "iletildi", "iki imza tamam" if karar == "onay" else "CEO kontrolü yapılmadı"
+    redler = sum(1 for k, r in gecmis if k == "ceo" and r == "red")
+    if redler > ayar.CEO_MAKS_RED:
+        gerekce = soru_kaydi.bolum_alani(metin, "## CEO — karar: red", "gerekçe") or "-"
+        return "onaylanamadı", f"CEO {redler}. kez reddetti — {gerekce}"
+    if durum == "düzeltmede":
+        return None, "danışman düzeltiyor"
+    if harcanan + ayar.KOSU_BUTCESI_USD > ayar.SORU_BUTCESI_USD:
+        return "onaylanamadı", f"soru bütçesi doldu: {harcanan:.2f} USD harcandı, düzeltme koşusuna yetmiyor"
+    return "düzeltme", "CEO reddetti — bulgularla düzeltme"
+
+
+def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
+    """Yolu süren her soruyu bir adım ilerletir. [{soru_id, adim, sebep}] döner (yapılacak olmayanlar hariç)."""
+    simdi = simdi or datetime.now().astimezone()
+    ceo_baslat = ceo_baslat or _ceo_baslat
+    ilet = ilet or soru_kapisi.ilet
+    dizin = Path(kok) / "sirket-log" / "sorular"
+    adimlar = []
+    for yol in sorted(dizin.glob("*.md")) if dizin.is_dir() else []:
+        metin = yol.read_text(encoding="utf-8")
+        if soru_kaydi.alan(metin, "durum") in BITMIS:
+            continue
+        adim, sebep = _sonraki_adim(kok, metin, simdi)
+        if not adim:
+            continue
+        adimlar.append({"soru_id": yol.stem, "adim": adim, "sebep": sebep})
+        if kuru or adim == "bekle":
+            continue
+        try:
+            if adim == "ceo":
+                soru_kaydi.durum_yaz(yol, "CEO'da")
+                ceo_baslat(kok, yol.stem)
+            elif adim == "iletildi":
+                ilet(kok, yol.stem)
+            elif adim == "onaylanamadı":
+                ilet(kok, yol.stem, onaylanamadi=sebep)
+            elif adim == "düzeltme":
+                danisman = soru_kaydi.bolum_alani(metin, "## Dağıtım", "danışman")
+                kuyruga_yaz(kok, danisman, f"r-{yol.stem}", _bulgular(metin))
+                soru_kaydi.durum_yaz(yol, "düzeltmede")
+        except soru_kapisi.IletHatasi as exc:   # soru kaybolmaz: kayıtta kalır, sebep loga ve çıktıya
+            adimlar[-1] = {**adimlar[-1], "adim": "hata", "sebep": str(exc)}
+    return adimlar
+
+
 def cakisma(kok):
     """{kelime: [takımlar]} — birden çok aktif danışmanda geçen anahtar kelimeler (§6 revize kontrolü)."""
     sahipler = {}
@@ -350,6 +442,7 @@ def dagit(kok, simdi=None, kuru=False):
     sonuc: kostu | sirada | bekletildi."""
     simdi = simdi or datetime.now().astimezone()
     sorular = sorulari_isle(kok, simdi, kuru, haiku=haiku_sinifla)
+    akis = sorulari_ilerlet(kok, simdi, kuru, ceo_baslat=_ceo_baslat, ilet=soru_kapisi.ilet)
     zincir = [z for takim in takimlar(kok) for z in zinciri_isle(kok, takim, kuru, simdi)]
     kararlar, baslatilan = [], 0
     for takim in takimlar(kok):
@@ -366,7 +459,9 @@ def dagit(kok, simdi=None, kuru=False):
             kararlar.append({"takim": takim, "sebep": sebep, "sonuc": "kostu"})
     if not kuru:
         _log_yaz(kok, [k for k in kararlar if k["sonuc"] != "bekletildi"], simdi)
-    return {"sorular": sorular, "zincir": zincir, "kararlar": kararlar}
+    if not kuru:
+        _log_yaz(kok, [{"takim": f"soru {a['soru_id']}", "sonuc": a["adim"], "sebep": a["sebep"]} for a in akis], simdi)
+    return {"sorular": sorular, "akis": akis, "zincir": zincir, "kararlar": kararlar}
 
 
 ETIKET = {"kostu": "KOŞ  ", "sirada": "SIRA ", "bekletildi": "BEKLE"}
@@ -379,6 +474,8 @@ def bas(sonuc, simdi, kuru):
         print(f"  SORU {k['soru_id']} → {hedef} · {k['yontem']}"
               + (f" · {', '.join(k['eslesen'])}" if k.get("eslesen") else "")
               + (f" · güven {k['guven']}" if k.get("guven") else ""))
+    for a in sonuc.get("akis", []):
+        print(f"  AKIŞ {a['soru_id']} → {a['adim']} · {a['sebep']}")
     for z in sonuc["zincir"]:
         print(f"  ZİNCİR {z['kaynak_takim']}/{z['kaynak_id']} → {z['takim']}/{z['id']} ({z['ad']})")
     if not sonuc["zincir"]:

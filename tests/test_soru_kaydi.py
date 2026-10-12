@@ -80,5 +80,16 @@ class HarcananTesti(unittest.TestCase):
         self.assertEqual(sk.harcanan(BASLIK), 0.0)
 
 
+
+class BolumTesti(unittest.TestCase):
+    def test_son_bolumun_govdesi(self):
+        metin = (BASLIK + "\n## CEO — karar: red\n- tur: 1/2\n- bulgular:\n  1. eski\n"
+                 "\n## Denetçi\n- karar: **kabul**\n\n## CEO — karar: red\n- tur: 2/2\n- bulgular:\n  1. yeni\n  2. ikinci\n")
+        self.assertEqual(sk.bolum(metin, "## CEO — karar: red"), "- tur: 2/2\n- bulgular:\n  1. yeni\n  2. ikinci")
+
+    def test_bolum_yoksa_none(self):
+        self.assertIsNone(sk.bolum(BASLIK, "## Dağıtım"))
+
+
 if __name__ == "__main__":
     unittest.main()

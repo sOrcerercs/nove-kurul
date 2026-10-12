@@ -35,13 +35,18 @@ def alan(metin, ad):
     return eslesme.group(1) if eslesme else None
 
 
-def bolum_alani(metin, baslik, ad):
-    """Son `<baslik>` bölümündeki `- <ad>: değer`; yoksa None."""
+def bolum(metin, baslik):
+    """Son `<baslik>` bölümünün gövdesi (başlık satırı hariç, sondaki boşluk kırpılmış); yoksa None."""
     parcalar = metin.split(baslik + "\n")
     if len(parcalar) < 2:
         return None
-    bolum = re.split(r"^## ", parcalar[-1], maxsplit=1, flags=re.MULTILINE)[0]
-    eslesme = _satir(bolum, ad)
+    return re.split(r"^## ", parcalar[-1], maxsplit=1, flags=re.MULTILINE)[0].rstrip()
+
+
+def bolum_alani(metin, baslik, ad):
+    """Son `<baslik>` bölümündeki `- <ad>: değer`; yoksa None."""
+    govde = bolum(metin, baslik)
+    eslesme = _satir(govde, ad) if govde is not None else None
     return eslesme.group(1) if eslesme else None
 
 
