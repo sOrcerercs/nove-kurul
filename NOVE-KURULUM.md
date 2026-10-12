@@ -33,6 +33,9 @@
 | N12 | **Denetçi'nin üçlü kontrolünde biri `kaldi` ise karar `red`'dir**, model `kabul` dese bile (12.10.2026) |
 | N13 | **TC kimlik deseni sağlama hanesiyle çalışır:** yalnız geçerli TC numarası yakalanır (12.10.2026) |
 | N14 | **Şemasız yollarda (NIM, Haiku) `kontrol` alanı eksikse karar korunur**, kontrol "yapılmadı" yazılır; panelde ışıklar gri (12.10.2026) |
+| N15 | **Q&A ön kontrolleri:** günlük 10 soruyu dolduranın 11. sorusu reddedilir · şirket günü 40 USD doluysa soru ertesi güne bekler · 3 kelimeden kısa soru geri döner · aynı kişi aynı soruyu 10 dk içinde sorarsa ikinci kayıt açılmaz (12.10.2026) |
+| N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026) |
+| N17 | **Soruyu adımdan adıma İş Dağıtımcı otomatik taşır:** Denetçi kararını soru kaydına sürücü kopyalar, CEO'yu dağıtıcı başlatır, CEO reddinde `r-` açar, onayda iletir (12.10.2026) |
 
 ---
 
@@ -471,14 +474,17 @@ python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt 
 - [ ] `python3 bin/bekci_karsilastir.py` ile NIM'in yeni fikstürlerde doğru karar verdiği görüldü
 
 ### Faz 3 · Soru akışı (panelsiz, komut satırından)
-> **Durum (09.10.2026):** belge kısmı hazır (`sirket/QA-DANISMANI.md`, `sirket/IS-DAGITIMCI.md`); kod Faz 2'den sonra.
+> **Durum (12.10.2026):** kod `faz-3` dalında, 409 test yeşil (8 atlanan). Sekiz adım uçtan uca testle
+> kanıtlı (`tests/test_uctan_uca_soru.py`, LLM'ler sahte). Gerçek soru için gereken: `deploy/roller.json` ve en az bir
+> kurulu danışman (Faz 4) — bugün bütün danışmanlar kurulumda.
 
 - [x] `sirket/QA-DANISMANI.md` ve `sirket/IS-DAGITIMCI.md` görev tanımları yazıldı (09.10.2026) — Kağan'ın revizesini bekliyor
-- [ ] `bin/soru_kapisi.py`: `--yeni "<soru>" --soran <kişi>` → `gelen/` + soru kaydı · `--ilet <id>`
-- [ ] `dagitici.py`: `s-<id>` ve `r-<id>` zincir kuralları, `takim.md`'deki `anahtar_kelimeler:` alanından yönlendirme, `--cakisma`
-- [ ] Uçtan uca kuru koşu:
+- [x] `bin/soru_kapisi.py`: `--yeni "<soru>" --soran <e-posta>` → `gelen/` + soru kaydı · `--ilet <id>` → Yanıt defteri (12.10.2026)
+- [x] `dagitici.py`: `s-<id>` ve `r-<id>` zincir kuralları, `takim.md`'deki `anahtar_kelimeler:` alanından yönlendirme, `--cakisma` (12.10.2026)
+- [x] `kos.py` soruyu danışmana verir, Denetçi taslağı denetler (`SIRKET_TASLAK`), karar soru kaydına kopyalanır (12.10.2026)
+- [x] Uçtan uca: `tests/test_uctan_uca_soru.py`. Kuru koşu (`--soran` `deploy/roller.json`'daki bir e-posta olmalı):
 ```bash
-python3 bin/soru_kapisi.py --yeni "Q3 bütçe sapmasının ana nedenleri neler?" --soran test --kuru
+python3 bin/soru_kapisi.py --yeni "Q3 bütçe sapmasının ana nedenleri neler?" --soran <e-posta> --kuru
 python3 bin/dagitici.py --kuru
 ```
 
