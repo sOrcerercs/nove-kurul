@@ -30,6 +30,8 @@ ES_ZAMANLI_TAVAN = 3            # dağıtıcının aynı anda başlattığı tak
 # --- soru akışı (NOVE-KURULUM.md §2, §5, §9) — Faz 2/3'te kullanılır ------------
 SORU_BUTCESI_USD = 5.0          # soru başına toplam: danışman + düzeltme + Denetçi + CEO
 KURUL_UYESI_GUNLUK_SORU = 10    # kurul üyesi başına gün — kötüye kullanım freni
+SORU_EN_AZ_KELIME = 3           # daha kısa soru kayda girmez: "soruyu biraz açar mısın" (QA-DANISMANI.md)
+SORU_TEKRAR_DK = 10             # aynı kişi aynı soruyu bu süre içinde sorarsa ikinci kayıt açılmaz
 BEKCI_MAKS_RED = 2              # Denetçi reddinde aynı oturumda en fazla düzeltme
 CEO_ACIK = True                 # tasarımdaki `ceoSorgular`; üretimde açık ve kilitli
 CEO_MAKS_RED = 1                # CEO reddinden sonra en fazla bir düzeltme turu
