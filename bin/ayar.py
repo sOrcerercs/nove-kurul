@@ -32,6 +32,7 @@ SORU_BUTCESI_USD = 5.0          # soru başına toplam: danışman + düzeltme +
 KURUL_UYESI_GUNLUK_SORU = 10    # kurul üyesi başına gün — kötüye kullanım freni
 SORU_EN_AZ_KELIME = 3           # daha kısa soru kayda girmez: "soruyu biraz açar mısın" (QA-DANISMANI.md)
 SORU_TEKRAR_DK = 10             # aynı kişi aynı soruyu bu süre içinde sorarsa ikinci kayıt açılmaz
+DAGITIM_HAIKU_BUTCESI_USD = 0.05  # İş Dağıtımcı'nın Haiku sınıflandırması, çağrı başına (IS-DAGITIMCI.md)
 BEKCI_MAKS_RED = 2              # Denetçi reddinde aynı oturumda en fazla düzeltme
 CEO_ACIK = True                 # tasarımdaki `ceoSorgular`; üretimde açık ve kilitli
 CEO_MAKS_RED = 1                # CEO reddinden sonra en fazla bir düzeltme turu
