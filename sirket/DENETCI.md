@@ -42,9 +42,11 @@ Kayıtta aşağıdakilerden biri geçiyorsa karar **doğrudan `red`**, LLM hiç 
 | **TC kimlik numarası** | hasta ve müşteri verisi (KVKK) | **Nove'de eklendi** |
 
 - Kayıt **boşsa** karar `red`: "koşu kaydı boş — danışman kaydı yazmadı" (ANAYASA §4: kayıtsız koşu reddedilir).
-- Telefon ve TC desenleri Faz 2'de `tests/fikstur/bekci/telefon-sizmis.md` fikstürüyle doğrulanır. TC deseni
-  11 haneli her sayıyı yakalayabilir; yanlış red görülürse TC'nin sağlama hanesi de kontrol edilir
-  (öneri, Kağan'ın onayıyla).
+- Telefon deseni Türk cep ve sabit hat numaralarını yakalar (`0`, `+90` ya da `0090` önekli; cepte önek
+  olmasa da). Rapor sayıları (`146/146`, tarih, `412 + 388`, TL tutarı) telefon sayılmaz.
+- TC deseni **sağlama haneleriyle** çalışır: yalnız geçerli bir TC kimlik numarası yakalanır; 11 haneli bir
+  sipariş ya da hesap numarası red almaz (N13, 12.10.2026).
+- Desenler `tests/fikstur/bekci/telefon-sizmis.md` fikstürüyle ve `tests/test_bekci_nove.py` ile doğrulanır.
 
 ### 2 · Üçlü kontrol — LLM ile
 
@@ -76,7 +78,10 @@ Yalnız şu JSON'u döndürürsün:
 ```
 
 - Kanıt olmadan `kabul` verme; **şüphede `red`**. *(kagan-sirketi'den aynen)*
-- `kontrol` alanında bir tane `kaldi` varsa karar `red`'dir. *(öneri — belgede yok)*
+- `kontrol` alanında bir tane `kaldi` varsa karar `red`'dir; sen `kabul` yazsan bile sürücü kararı `red`'e çevirir
+  (N12, 12.10.2026). Gerekçesi "madde 3/4" olduğu için geçersiz sayılan bir red de, kalan bir kontrol varsa red kalır.
+- `kontrol` alanını boş bırakırsan kararın düşmez; kontrol "yapılmadı" olarak kaydedilir ve panelde ışıklar gri
+  yanar (N14, 12.10.2026). Yine de her zaman doldur: CEO ve kurul ışıklara bakar.
 - İyi bir gerekçe ANAYASA maddelerini ve üç kontrolü tek tek gezer; "her şey yolunda" demez.
 
 Kararını sürücü üç yere yazar: soru kaydına (`## Denetçi` başlığıyla), danışmanın `durum.json`'una ve
