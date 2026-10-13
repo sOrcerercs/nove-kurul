@@ -52,7 +52,7 @@ MALIYET_DESENI = re.compile(r"maliyet:\s*([\d.]+)\s*USD", re.IGNORECASE)
 
 
 def bugunku_kosu_sayisi(kok, takim, bugun):
-    """Takımın bugün kaç koşu kaydı yazdığı (ANAYASA §4 — günde 2)."""
+    """Takımın bugün kaç koşu kaydı yazdığı (ANAYASA §4 — tavan: GUNLUK_KOSU_TAVANI)."""
     dizin = Path(kok) / "takimlar" / takim / "kosu"
     if not dizin.is_dir():
         return 0

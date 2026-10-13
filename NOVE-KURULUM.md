@@ -3,8 +3,8 @@
 > Nove Group yöneticileri için ajan ekosistemi. Kurul üyesi soru sorar; danışman ajanlar analiz eder,
 > Denetçi (Bekçi) kuralları denetler, CEO Ajanı double check yapıp onaylar. **Yayın düğmesi yine insandadır.**
 >
-> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — revize sürüyor** (13.10.2026: §0–§6, §8, §10, §11;
-> kalan: §7 ANAYASA, §9 tavanlar)
+> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — revize sürüyor** (13.10.2026: §0–§8, §10, §11;
+> kalan: §9 tavanlar)
 
 ---
 
@@ -43,6 +43,9 @@
 | N21 | **Yanıt dili her danışmanda Türkçedir;** teknik terimler orijinal hâliyle kalır (S5 kapandı, 13.10.2026) |
 | N22 | **Yanıtlar kurul dışına otomatik kopyalanmaz.** Kurul dışına taşımak insanın kararıdır, ANAYASA §1 (S6 kapandı, 13.10.2026) |
 | N23 | **Panel şifreleri:** yönetici kullanıcıyı ekler, ilk girişte geçici şifre değiştirilir, şifresini unutan yöneticiye başvurur (Nove PYS'deki yöntem); e-posta altyapısı gerekmez (S8 kapandı, 13.10.2026) |
+| N24 | **ANAYASA §2: etiket iddiaya konur, cümleye değil;** kaynak dış dünya sayısında, `n` örneklemden türeyen sayıda zorunludur (N19 ile aynı sınır, 13.10.2026) |
+| N25 | **ANAYASA §4 rakam taşımaz:** tavanların ilkesi anayasada, rakamları yalnız `bin/ayar.py`'de ve §9'da (13.10.2026) |
+| N26 | **ANAYASA §1: danışman yalnız kendi klasörüne yazar** — `cikti/`, `kosu/`, `defter.md` (13.10.2026) |
 
 ---
 
@@ -298,19 +301,21 @@ Kağan revize eder ve `formlar/onayli/` altına koyar. Ardından `bin/formdan_ta
 
 ---
 
-## 7 · ANAYASA — Nove versiyonu (taslak, İNSANIN)
+## 7 · ANAYASA — Nove versiyonu (İNSANIN)
 
-kagan-sirketi'nin beş maddesi temel alınır. Değişiklikler **kalın** yazılmıştır.
+kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N24–N26).
 
-1. **Yayın düğmesi insanın.** Hiçbir ajan mail atmaz, mesaj göndermez, bir kişiye ya da departmana
-   talimat vermez. **Panelde soranın masasına giden yanıt yayın sayılmaz**; o yanıtı kurul dışına
-   taşımak insanın kararıdır. Veri kaynakları salt okunurdur, prod'a yazma yoktur.
-2. **Kaynaksız sayı yok.** ✅/🟡/⛔ etiketi kullanılır, her sayının yanında `n` yazar, teyitsiz formül
-   kullanılmaz. **Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz;**
-   personel adı yalnız `kurallar.md` açıkça izin veriyorsa yazılır (kagan-sirketi'ndeki qa-hatti muafiyeti gibi).
-3. **İki onay.** Üreten kendi işini onaylayamaz. **Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan (double check) geçer.**
-4. **Her koşunun tavanı var.** Tavanlar §9'daki tablodadır. **Her soru bir bütçe taşır**; soru tavanı aşarsa
-   sorunun sahibi panelde bunu görür.
+> **Tam metin:** `ANAYASA.md`. Aşağıdaki özet ile dosya ayrışırsa dosya esastır. Dosyayı yalnız insan değiştirir.
+
+1. **Yayın düğmesi insanın.** Hiçbir ajan mail atmaz, mesaj göndermez, bir kişiye ya da departmana talimat
+   vermez. Panelde soranın masasına giden yanıt yayın sayılmaz; kurul dışına taşımak insanın kararıdır (N22).
+   Veri kaynakları salt okunurdur. Danışman yalnız kendi klasörüne yazar: `cikti/`, `kosu/`, `defter.md` (N26).
+2. **Kaynaksız sayı yok.** Etiket (✅/🟡/⛔) cümleye değil iddiaya konur. Dış dünya sayısının kaynağı,
+   örneklemden türeyen sayının `n`'i yazılır (N24, N19 ile aynı sınır). Teyitsiz formül kullanılmaz.
+   Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz.
+3. **İki onay.** Üreten kendi işini onaylayamaz. Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan geçer.
+4. **Her koşunun tavanı var.** Her koşunun, her sorunun ve her günün tavanı vardır; tavana çarpan sessiz kalmaz.
+   Rakamlar anayasada değil, yalnız `bin/ayar.py`'de ve §9'da durur (N25).
 5. **Defter ajanın, kural insanın.** `ANAYASA.md`, `kurallar.md`, `formlar/onayli/` ve `CEO-KIMLIGI.md`
    yalnız insan tarafından değişir. Danışmanlar birbirine yazmaz. Zinciri İş Dağıtımcı kurar.
 
