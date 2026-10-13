@@ -475,7 +475,7 @@ python3 -m unittest discover -s tests     # kırılan testleri bu fazda düzelt 
 - [ ] `python3 bin/bekci_karsilastir.py` ile NIM'in yeni fikstürlerde doğru karar verdiği görüldü
 
 ### Faz 3 · Soru akışı (panelsiz, komut satırından)
-> **Durum (12.10.2026):** kod `faz-3` dalında, 409 test yeşil (8 atlanan). Sekiz adım uçtan uca testle
+> **Durum (13.10.2026):** kod `faz-3` dalında, 414 test yeşil (8 atlanan). Sekiz adım uçtan uca testle
 > kanıtlı (`tests/test_uctan_uca_soru.py`, LLM'ler sahte). Gerçek soru için gereken: `deploy/roller.json` ve en az bir
 > kurulu danışman (Faz 4) — bugün bütün danışmanlar kurulumda.
 
