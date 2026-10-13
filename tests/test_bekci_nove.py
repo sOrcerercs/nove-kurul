@@ -6,6 +6,7 @@
 
 python3 -m unittest discover -s tests
 """
+import io
 import json
 import sys
 import tempfile
@@ -173,3 +174,53 @@ class DenetleKayitTesti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TaslakDenetimiTesti(unittest.TestCase):
+    """Kurul sorusu koşusunda kurula gidecek metin `cikti/<soru-id>-taslak.md`'dir; Denetçi onu da denetler."""
+
+    def setUp(self):
+        self.kok = Path(tempfile.mkdtemp())
+        (self.kok / "takimlar" / "finans" / "kosu").mkdir(parents=True)
+        (self.kok / "takimlar" / "finans" / "cikti").mkdir()
+        self.kosu = self.kok / "takimlar" / "finans" / "kosu" / "2026-10-12-1000.md"
+        self.kosu.write_text("# Koşu\nveri/q3.csv okundu (n=2.140)\n", encoding="utf-8")
+        self.taslak = self.kok / "takimlar" / "finans" / "cikti" / "20261012-1000-abcd-taslak.md"
+
+    def test_taslak_llm_istemine_girer(self):
+        self.taslak.write_text("Sapmanın %70'i pazarlamadan.\n", encoding="utf-8")
+        with mock.patch.object(bekci, "llm_karari", return_value={"karar": "kabul", "gerekce": "ok",
+                                                                   "ihlal_edilen_kural": None, "kontrol": GECTI}) as llm:
+            bekci.denetle(self.kok, "finans", self.kosu, taslak=self.taslak)
+        self.assertIn("Sapmanın %70'i pazarlamadan.", llm.call_args[0][1])
+
+    def test_taslaktaki_telefon_on_kontrolde_yakalanir(self):
+        self.taslak.write_text("Hasta 0532 418 27 63 aradı.\n", encoding="utf-8")
+        with mock.patch.object(bekci, "llm_karari") as llm:
+            karar = bekci.denetle(self.kok, "finans", self.kosu, taslak=self.taslak)
+        llm.assert_not_called()
+        self.assertEqual(karar["karar"], "red")
+
+    def test_soru_kosusunda_taslak_yoksa_red(self):
+        with mock.patch.object(bekci, "llm_karari") as llm:
+            karar = bekci.denetle(self.kok, "finans", self.kosu, taslak=self.taslak)
+        llm.assert_not_called()
+        self.assertEqual(karar["karar"], "red")
+        self.assertIn("taslak", karar["gerekce"])
+
+    def test_kontrol_durum_jsona_yazilir(self):
+        self.taslak.write_text("Sapma %4.\n", encoding="utf-8")
+        with mock.patch.object(bekci, "llm_karari", return_value={"karar": "kabul", "gerekce": "ok",
+                                                                   "ihlal_edilen_kural": None, "kontrol": GECTI}):
+            bekci.denetle(self.kok, "finans", self.kosu, taslak=self.taslak)
+        durum = json.loads((self.kok / "takimlar" / "finans" / "durum.json").read_text(encoding="utf-8"))
+        self.assertEqual(durum["bekci"]["kontrol"], GECTI)
+
+    def test_hook_taslagi_ortamdan_okur(self):
+        self.taslak.write_text("Sapma %4.\n", encoding="utf-8")
+        ortam = {"SIRKET_TAKIM": "finans", "SIRKET_KOSU": str(self.kosu), "SIRKET_TASLAK": str(self.taslak)}
+        with mock.patch.dict("os.environ", ortam), mock.patch.object(bekci, "KOK", self.kok), \
+             mock.patch.object(bekci, "engelle_mi", return_value=False) as engelle, \
+             mock.patch.object(bekci.sys, "stdin", io.StringIO("{}")):
+            bekci._hook()
+        self.assertEqual(engelle.call_args.kwargs.get("taslak"), Path(self.taslak))

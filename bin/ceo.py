@@ -31,16 +31,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
 import kos  # noqa: E402
+import soru_kaydi  # noqa: E402
 
 KOK = ayar.KOK
 ARACLAR = ["Read", "Glob", "Grep"]
 MAKS_BULGU = 3
 OKUNAMADI = "CEO yanıtı okunamadı"
 
-# Soru kaydındaki karar bölümleri, geliş sırasıyla. "## CEO — kontrol yapılmadı" karar sayılmaz.
-BOLUM = re.compile(r"^## (Denetçi|CEO — karar: (onay|red))\s*$", re.MULTILINE)
-DENETCI_KARARI = re.compile(r"^- karar: \*\*(\w+)\*\*", re.MULTILINE)
-DANISMAN_SATIRI = re.compile(r"^- danışman:\s*(.+?)\s*$", re.MULTILINE)
 TR_HARF = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosuCGIOSU")
 
 
@@ -49,7 +46,7 @@ class OnSartHatasi(Exception):
 
 
 def soru_kaydi_yolu(soru_id, kok=None):
-    return Path(kok or KOK) / "sirket-log" / "sorular" / f"{soru_id}.md"
+    return soru_kaydi.yol(soru_id, kok or KOK)
 
 
 def takim_adi(gorunen):
@@ -60,32 +57,17 @@ def takim_adi(gorunen):
 
 def danisman(metin):
     """Soru kaydının `## Dağıtım` bölümündeki ana danışman; yoksa None."""
-    dagitim = metin.split("## Dağıtım", 1)
-    eslesme = DANISMAN_SATIRI.search(dagitim[1]) if len(dagitim) > 1 else None
-    return takim_adi(eslesme.group(1)) if eslesme else None
-
-
-def kararlar(metin):
-    """Soru kaydındaki karar bölümleri sırayla: [("denetci", "kabul"), ("ceo", "red"), …]."""
-    sonuc = []
-    eslesmeler = list(BOLUM.finditer(metin))
-    for i, e in enumerate(eslesmeler):
-        if e.group(2):
-            sonuc.append(("ceo", e.group(2)))
-            continue
-        son = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(metin)
-        karar = DENETCI_KARARI.search(metin, e.end(), son)
-        sonuc.append(("denetci", karar.group(1) if karar else "?"))
-    return sonuc
+    ad = soru_kaydi.bolum_alani(metin, "## Dağıtım", "danışman")
+    return takim_adi(ad) if ad else None
 
 
 def on_sart(metin):
     """Kontrol başlayabilir mi? Kaçıncı tur olduğunu döner; olamıyorsa OnSartHatasi."""
-    gecmis = kararlar(metin)
+    gecmis = soru_kaydi.kararlar(metin)
     if not gecmis or gecmis[-1] != ("denetci", "kabul"):
         son = f"{gecmis[-1][0]} {gecmis[-1][1]}" if gecmis else "karar yok"
         raise OnSartHatasi(f"son karar Denetçi kabulü değil ({son}) — CEO yalnız Denetçi kabulünden sonra çalışır")
-    onceki = sum(1 for kim, _ in gecmis if kim == "ceo")
+    onceki = sum(1 for kim, karar in gecmis if kim == "ceo" and karar in ("onay", "red"))
     if onceki > ayar.CEO_MAKS_RED:
         raise OnSartHatasi(f"CEO bu soruya {onceki} kez baktı — en fazla {1 + ayar.CEO_MAKS_RED} tur")
     return onceki + 1

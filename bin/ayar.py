@@ -30,6 +30,9 @@ ES_ZAMANLI_TAVAN = 3            # dağıtıcının aynı anda başlattığı tak
 # --- soru akışı (NOVE-KURULUM.md §2, §5, §9) — Faz 2/3'te kullanılır ------------
 SORU_BUTCESI_USD = 5.0          # soru başına toplam: danışman + düzeltme + Denetçi + CEO
 KURUL_UYESI_GUNLUK_SORU = 10    # kurul üyesi başına gün — kötüye kullanım freni
+SORU_EN_AZ_KELIME = 3           # daha kısa soru kayda girmez: "soruyu biraz açar mısın" (QA-DANISMANI.md)
+SORU_TEKRAR_DK = 10             # aynı kişi aynı soruyu bu süre içinde sorarsa ikinci kayıt açılmaz
+DAGITIM_HAIKU_BUTCESI_USD = 0.05  # İş Dağıtımcı'nın Haiku sınıflandırması, çağrı başına (IS-DAGITIMCI.md)
 BEKCI_MAKS_RED = 2              # Denetçi reddinde aynı oturumda en fazla düzeltme
 CEO_ACIK = True                 # tasarımdaki `ceoSorgular`; üretimde açık ve kilitli
 CEO_MAKS_RED = 1                # CEO reddinden sonra en fazla bir düzeltme turu
@@ -44,7 +47,7 @@ TAKIM_KISA_ADLARI = {          # telefonda ve panelde kısa yazılsın diye; tek
     "satis": "satis-muduru",
 }
 
-KOSU_DOSYA_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-\d{4}\.md$")   # grup birebir korunur
+KOSU_DOSYA_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-\d{4}(?:-\d+)?\.md$")   # grup birebir korunur; -2: aynı dakikada ikinci koşu
 MALIYET_DESENI = re.compile(r"maliyet:\s*([\d.]+)\s*USD", re.IGNORECASE)
 
 

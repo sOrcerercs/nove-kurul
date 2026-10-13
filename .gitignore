@@ -17,6 +17,9 @@ sirket-log/
 # NOVE-KURULUM.md §3: bunlar git'e girmez
 gelen/
 formlar/gelen/
+# Panel rolleri (personel e-postası) ve Yanıt defteri (kurulun soruları, soranlar) — kişisel ve şirket içi
+deploy/roller.json
+yanitlar/
 
 # Bilgi kasası: kendi git deposu var, proje deposuna girmez
 kasa/
