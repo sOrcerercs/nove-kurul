@@ -110,7 +110,7 @@ Yalnız şu JSON'u döndür:
 | Araçlar | yalnız `Read`, `Glob`, `Grep` | §5 |
 | Bütçe | 0,50 USD / kontrol, 5 dk | §9 |
 | Red hakkı | 1 (sonra yanıt kurula gitmez) | §2, `ayar.CEO_MAKS_RED` |
-| Soru toplamı | 5 USD (danışman + düzeltme + Denetçi + sen) | §9 |
+| Soru toplamı | `ayar.SORU_BUTCESI_USD` (danışman + düzeltme + Denetçi + sen) | §9 |
 
 İçerik üretmediğin için Stop hook'ta Denetçi'ye tabi değilsin; `SIRKET_TAKIM` senin koşunda ayarlanmaz.
 
