@@ -3,8 +3,7 @@
 > Nove Group yöneticileri için ajan ekosistemi. Kurul üyesi soru sorar; danışman ajanlar analiz eder,
 > Denetçi (Bekçi) kuralları denetler, CEO Ajanı double check yapıp onaylar. **Yayın düğmesi yine insandadır.**
 >
-> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — revize sürüyor** (13.10.2026: §0–§8, §10, §11;
-> kalan: §9 tavanlar)
+> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — revize sürüyor** (13.10.2026: §0–§12)
 
 ---
 
@@ -46,6 +45,9 @@
 | N24 | **ANAYASA §2: etiket iddiaya konur, cümleye değil;** kaynak dış dünya sayısında, `n` örneklemden türeyen sayıda zorunludur (N19 ile aynı sınır, 13.10.2026) |
 | N25 | **ANAYASA §4 rakam taşımaz:** tavanların ilkesi anayasada, rakamları yalnız `bin/ayar.py`'de ve §9'da (13.10.2026) |
 | N26 | **ANAYASA §1: danışman yalnız kendi klasörüne yazar** — `cikti/`, `kosu/`, `defter.md` (13.10.2026) |
+| N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) |
+| N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
+| N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
 
 ---
 
@@ -101,7 +103,7 @@
   gerekçesiyle Yanıt defterine girer, soran bunu panelinde görür:
   - Bekçi'nin son kararı `red` ya da `atlandi` (N18) — gerekçe Bekçi'nin
   - CEO'nun ikinci `red`'i — gerekçe CEO'nun
-  - Soru bütçesi (`ayar.SORU_BUTCESI_USD`, 5 USD) sonraki adıma yetmiyor
+  - Soru bütçesi (`ayar.SORU_BUTCESI_USD`) sonraki adıma yetmiyor
 - CEO süreci karar yazmadan düşerse dağıtıcı onu süre tavanı + 2 dk sonra bir kez yeniden başlatır; yine karar
   yoksa soru onaylanamadı olur.
 - Tasarımdaki 8 adımla eşleşme: "CEO sorgular" → double check, "Danışman revize eder" → CEO red sonrası düzeltme,
@@ -422,13 +424,14 @@ panel/
 
 | Ayar | kagan-sirketi | Nove başlangıç | Not |
 |---|---|---|---|
-| Mesai | 09:00–23:00 | 08:00–20:00 | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
+| Mesai | 09:00–23:00 | 08:00–20:00, haftanın her günü | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
 | Danışman koşusu | 2 USD / 15 dk | 2 USD / 15 dk | Aynı kalır |
 | CEO kontrolü | — | 0,50 USD / 5 dk | Opus kullanılır |
-| **Soru başına toplam** | — | **5 USD** | Danışman + düzeltme + Bekçi + CEO toplamı |
+| **Soru başına toplam** | — | **6 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol 2 + 0,5 + 2 + 0,5 = 5 USD; 1 USD Denetçi ve pay (N27) |
 | Kurul üyesi başına gün | — | 10 soru | Kötüye kullanım freni |
 | Danışman başına gün | 2 koşu | 15 koşu | Soru akışı olaylıdır, takvimli değildir |
 | Şirket günü | 5 USD | **40 USD** | İlk ay ölçülür (`sirket-log/rapor/`), sonra karar verilir |
+| **Şirket ayı (en kötü)** | — | **1.200 USD** | 30 gün × 40 USD; sistem hafta sonu da çalışır (N29). Anthropic Console'daki aylık harcama limiti bu rakama ayarlanır |
 | Eşzamanlı koşu | 2 | 3 | Sunucu kapasitesine göre ayarlanır |
 
 ---
@@ -448,7 +451,7 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt insta
 sudo npm install -g @anthropic-ai/claude-code
 sudo -u nove-ajan claude --version
 ```
-- [ ] Anthropic Console'da Nove organizasyonu ve API anahtarı (aylık harcama limitiyle)
+- [ ] Anthropic Console'da Nove organizasyonu ve API anahtarı (aylık harcama limiti 1.200 USD, §9)
 - [ ] NVIDIA NIM anahtarı (Denetçi için)
 - [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (yöntem N23; kullanıcı listesi S2'ye bağlı)
 
@@ -552,7 +555,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 | S1 | Zil hangi programa bağlanacak (CRM ya da başka bir program)? Webhook mu, periyodik sorgu mu? | **Beklemede.** Kağan karar verince çevirici yazılır; Faz 7 o zamana kadar açılmaz |
 | S2 | Kurul üyesi yetkisinin diğer ayrıntıları (kimler üye, herkes her danışmana soru sorabilir mi) | Kağan paylaşacak. Görünürlük kararı verildi (N10) |
 | S4 | Sunucu Nove Finans ile aynı makine mi olacak? | Ortak `.env` ve ortak kullanıcı **olmamalı** |
-| S7 | Tavanlar (§9) yönetimle konuşuldu mu? | Bütçe onayı Faz 4'ten önce gerekir |
+| S7 | Tavanlar (§9) yönetimle konuşuldu mu? | Bütçe onayı Faz 4'ten önce gerekir. Götürülecek öneri hazır: §9, ayda en fazla 1.200 USD (13.10.2026) |
 
 S3, S5, S6 ve S8 13.10.2026'daki revizede kapandı: N20–N23.
 
@@ -561,7 +564,8 @@ S3, S5, S6 ve S8 13.10.2026'daki revizede kapandı: N20–N23.
 ## 12 · Kabul ölçütü — "kuruldu" ne demek
 
 - [ ] `python3 -m unittest discover -s tests` sonucu yeşil
-- [ ] Kurul üyesi panelden soru sorar, 15 dakika içinde yanıt kendi masasına düşer
+- [ ] Kurul üyesi panelden soru sorar; düzeltme turu geçirmeyen soruda yanıt 30 dakika içinde kendi masasına düşer (N28).
+  Düzeltmedeki soru için süre sözü verilmez, soran durumu panelde görür
 - [ ] Her yanıtın soru kaydında şunlar görünür: dağıtım gerekçesi, Bekçi kararı (üçlü kontrol), CEO kararı ve maliyet
 - [ ] Bekçi'nin reddettiği hiçbir çıktı CEO'ya ulaşmaz; CEO'nun onaylamadığı hiçbir çıktı kurula ulaşmaz (test fikstürleriyle kanıtlanır)
 - [ ] Hiçbir ajan mail, mesaj ya da prod yazımı yapamaz. Bu, kuralla değil **yetkiyle** sağlanır (deny listesi + salt okunur roller)

@@ -46,7 +46,7 @@ class KayitAcmaTesti(Kurulum):
         self.assertEqual(sk.alan(metin, "soru"), SORU)
         self.assertEqual(sk.alan(metin, "soran"), f"{UYE} (rol: kurul)")
         self.assertEqual(sk.alan(metin, "durum"), "alındı")
-        self.assertEqual(sk.alan(metin, "bütçe"), "5,00 USD")
+        self.assertEqual(sk.alan(metin, "bütçe"), "6,00 USD")
         gelen = json.loads((self.kok / "gelen" / f"{sonuc['soru_id']}.json").read_text(encoding="utf-8"))
         self.assertEqual(gelen["soru"], SORU)
         self.assertEqual(gelen["soran"], UYE)

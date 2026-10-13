@@ -28,7 +28,7 @@ GUNLUK_MALIYET_TAVANI_USD = 40.0  # tüm şirket, gün — ilk ay ölçülür, s
 ES_ZAMANLI_TAVAN = 3            # dağıtıcının aynı anda başlattığı takım sayısı (§9)
 
 # --- soru akışı (NOVE-KURULUM.md §2, §5, §9) — Faz 2/3'te kullanılır ------------
-SORU_BUTCESI_USD = 5.0          # soru başına toplam: danışman + düzeltme + Denetçi + CEO
+SORU_BUTCESI_USD = 6.0          # soru başına toplam: danışman + düzeltme + Denetçi + CEO
 KURUL_UYESI_GUNLUK_SORU = 10    # kurul üyesi başına gün — kötüye kullanım freni
 SORU_EN_AZ_KELIME = 3           # daha kısa soru kayda girmez: "soruyu biraz açar mısın" (QA-DANISMANI.md)
 SORU_TEKRAR_DK = 10             # aynı kişi aynı soruyu bu süre içinde sorarsa ikinci kayıt açılmaz
@@ -61,7 +61,7 @@ def bugunku_kosu_sayisi(kok, takim, bugun):
 
 
 def gunluk_maliyet(kok, bugun):
-    """Bugünkü bütün koşu kayıtlarındaki `maliyet: N USD` toplamı (ANAYASA §4 — 5 USD)."""
+    """Bugünkü bütün koşu kayıtlarındaki `maliyet: N USD` toplamı (ANAYASA §4 — tavan: GUNLUK_MALIYET_TAVANI_USD)."""
     toplam = 0.0
     for kosu in sorted((Path(kok) / "takimlar").glob("*/kosu/%s*.md" % bugun)):
         for ham in MALIYET_DESENI.findall(kosu.read_text(encoding="utf-8", errors="ignore")):

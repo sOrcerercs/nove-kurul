@@ -105,7 +105,7 @@ ama yalnız şu kapıların hepsi açıksa *(kagan-sirketi `tetik_karari`, Nove 
 | Danışman başına gün | 15 koşu | Soru bekler; sebebi soru kaydına ve panele yazılır |
 | Şirket günü | 40 USD | Soru bekler; sebebi görünür |
 | Eşzamanlı koşu | 3 | Sıra boşalınca başlar |
-| Soru bütçesi | 5 USD (kalan bütçe yetmiyorsa) | Koşu başlamaz; sahibi panelde görür (ANAYASA §4) |
+| Soru bütçesi | `ayar.SORU_BUTCESI_USD`, 6 USD (kalan bütçe yetmiyorsa) | Koşu başlamaz; sahibi panelde görür (ANAYASA §4) |
 | `takim.md` var mı | — | Koşu başlamaz; `takim.md yok` |
 
 **Sayılar burada yazmaz, `bin/ayar.py`'de durur.** kagan-sirketi'de bir dosyada elle yazılmış sayılar, sabitler
