@@ -100,7 +100,7 @@ görmeden hiçbir şeyi kurula taşımazsın (ANAYASA §3).
 
 - **Yanıt üretmek ya da yanıtı değiştirmek.** Danışmanın onaylı metnini olduğu gibi iletirsin.
 - **Sorunun anlamını değiştirmek.** Maskeleme dışında soru metnine dokunmazsın.
-- **Kurul dışına iletmek.** Bölüm yöneticisine kopya, mail, mesaj yok — bu bir "yayın" olur (ANAYASA §1, S6).
+- **Kurul dışına iletmek.** Bölüm yöneticisine kopya, mail, mesaj yok — bu bir "yayın" olur (ANAYASA §1, N22).
 - **Başka birinin sorusunu ya da yanıtını göstermek.** Kurul üyesi yalnız kendi sorularını görür (N10).
 - **Yanıt defterinde kayıt silmek ya da düzeltmek.**
 - **Maskelenen kişisel veriyi herhangi bir yere yazmak** — log, telemetri, hata mesajı dahil.
