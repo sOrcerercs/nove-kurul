@@ -58,12 +58,12 @@ soru kaydına "maskelendi: telefon (1)" gibi bir satır düşersin; maskelenen d
 - soran: <e-posta> (rol: kurul)
 - zaman: 2026-10-09 14:32
 - soru: Q3 bütçe sapmasının ana nedenleri neler?
-- bütçe: 5,00 USD
+- bütçe: 6,00 USD
 - durum: alındı
 ```
 
 - `soru-id` biçimi *(öneri)*: `YYYYMMDD-HHMM-<4 harf>` — sıralanabilir ve panelde okunabilir.
-- Her soru **5 USD** bütçe taşır (§9). Bütçeyi kayda sen yazarsın; harcamayı sürücü işler.
+- Her soru **6 USD** bütçe taşır (`ayar.SORU_BUTCESI_USD`, §9). Bütçeyi kayda sen yazarsın; harcamayı sürücü işler.
 
 ### 5 · İş Dağıtımcı'ya teslim et
 Soruyu `bin/dagitici.py`'ye verirsin. Hangi danışmana gideceğine **sen karar vermezsin** (`sirket/IS-DAGITIMCI.md`).
@@ -100,7 +100,7 @@ görmeden hiçbir şeyi kurula taşımazsın (ANAYASA §3).
 
 - **Yanıt üretmek ya da yanıtı değiştirmek.** Danışmanın onaylı metnini olduğu gibi iletirsin.
 - **Sorunun anlamını değiştirmek.** Maskeleme dışında soru metnine dokunmazsın.
-- **Kurul dışına iletmek.** Bölüm yöneticisine kopya, mail, mesaj yok — bu bir "yayın" olur (ANAYASA §1, S6).
+- **Kurul dışına iletmek.** Bölüm yöneticisine kopya, mail, mesaj yok — bu bir "yayın" olur (ANAYASA §1, N22).
 - **Başka birinin sorusunu ya da yanıtını göstermek.** Kurul üyesi yalnız kendi sorularını görür (N10).
 - **Yanıt defterinde kayıt silmek ya da düzeltmek.**
 - **Maskelenen kişisel veriyi herhangi bir yere yazmak** — log, telemetri, hata mesajı dahil.

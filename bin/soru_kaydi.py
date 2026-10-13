@@ -81,7 +81,7 @@ def kararlar(metin):
 
 
 def harcanan(metin):
-    """Bölümlerdeki `maliyet: N USD` satırlarının toplamı — sorunun 5 USD'lik bütçesinden düşen (§9)."""
+    """Bölümlerdeki `maliyet: N USD` satırlarının toplamı — sorunun bütçesinden (SORU_BUTCESI_USD) düşen (§9)."""
     toplam = 0.0
     for ham in ayar.MALIYET_DESENI.findall(metin[len(_baslik(metin)):]):
         try:

@@ -3,7 +3,7 @@
 > Nove Group yöneticileri için ajan ekosistemi. Kurul üyesi soru sorar; danışman ajanlar analiz eder,
 > Denetçi (Bekçi) kuralları denetler, CEO Ajanı double check yapıp onaylar. **Yayın düğmesi yine insandadır.**
 >
-> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — Kağan'ın son revizesini bekliyor**
+> Hazırlayan: Kağan Öztürk · Taslak: 09.10.2026 · Durum: **taslak — revize sürüyor** (13.10.2026: §0–§12)
 
 ---
 
@@ -37,6 +37,17 @@
 | N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026) |
 | N17 | **Soruyu adımdan adıma İş Dağıtımcı otomatik taşır:** Denetçi kararını soru kaydına sürücü kopyalar, CEO'yu dağıtıcı başlatır, CEO reddinde `r-` açar, onayda iletir (12.10.2026) |
 | N18 | **Denetçi'nin son kararı `red` ya da `atlandi` ise soru "onaylanamadı" olur:** CEO'ya gitmez, Yanıt defterine Denetçi'nin gerekçesiyle girer (12.10.2026) |
+| N19 | **Denetçi yönergesi ve üç ek sınır kagan-sirketi'nden aynen alınır:** madde 3–4 Denetçi'nin konusu değildir · "kaynaksız sayı" yalnız dış dünya iddiaları içindir · hedef aralıktan %15'e kadar sapma red sebebi değildir (13.10.2026) |
+| N20 | **Sekmenin adı "Yanıt defteri" olarak kesinleşir** (S3 kapandı, 13.10.2026) |
+| N21 | **Yanıt dili her danışmanda Türkçedir;** teknik terimler orijinal hâliyle kalır (S5 kapandı, 13.10.2026) |
+| N22 | **Yanıtlar kurul dışına otomatik kopyalanmaz.** Kurul dışına taşımak insanın kararıdır, ANAYASA §1 (S6 kapandı, 13.10.2026) |
+| N23 | **Panel şifreleri:** yönetici kullanıcıyı ekler, ilk girişte geçici şifre değiştirilir, şifresini unutan yöneticiye başvurur (Nove PYS'deki yöntem); e-posta altyapısı gerekmez (S8 kapandı, 13.10.2026) |
+| N24 | **ANAYASA §2: etiket iddiaya konur, cümleye değil;** kaynak dış dünya sayısında, `n` örneklemden türeyen sayıda zorunludur (N19 ile aynı sınır, 13.10.2026) |
+| N25 | **ANAYASA §4 rakam taşımaz:** tavanların ilkesi anayasada, rakamları yalnız `bin/ayar.py`'de ve §9'da (13.10.2026) |
+| N26 | **ANAYASA §1: danışman yalnız kendi klasörüne yazar** — `cikti/`, `kosu/`, `defter.md` (13.10.2026) |
+| N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) |
+| N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
+| N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
 
 ---
 
@@ -45,7 +56,7 @@
 | Tasarımdaki rol | Ne yapar (tasarım) | Teknik karşılığı | Dosya |
 |---|---|---|---|
 | **Kurul üyesi** (insan) | Soruyu sorar, yanıtı okur | Panel kullanıcısı (e-posta + şifre girişi, N11) | — |
-| **Q&A Danışmanı** | Soruyu alır, kayda geçirir; sonunda yanıtı kurula iletir | Giriş/çıkış kapısı. **LLM çağırmaz** — `telegram_dinle.py` ve `sahne.py` POST'unun birleşimi | `bin/soru_kapisi.py` |
+| **Q&A Danışmanı** | Soruyu alır, kayda geçirir; sonunda yanıtı kurula iletir | Giriş/çıkış kapısı. **LLM çağırmaz.** Rol, ön kontroller (N15) ve maskeleme burada; panelden gelen soruyu Faz 5'te `panel.py` buraya verir | `bin/soru_kapisi.py` |
 | **İş Dağıtımcı** | Bölümü seçer, soruyu doğru danışmana götürür | `dagitici.py` + `takim_sec()`. Önce anahtar kelime tablosu kullanılır; o tutmazsa Haiku ile sınıflandırılır | `bin/dagitici.py` |
 | **Danışman** (Finans, Kalite, OKR, Raporlama, Satış Müdürü, …) | Analiz eder; CEO reddederse düzeltir | **Takım.** Dört dosyalı iskelet: `takim.md` · `kurallar.md` · `defter.md` · `durum.json` | `takimlar/<danisman>/` |
 | **Denetçi Ajan** | Masaya gelir; kaynak, hesap ve tutarlılık kontrol eder | **Bekçi.** Stop hook'ta, ayrı süreçte ve ayrı model ailesinde çalışır | `bin/bekci.py` |
@@ -87,14 +98,20 @@
 - **Kurula yalnız iki onaylı çıktı gider:** önce Bekçi `kabul`, sonra CEO `onay`. Sıra değişmez;
   Bekçi'nin reddettiği çıktı CEO'ya ulaşmaz.
 - **CEO reddederse bir düzeltme turu vardır** (`ayar.CEO_MAKS_RED = 1`). Danışman CEO'nun bulgularıyla düzeltir,
-  çıktı yeniden Bekçi'den ve CEO'dan geçer. İkinci `red` gelirse yanıt kurula gönderilmez. Soranın panelinde
-  "onaylanamadı" etiketi ve CEO'nun gerekçesi görünür, böylece soru sessizce kaybolmaz.
+  çıktı yeniden Bekçi'den ve CEO'dan geçer.
+- **Hiçbir soru sessizce kaybolmaz.** Şu üç durumda yanıt kurula gönderilmez; soru "onaylanamadı" etiketiyle ve
+  gerekçesiyle Yanıt defterine girer, soran bunu panelinde görür:
+  - Bekçi'nin son kararı `red` ya da `atlandi` (N18) — gerekçe Bekçi'nin
+  - CEO'nun ikinci `red`'i — gerekçe CEO'nun
+  - Soru bütçesi (`ayar.SORU_BUTCESI_USD`) sonraki adıma yetmiyor
+- CEO süreci karar yazmadan düşerse dağıtıcı onu süre tavanı + 2 dk sonra bir kez yeniden başlatır; yine karar
+  yoksa soru onaylanamadı olur.
 - Tasarımdaki 8 adımla eşleşme: "CEO sorgular" → double check, "Danışman revize eder" → CEO red sonrası düzeltme,
   "CEO son kararı verir" → ikinci kontroldeki onay/red.
 - Bir sorunun tamamı tek bir **soru kaydında** toplanır: `sirket-log/sorular/<soru-id>.md`. Kimin ne yaptığı,
   Bekçi kararları, CEO kararı ve bulguları ve maliyet bu dosyada yer alır. Sahnedeki "Soru akışı" paneli bu dosyayı okur.
 - Birden fazla danışmanı ilgilendiren soru (ör. "Q3 bütçe sapması" hem Finans'ı hem OKR'ı ilgilendirir):
-  İş Dağıtımcı **ana danışmanı** seçer, diğerini `öneri:` satırı olarak kayda yazar. Faz 1'de çoklu danışman yoktur.
+  İş Dağıtımcı **ana danışmanı** seçer, diğerini `öneri:` satırı olarak kayda yazar. İlk sürümde çoklu danışman yoktur.
 
 ---
 
@@ -113,7 +130,7 @@ nove-kurul/
 │   ├── _iskelet/              takim-olustur.sh'in kopyaladığı dört dosya
 │   ├── finans/  kalite/  okr/  raporlama/  satis-muduru/
 │   └── <danisman>/  takim.md · kurallar.md · defter.md · durum.json · gelen/ · kosu/ · cikti/ · veri/
-├── formlar/
+├── formlar/                   henüz yok — Faz 4'ün ilk adımında kurulur
 │   ├── DANISMAN-FORMU.md      yöneticilere giden boş şablon (§6)
 │   ├── gelen/                 doldurulmuş formlar — git'e GİRMEZ
 │   └── onayli/                Kağan'ın revize ettiği formlar
@@ -122,7 +139,7 @@ nove-kurul/
 ├── bin/                       kos · bekci · ceo · dagitici · soru_kapisi · yanit_defteri · crm_zil · panel · ayar · …
 ├── panel/                     arayüz: giriş gezegeni + Kurul Ofisi 3D v4 (index.html · stil.css · panel.js · ofis3d-v4.js)
 ├── sirket-log/                sorular/ · rapor/ · telemetri — git'e GİRMEZ
-├── deploy/                    systemd birimleri, Caddy ayarı
+├── deploy/                    systemd birimleri, Caddy ayarı · roller.json (e-posta → rol, git'e GİRMEZ; örneği roller.json.example)
 └── tests/
 ```
 
@@ -159,9 +176,9 @@ kagan-sirketi'deki tanım **aynen** kalır:
 | Denetçi `kabul` verince sürücü soruyu CEO'ya geçirir (§5) | İkinci onay kapısı |
 | `bin/bekci_karsilastir.py` korunur | NIM kalitesi varsayılmaz, ölçülür (kagan-sirketi K13b) |
 
-> **Kağan'a:** kagan-sirketi'de `bekci.py:74`'teki yönerge metnini ve `docs/03-bekci.md`'deki üç ek sınırı
+> **Karar (N19):** kagan-sirketi'deki yönerge metni (`bekci.py:74`) ve `docs/03-bekci.md`'deki üç ek sınır
 > (madde 3–4 denetçinin konusu değil; "kaynaksız sayı" yalnız dış dünya iddiaları için geçerli; %15 sapma red sebebi değil)
-> aynen alıyorum. Değiştirmek istediğin bir yer varsa revizede belirt.
+> aynen alındı. Tam hâli `sirket/DENETCI.md`'de.
 
 ---
 
@@ -286,19 +303,21 @@ Kağan revize eder ve `formlar/onayli/` altına koyar. Ardından `bin/formdan_ta
 
 ---
 
-## 7 · ANAYASA — Nove versiyonu (taslak, İNSANIN)
+## 7 · ANAYASA — Nove versiyonu (İNSANIN)
 
-kagan-sirketi'nin beş maddesi temel alınır. Değişiklikler **kalın** yazılmıştır.
+kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N24–N26).
 
-1. **Yayın düğmesi insanın.** Hiçbir ajan mail atmaz, mesaj göndermez, bir kişiye ya da departmana
-   talimat vermez. **Panelde soranın masasına giden yanıt yayın sayılmaz**; o yanıtı kurul dışına
-   taşımak insanın kararıdır. Veri kaynakları salt okunurdur, prod'a yazma yoktur.
-2. **Kaynaksız sayı yok.** ✅/🟡/⛔ etiketi kullanılır, her sayının yanında `n` yazar, teyitsiz formül
-   kullanılmaz. **Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz;**
-   personel adı yalnız `kurallar.md` açıkça izin veriyorsa yazılır (kagan-sirketi'ndeki qa-hatti muafiyeti gibi).
-3. **İki onay.** Üreten kendi işini onaylayamaz. **Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan (double check) geçer.**
-4. **Her koşunun tavanı var.** Tavanlar §9'daki tablodadır. **Her soru bir bütçe taşır**; soru tavanı aşarsa
-   sorunun sahibi panelde bunu görür.
+> **Tam metin:** `ANAYASA.md`. Aşağıdaki özet ile dosya ayrışırsa dosya esastır. Dosyayı yalnız insan değiştirir.
+
+1. **Yayın düğmesi insanın.** Hiçbir ajan mail atmaz, mesaj göndermez, bir kişiye ya da departmana talimat
+   vermez. Panelde soranın masasına giden yanıt yayın sayılmaz; kurul dışına taşımak insanın kararıdır (N22).
+   Veri kaynakları salt okunurdur. Danışman yalnız kendi klasörüne yazar: `cikti/`, `kosu/`, `defter.md` (N26).
+2. **Kaynaksız sayı yok.** Etiket (✅/🟡/⛔) cümleye değil iddiaya konur. Dış dünya sayısının kaynağı,
+   örneklemden türeyen sayının `n`'i yazılır (N24, N19 ile aynı sınır). Teyitsiz formül kullanılmaz.
+   Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz.
+3. **İki onay.** Üreten kendi işini onaylayamaz. Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan geçer.
+4. **Her koşunun tavanı var.** Her koşunun, her sorunun ve her günün tavanı vardır; tavana çarpan sessiz kalmaz.
+   Rakamlar anayasada değil, yalnız `bin/ayar.py`'de ve §9'da durur (N25).
 5. **Defter ajanın, kural insanın.** `ANAYASA.md`, `kurallar.md`, `formlar/onayli/` ve `CEO-KIMLIGI.md`
    yalnız insan tarafından değişir. Danışmanlar birbirine yazmaz. Zinciri İş Dağıtımcı kurar.
 
@@ -323,6 +342,9 @@ kagan-sirketi'nin beş maddesi temel alınır. Değişiklikler **kalın** yazıl
                                    Stop hook → bekci.py (NIM → OpenAI → Haiku)
 ```
 
+- **Henüz yazılmayanlar:** `panel.py` ve `soru_kapisi.py --dinle` Faz 5'te gelir; bugün soru komut satırından
+  `soru_kapisi.py --yeni` ile girer. `gunluk.py`'deki `ZAMANLI` boştur: sabah ve akşam zamanlayıcıları yalnız
+  `sirket-log/rapor/`'a rapor yazar; bir danışman formunda "Tempo" istenmedikçe zamanlı koşu başlatmaz.
 - **İşletim sistemi:** Linux (Ubuntu 24.04 LTS önerilir). `kos.py`'nin `fcntl` kilidi Linux'ta olduğu gibi çalışır.
   `zamanla.py`'nin launchd kısmı yerine **systemd timer** kullanılır (`deploy/` altında).
 - **Claude Code kimliği:** Sunucuda kişisel abonelik oturumu **kullanılmaz.** Nove'nin Anthropic Console
@@ -388,7 +410,7 @@ panel/
   kullanıcıya ayrı mesajla gösterir; sunucuya ulaşılamazsa da ayrı mesaj verir.
 - **Çıkış ucu:** `POST /api/cikis` oturumu kapatır; panel giriş ekranına döner.
 - **Şifre saklama:** Düz metin tutulmaz; `panel.py` Python stdlib'deki `hashlib.scrypt` ile özet saklar. Kullanıcı ve özet dosyası
-  git'e girmez ve izni `600`'dür. Dağıtım ve sıfırlama S8'de.
+  git'e girmez ve izni `600`'dür. Dağıtım ve sıfırlama N23'e göre: yönetici ekler, ilk girişte geçici şifre değişir.
 - **Rol:** `/api/giris` yanıtındaki `rol` (`kurul` | `yonetici`) `deploy/roller.json`'dan gelir (§8b). `panel.js` rolü henüz
   kullanmıyor; süzme (ör. Yanıt defteri, N10) sunucuda yapılır.
 - **Demo modu:** Sayfa dosyadan açılırsa (`file://`) ya da adres `?demo` ile açılırsa her e-posta ve şifre kabul edilir ve
@@ -402,13 +424,14 @@ panel/
 
 | Ayar | kagan-sirketi | Nove başlangıç | Not |
 |---|---|---|---|
-| Mesai | 09:00–23:00 | 08:00–20:00 | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
+| Mesai | 09:00–23:00 | 08:00–20:00, haftanın her günü | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
 | Danışman koşusu | 2 USD / 15 dk | 2 USD / 15 dk | Aynı kalır |
 | CEO kontrolü | — | 0,50 USD / 5 dk | Opus kullanılır |
-| **Soru başına toplam** | — | **5 USD** | Danışman + düzeltme + Bekçi + CEO toplamı |
+| **Soru başına toplam** | — | **6 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol 2 + 0,5 + 2 + 0,5 = 5 USD; 1 USD Denetçi ve pay (N27) |
 | Kurul üyesi başına gün | — | 10 soru | Kötüye kullanım freni |
 | Danışman başına gün | 2 koşu | 15 koşu | Soru akışı olaylıdır, takvimli değildir |
 | Şirket günü | 5 USD | **40 USD** | İlk ay ölçülür (`sirket-log/rapor/`), sonra karar verilir |
+| **Şirket ayı (en kötü)** | — | **1.200 USD** | 30 gün × 40 USD; sistem hafta sonu da çalışır (N29). Anthropic Console'daki aylık harcama limiti bu rakama ayarlanır |
 | Eşzamanlı koşu | 2 | 3 | Sunucu kapasitesine göre ayarlanır |
 
 ---
@@ -428,9 +451,9 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt insta
 sudo npm install -g @anthropic-ai/claude-code
 sudo -u nove-ajan claude --version
 ```
-- [ ] Anthropic Console'da Nove organizasyonu ve API anahtarı (aylık harcama limitiyle)
+- [ ] Anthropic Console'da Nove organizasyonu ve API anahtarı (aylık harcama limiti 1.200 USD, §9)
 - [ ] NVIDIA NIM anahtarı (Denetçi için)
-- [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (S8)
+- [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (yöntem N23; kullanıcı listesi S2'ye bağlı)
 
 ### Faz 1 · Repo ve iskelet temizliği
 > **Durum (09.10.2026):** yerelde tamamlandı — `faz-1` dalında, 266 test yeşil (8'i taşınmayan kit belgelerini aradığı için atlanıyor).
@@ -494,6 +517,8 @@ python3 bin/dagitici.py --kuru
 
 Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatti` örnek alınır: `QA_READONLY_URL`, `qa_ozet.py`
 ve `qa-koclugu-kurgusu` taşınır.
+- [ ] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
+  `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır
 - [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
 - [ ] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py`
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
@@ -529,19 +554,18 @@ ve `qa-koclugu-kurgusu` taşınır.
 |---|---|---|
 | S1 | Zil hangi programa bağlanacak (CRM ya da başka bir program)? Webhook mu, periyodik sorgu mu? | **Beklemede.** Kağan karar verince çevirici yazılır; Faz 7 o zamana kadar açılmaz |
 | S2 | Kurul üyesi yetkisinin diğer ayrıntıları (kimler üye, herkes her danışmana soru sorabilir mi) | Kağan paylaşacak. Görünürlük kararı verildi (N10) |
-| S3 | "Yanıt defteri" adı uygun mu? (Alternatifler: "Yanıtlar", "Kurul arşivi") | Yalnız etiket değişir; yapı aynı kalır |
 | S4 | Sunucu Nove Finans ile aynı makine mi olacak? | Ortak `.env` ve ortak kullanıcı **olmamalı** |
-| S5 | Yanıt dili hep Türkçe mi? (Satış ekibinde yabancı dil konuşan danışmanlar var) | `kurallar.md`'ye girer |
-| S6 | Danışman yanıtları kurul dışına (ör. bölüm yöneticisine) otomatik kopyalansın mı? | Evet denirse bu bir "yayın" olur; ANAYASA §1 gereği şu an **hayır** |
-| S7 | Tavanlar (§9) yönetimle konuşuldu mu? | Bütçe onayı Faz 4'ten önce gerekir |
-| S8 | Panel şifreleri nasıl dağıtılır ve sıfırlanır? Öneri: yönetici kullanıcıyı ekler, ilk girişte geçici şifre değiştirilir, şifresini unutan yöneticiye başvurur (Nove PYS'deki yöntem). E-posta altyapısı gerekmez | N11 ile Google girişi bırakıldı; şifre yaşam döngüsü artık panelin işi |
+| S7 | Tavanlar (§9) yönetimle konuşuldu mu? | Bütçe onayı Faz 4'ten önce gerekir. Götürülecek öneri hazır: §9, ayda en fazla 1.200 USD (13.10.2026) |
+
+S3, S5, S6 ve S8 13.10.2026'daki revizede kapandı: N20–N23.
 
 ---
 
 ## 12 · Kabul ölçütü — "kuruldu" ne demek
 
 - [ ] `python3 -m unittest discover -s tests` sonucu yeşil
-- [ ] Kurul üyesi panelden soru sorar, 15 dakika içinde yanıt kendi masasına düşer
+- [ ] Kurul üyesi panelden soru sorar; düzeltme turu geçirmeyen soruda yanıt 30 dakika içinde kendi masasına düşer (N28).
+  Düzeltmedeki soru için süre sözü verilmez, soran durumu panelde görür
 - [ ] Her yanıtın soru kaydında şunlar görünür: dağıtım gerekçesi, Bekçi kararı (üçlü kontrol), CEO kararı ve maliyet
 - [ ] Bekçi'nin reddettiği hiçbir çıktı CEO'ya ulaşmaz; CEO'nun onaylamadığı hiçbir çıktı kurula ulaşmaz (test fikstürleriyle kanıtlanır)
 - [ ] Hiçbir ajan mail, mesaj ya da prod yazımı yapamaz. Bu, kuralla değil **yetkiyle** sağlanır (deny listesi + salt okunur roller)

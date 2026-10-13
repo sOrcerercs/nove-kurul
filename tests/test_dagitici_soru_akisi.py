@@ -143,14 +143,18 @@ class CeoSonrasiTesti(Kurulum):
 
 class SoruButcesiTesti(Kurulum):
     def test_butce_ceoya_yetmiyorsa_onaylanamadi(self):
-        self.ekle(DENETCI_KABUL.replace("1.200", "4.700"))
+        # CEO'nun tavanı kalan bütçeyi 0,2 USD aşar
+        harcanan = ayar.SORU_BUTCESI_USD - ayar.CEO_BUTCESI_USD + 0.2
+        self.ekle(DENETCI_KABUL.replace("1.200", f"{harcanan:.3f}"))
         adimlar = self.ilerlet()
         self.ceo.assert_not_called()
         self.assertEqual(adimlar[0]["adim"], "onaylanamadı")
         self.assertIn("bütçe", self.ilet.call_args.kwargs["onaylanamadi"])
 
     def test_butce_duzeltmeye_yetmiyorsa_onaylanamadi(self):
-        self.ekle(DENETCI_KABUL.replace("1.200", "2.700"), CEO_RED)
+        # CEO_RED 0,4 USD ekler; düzeltme koşusunun tavanı kalan bütçeyi 0,2 USD aşar
+        harcanan = ayar.SORU_BUTCESI_USD - ayar.KOSU_BUTCESI_USD - 0.4 + 0.2
+        self.ekle(DENETCI_KABUL.replace("1.200", f"{harcanan:.3f}"), CEO_RED)
         self.ilerlet()
         self.assertFalse(any(m["id"] == f"r-{SID}" for m in self.kuyruk()))
         self.assertIn("bütçe", self.ilet.call_args.kwargs["onaylanamadi"])
