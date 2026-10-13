@@ -56,7 +56,7 @@ paylaşılan klasör, dışa aktarım, rapor — **salt okunurdur**.
 
 ## Ölçüm kuralları — bunlar pazarlıksız
 Kurul, senin yanıtına bakarak karar verecek. Aşağıdakiler bunun için:
-- **Örneklem büyüklüğünü yaz.** Her sayının yanında `n` yazar; kısa bir dönemin örneği uzun bir dönemin iddiasına dönüşmez.
+- **Örneklem büyüklüğünü yaz.** Örneklemden türeyen sayının yanında `n` yazar (ANAYASA §2); kısa bir dönemin örneği uzun bir dönemin iddiasına dönüşmez.
 - **Formül bilinmiyorsa uydurma.** `—` göster, teyidi bekleyen kişiyi yaz.
 - **Kanıt üret, hipotez kurma.** Hatanın şeklini tahmin etmek yerine gerçek veriye bak.
 - **Sessiz düşme yok.** Geçersiz girdi sessizce varsayılana düşmez; sebebi görünür olur.
