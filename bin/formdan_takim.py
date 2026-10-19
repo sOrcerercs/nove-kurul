@@ -32,6 +32,12 @@ ZORUNLU = (
     ("ornek_sorular", "§2 Örnek sorular (en az bir)"),
     ("veri", "§3 Veri tablosu (en az bir dolu satır)"),
 )
+ORTAK_YETENEK = "kurul-yaniti"
+AD_DESENI = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")   # bin/takim-olustur.sh ile aynı
+ARACLAR = "[Read, Write, Glob, Grep]"                  # takimlar/_iskelet/takim.md ile aynı
+PERSONEL_IZNI = "Personel adı ve unvanı yazılabilir."
+PERSONEL_YASAGI = "Personel adı yazılmaz."
+HER_ZAMAN_YASAK = "Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz (ANAYASA §2)."
 
 
 # --- form okuma (K2) --------------------------------------------------------
@@ -178,3 +184,140 @@ def cakismalar(kok, bolum, kelimeler):
             uyarilar.append(f"anahtar kelime çakışması: '{kelime}' → {', '.join(sorted(diger))} "
                             "(İş Dağıtımcı karışabilir; python3 bin/dagitici.py --cakisma)")
     return uyarilar
+
+
+# --- üretim (K3, K7) --------------------------------------------------------
+
+def _yetenekler(form):
+    return [ORTAK_YETENEK] + [y for y in form["yetenekler"] if y != ORTAK_YETENEK]
+
+
+def _fm_liste(degerler):
+    return "[" + ", ".join(degerler) + "]"
+
+
+def _maddeler(degerler, girinti=""):
+    return [f"{girinti}- {d}" for d in degerler] or [f"{girinti}- (formda yok)"]
+
+
+def takim_md(bolum, form):
+    fm = ["---", f"name: {bolum}", f"description: {form['meslek']}", "saglayici: anthropic",
+          f"model: {form['model'] or 'sonnet'}", f"tools: {ARACLAR}",
+          f"gerekli_anahtarlar: {_fm_liste(form['anahtarlar'])}", f"skills: {_fm_liste(_yetenekler(form))}",
+          f"anahtar_kelimeler: {_fm_liste(form['anahtar_kelimeler'])}"]
+    if form["renk"]:
+        fm.append(f"renk: {form['renk']}")
+    fm += [f"butce_usd: {ayar.KOSU_BUTCESI_USD:g}", "---", ""]
+    govde = [
+        f"# {form['ad']} Danışmanı", "",
+        f"> Formdan üretildi: `formlar/onayli/{bolum}.md` → `bin/formdan_takim.py`. Elle değiştirme: formu revize et,",
+        f"> `python3 bin/formdan_takim.py {bolum} --yeniden` koştur.", ""]
+    if form["sahibi"]:
+        govde += [f"Sahibi: {form['sahibi']}", ""]
+    govde += ["## Hangi soruları alır", *_maddeler(form["ornek_sorular"]), "",
+              "## Hangi soruları almaz", *_maddeler(form["almaz"]), "",
+              "## Koşu adımları",
+              "1. `durum.json` kuyruğuna bak. `s-<soru-id>` yeni sorudur; `r-<soru-id>` CEO reddinden sonra",
+              "   düzeltmedir — maddenin `not` alanındaki CEO bulgularını oku, yalnız onları düzelt.",
+              "2. Soru kaydını oku: `sirket-log/sorular/<soru-id>.md`. Soru belirsizse hangi yorumla yanıtladığını yaz.",
+              "3. Girdi kaynaklarına (aşağıda) yalnız salt okunur yollarla bak.",
+              f"4. Taslağı `takimlar/{bolum}/cikti/<soru-id>-taslak.md`'ye `kurul-yaniti` düzeninde yaz.",
+              "5. İş bitince kuyruk maddesini `tamam` yap; `durum.json`'da `son_kosu` ve `defter_son_ders`'i güncelle.",
+              "6. `defter.md`'ye bu koşudan çıkan **tek** dersi ekle (ders yoksa ekleme).",
+              "7. Koşu kaydını `SIRKET_KOSU` yoluna yaz: ne okudun, ne ürettin, ne kaldı, hangi kaynaklardan.", "",
+              "## Yetenekler",
+              *[f"- `{y}` — `skills/{y}/SKILL.md`" for y in _yetenekler(form)], "",
+              "## Girdi kaynakları", *form["veri_baslik"], *form["veri"], "",
+              "## Çıktı sözleşmesi",
+              f"- Dosya: `takimlar/{bolum}/cikti/<soru-id>-taslak.md`",
+              "- Düzen: `skills/kurul-yaniti/SKILL.md` — Kısa yanıt · Dayanak · Bilinmeyenler · Not", "",
+              "### İyi yanıt örneği (formdan, §5)", form["iyi_yanit"] or "(formda yok)", "",
+              "## Tempo",
+              (form["tempo"] or "Yok — yalnız soruyla koşar.")
+              + " Zamanlı koşu `gunluk.ZAMANLI`'ya elle eklenir; bu dosya koşu başlatmaz.", ""]
+    return "\n".join(fm + govde)
+
+
+def kurallar_md(bolum, form):
+    personel = (PERSONEL_YASAGI if dagitici._tr_kucuk(form["personel_adi"]) in ("hayır", "hayir")
+                else PERSONEL_IZNI)
+    satirlar = [
+        f"# Kurallar — {form['ad']} Danışmanı", "",
+        "> Bekçi bu dosyayı okur ve koşu kaydını buna göre denetler. Yalnızca insan değiştirir.",
+        f"> Formdan üretildi: `formlar/onayli/{bolum}.md` → `bin/formdan_takim.py`.", "",
+        "## Neye göre çalışır", "- ANAYASA'nın tamamı geçerlidir; aşağıdakiler ona ektir.", "",
+        "## Asla yapmaz", *_maddeler(form["asla"]), "",
+        "## Çıktı kalite ölçütleri",
+        "- Her iddia etiketli (✅/🟡/⛔) ve kaynaklı.",
+        "- Çıktı Türkçe; teknik terimler orijinal hâliyle kalır.",
+        *[f"- {m}" for m in form["mutlaka"]], "",
+        "## Teyit ve hassas veri",
+        f"- {personel} {HER_ZAMAN_YASAK}",
+        "- Sayıyı kim teyit eder:", *_maddeler(form["teyit"], "  "),
+        "- Hassas alanlar (KVKK):", *_maddeler(form["hassas"], "  "),
+        "- Formülü teyitsiz göstergeler — hesaplanmaz, `—` gösterilir ve teyit sahibi yazılır:",
+        *_maddeler(form["teyitsiz"], "  "), ""]
+    return "\n".join(satirlar)
+
+
+def yetenege_ekle(metin, bolum):
+    """SKILL.md frontmatter'ındaki `takimlar: [...]` satırına danışmanı ekler; zaten varsa metni aynen döner.
+
+    Alanın varlığını `yetenek_sorunlari` önceden denetler; burada yoksa bir şey değişmez."""
+    mevcut = ayar.frontmatter(metin)[0].get("takimlar") or []
+    if bolum in mevcut:
+        return metin
+    return re.sub(r"^takimlar:.*$", "takimlar: " + _fm_liste([*mevcut, bolum]), metin, count=1, flags=re.M)
+
+
+def uret(kok, bolum, kuru=False, yeniden=False):
+    """Formu denetler, dosya metinlerini bellekte üretir; durma yoksa ve kuru değilse yazar.
+
+    Durma hâlinde hiçbir dosya yazılmaz: bütün kontroller yazımdan önce biter."""
+    kok = Path(kok)
+    sonuc = {"durum": "durdu", "sebepler": [], "uyarilar": [], "dosyalar": {}, "farklar": []}
+    if not AD_DESENI.match(bolum or ""):
+        sonuc["sebepler"] = [f"klasör adı ASCII kebab-case olmalı: {bolum!r}"]
+        return sonuc
+    form_yolu = kok / "formlar" / "onayli" / f"{bolum}.md"
+    if not form_yolu.is_file():
+        sonuc["sebepler"] = [f"form yok: formlar/onayli/{bolum}.md (Kağan revize edip buraya koyar)"]
+        return sonuc
+    metin = form_yolu.read_text(encoding="utf-8")
+    form = oku(metin)
+    hedef = kok / "takimlar" / bolum
+    sebepler = eksikler(form) + kisisel_veri(metin) + yetenek_sorunlari(kok, _yetenekler(form))
+    if ((hedef / "kurallar.md").exists() or ayar.takim_bilgisi(bolum, kok)) and not yeniden:
+        sebepler.append(f"takimlar/{bolum} zaten kurulu (kurallar.md ya da tanımlı takim.md var) — "
+                        "yeniden üretmek için --yeniden; önce farkı gösterir")
+    sonuc["uyarilar"] = cakismalar(kok, bolum, form["anahtar_kelimeler"])
+    if sebepler:
+        sonuc["sebepler"] = sebepler
+        return sonuc
+    dosyalar = {f"takimlar/{bolum}/takim.md": takim_md(bolum, form),
+                f"takimlar/{bolum}/kurallar.md": kurallar_md(bolum, form)}
+    for ad in ("defter.md", "durum.json"):   # ajanın hafızası: varsa dokunulmaz
+        if not (hedef / ad).exists():
+            iskelet = (kok / "takimlar" / "_iskelet" / ad).read_text(encoding="utf-8")
+            dosyalar[f"takimlar/{bolum}/{ad}"] = iskelet.replace("TAKIM", bolum)
+    for ad in _yetenekler(form):
+        yol = f"skills/{ad}/SKILL.md"
+        eski = (kok / yol).read_text(encoding="utf-8")
+        if yetenege_ekle(eski, bolum) != eski:
+            dosyalar[yol] = yetenege_ekle(eski, bolum)
+    if yeniden:
+        for yol, yeni in dosyalar.items():
+            if (kok / yol).exists() and (eski := (kok / yol).read_text(encoding="utf-8")) != yeni:
+                sonuc["farklar"].append("".join(difflib.unified_diff(
+                    eski.splitlines(True), yeni.splitlines(True), f"a/{yol}", f"b/{yol}")))
+    sonuc["dosyalar"] = dosyalar
+    if kuru:
+        sonuc["durum"] = "kuru"
+        return sonuc
+    for yol, icerik in dosyalar.items():
+        (kok / yol).parent.mkdir(parents=True, exist_ok=True)
+        (kok / yol).write_text(icerik, encoding="utf-8")
+    for ad in ("kosu", "cikti"):
+        (hedef / ad).mkdir(parents=True, exist_ok=True)
+    sonuc["durum"] = "yazildi"
+    return sonuc

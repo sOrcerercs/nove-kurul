@@ -15,7 +15,9 @@ from pathlib import Path
 
 KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "bin"))
+import agents_uret  # noqa: E402
 import ayar  # noqa: E402
+import dagitici  # noqa: E402
 import formdan_takim as ft  # noqa: E402
 
 FORM = (KOK / "tests/fikstur/form/kalite.md").read_text(encoding="utf-8")
@@ -108,6 +110,109 @@ class KontrolTesti(unittest.TestCase):
         (self.kok / "takimlar/kalite/takim.md").write_text(
             "---\nname: kalite\ndescription: x\nanahtar_kelimeler: [kalite]\n---\n", encoding="utf-8")
         self.assertEqual(ft.cakismalar(self.kok, "kalite", ["kalite"]), [])
+
+
+class _GeciciKok(unittest.TestCase):
+    """Geçici kök: iskelet, kurul-yaniti, kurulumdaki kalite (yalnız başlıklı takim.md) ve onaylı form."""
+
+    def setUp(self):
+        self._g = tempfile.TemporaryDirectory()
+        self.kok = Path(self._g.name)
+        shutil.copytree(KOK / "takimlar/_iskelet", self.kok / "takimlar/_iskelet")
+        shutil.copytree(KOK / "skills/kurul-yaniti", self.kok / "skills/kurul-yaniti")
+        (self.kok / "takimlar/kalite").mkdir()
+        (self.kok / "takimlar/kalite/takim.md").write_text("# Kalite Danışmanı\n", encoding="utf-8")
+        self.form(FORM)
+
+    def tearDown(self):
+        self._g.cleanup()
+
+    def form(self, metin):
+        yol = self.kok / "formlar/onayli/kalite.md"
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        yol.write_text(metin, encoding="utf-8")
+
+    def oku(self, yol):
+        return (self.kok / yol).read_text(encoding="utf-8")
+
+
+class UretimTesti(_GeciciKok):
+    def test_tam_form_kurulu_danisman_uretir(self):
+        """Test 1 + bağlantı: üretilen danışmanı sürücü, dağıtıcı ve ajan üretici kurulu sayar."""
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual((sonuc["durum"], sonuc["sebepler"]), ("yazildi", []))
+        fm, govde = ayar.frontmatter(self.oku("takimlar/kalite/takim.md"))
+        self.assertEqual(fm["name"], "kalite")
+        self.assertTrue(fm["description"].startswith("Kalite danışmanı olarak"))
+        self.assertEqual(fm["skills"], ["kurul-yaniti"])
+        self.assertEqual(fm["anahtar_kelimeler"], ["kalite", "şikâyet", "memnuniyet", "denetim"])
+        self.assertEqual(fm["gerekli_anahtarlar"], ["QA_READONLY_URL"])
+        self.assertEqual((fm["model"], fm["renk"], fm["butce_usd"]), ("sonnet", "mor", "2"))
+        self.assertIn("Sahibi: Kalite Müdürü", govde)
+        self.assertIn("kuyruk maddesini `tamam` yap", govde)
+        self.assertIn("| Kalite değerlendirmeleri |", govde)
+        self.assertEqual(ayar.kurulu_takimlar(self.kok), ["kalite"])
+        self.assertIn("şikâyet", dagitici.aktif_danismanlar(self.kok)[0]["kelimeler"])
+        self.assertEqual(agents_uret.uret(self.kok), ["kalite"])
+        skill_fm, _ = ayar.frontmatter(self.oku("skills/kurul-yaniti/SKILL.md"))
+        self.assertEqual(skill_fm["takimlar"], ["kalite"])
+        self.assertEqual(json.loads(self.oku("takimlar/kalite/durum.json"))["takim"], "kalite")
+        self.assertIn("# Defter — kalite", self.oku("takimlar/kalite/defter.md"))
+        for klasor in ("kosu", "cikti"):
+            self.assertTrue((self.kok / "takimlar/kalite" / klasor).is_dir())
+        kurallar = self.oku("takimlar/kalite/kurallar.md")
+        self.assertIn("- Tek bir çağrıdan ekip geneli hakkında hüküm kurmak", kurallar)
+        self.assertIn("- Değerlendirilen çağrı sayısı (n)", kurallar)
+        self.assertIn("Bölüm ağırlıkları: Kalite Müdürü", kurallar)
+        self.assertIn("Bölüm ağırlıklı kalite skoru", kurallar)
+
+    def test_iskelet_kalite_olcutleri_korunur(self):
+        """kurallar.md iskeletin 'Çıktı kalite ölçütleri' maddelerinin hepsini taşır (iskelet değişirse kırmızı)."""
+        iskelet = (KOK / "takimlar/_iskelet/kurallar.md").read_text(encoding="utf-8")
+        olcutler = [s for s in iskelet.split("## Çıktı kalite ölçütleri", 1)[1].splitlines() if s.startswith("- ")]
+        self.assertEqual(len(olcutler), 2)
+        uretilen = ft.kurallar_md("kalite", ft.oku(FORM))
+        for satir in olcutler:
+            with self.subTest(satir=satir):
+                self.assertIn(satir, uretilen)
+
+    def test_personel_adi_varsayilan_acik(self):
+        """Test 10a."""
+        self.assertIn("Personel adı ve unvanı yazılabilir.", ft.kurallar_md("kalite", ft.oku(FORM)))
+
+    def test_personel_adi_hayir_ise_yasak(self):
+        """Test 10b — hasta/müşteri yasağı her iki durumda da yazılır."""
+        metin = FORM.replace("kapatmak için hayır):", "kapatmak için hayır): Hayır")
+        kurallar = ft.kurallar_md("kalite", ft.oku(metin))
+        self.assertIn("Personel adı yazılmaz.", kurallar)
+        self.assertNotIn("Personel adı ve unvanı yazılabilir.", kurallar)
+        self.assertIn("Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz", kurallar)
+
+    def test_durunca_hicbir_dosya_yazilmaz(self):
+        """Test 2 + 4 + 5 birlikte: üç sebep listelenir, kalite kurulumda kalır, yetenek dosyası değişmez."""
+        skill_once = self.oku("skills/kurul-yaniti/SKILL.md")
+        metin = FORM.replace("- Tek cümleyle mesleği: Kalite", "- Tek cümleyle mesleği:\n- x: Kalite")
+        metin = metin.replace("değerlendirilen temsilcinin adı", "0532 123 45 67")
+        metin = metin.replace("kendiliğinden eklenir):", "kendiliğinden eklenir): olmayan-yetenek")
+        self.form(metin)
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertEqual(sonuc["sebepler"], ["eksik: §1 Tek cümleyle mesleği",
+                                             "kişisel veri: telefon numarası (3. Veri)",
+                                             "yetenek yok: skills/olmayan-yetenek/SKILL.md"])
+        self.assertTrue(ayar.kurulumda_mi("kalite", self.kok))
+        self.assertFalse((self.kok / "takimlar/kalite/kurallar.md").exists())
+        self.assertEqual(self.oku("skills/kurul-yaniti/SKILL.md"), skill_once)
+
+    def test_cakisma_uyarir_ve_yazar(self):
+        """Test 6 (uçtan uca): uyarı var, durum yazildi."""
+        (self.kok / "takimlar/finans").mkdir()
+        (self.kok / "takimlar/finans/takim.md").write_text(
+            "---\nname: finans\ndescription: x\nanahtar_kelimeler: [şikâyet]\n---\n", encoding="utf-8")
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "yazildi")
+        self.assertEqual(len(sonuc["uyarilar"]), 1)
+        self.assertTrue((self.kok / "takimlar/kalite/kurallar.md").exists())
 
 
 class KilitTesti(unittest.TestCase):
