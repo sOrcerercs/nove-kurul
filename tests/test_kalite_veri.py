@@ -159,5 +159,58 @@ class SemaTesti(unittest.TestCase):
         self.assertNotIn("gizli-url", tampon.getvalue())
 
 
+class CekirdekTesti(unittest.TestCase):
+    def test_ay_siniri_dahil(self):
+        from datetime import datetime
+        bas, bit = kalite_veri.gun_siniri("2026-10-01", "2026-10-31")
+        self.assertEqual(bas, datetime(2026, 10, 1, 0, 0, 0))
+        self.assertEqual(bit, datetime(2026, 10, 31, 23, 59, 59))
+
+    def test_ters_aralik_hata(self):
+        with self.assertRaises(ValueError):
+            kalite_veri.gun_siniri("2026-10-10", "2026-10-01")
+
+    def test_js_yuvarla(self):
+        self.assertEqual(kalite_veri.js_yuvarla(70.5), 71)
+        self.assertEqual(kalite_veri.js_yuvarla(70.45, 1), 70.5)
+        self.assertEqual(kalite_veri.js_yuvarla(-0.5), 0)
+
+    def test_hata_mesaji_adres_sizdirmaz(self):
+        url = "postgresql://qa:gizli@h:5432/db"
+        m = kalite_veri.guvenli_hata(
+            Exception('connection to "postgresql://qa:gizli@h:5432/db" failed'), url)
+        self.assertNotIn("gizli", m)
+        self.assertNotIn("qa:", m)
+        self.assertIn("Exception", m)
+        m2 = kalite_veri.guvenli_hata(Exception("bad password=abc123 x"), url)
+        self.assertNotIn("abc123", m2)
+
+    def test_sayim_kosulu_panelle_ayni(self):
+        self.assertIn('"callClassification" IS NULL', kalite_veri.SAYIM_KOSULU)
+        self.assertIn("'CONNECTED_QUALIFIED'", kalite_veri.SAYIM_KOSULU)
+        for parca in ("'AGENT'", "'TEAM_LEADER'", '"isActive"'):
+            self.assertIn(parca, kalite_veri.UYE_KOSULU)
+            self.assertIn(parca, kalite_veri.SAYIM_KOSULU)
+
+    def test_kapsam_bolumu(self):
+        m = kalite_veri.kapsam_bolumu("ozet", "2026-10-01", "2026-10-31", {"ekip": "A"}, 12)
+        self.assertTrue(m.startswith("## kapsam"))
+        self.assertIn("kayit=12", m)
+        self.assertIn("ekip=A", m)
+        self.assertIn("2026-10-01", m)
+
+    def test_baglanti_hatasi_bilgilendirici_ama_maskeli(self):
+        def baglan(url):
+            raise RuntimeError("could not connect to " + url)
+
+        tampon = io.StringIO()
+        with redirect_stdout(tampon):
+            kalite_veri.main(["sema"], ortam={"QA_READONLY_URL": "postgresql://qa:gizli@h/db"},
+                             baglan=baglan)
+        self.assertIn("RuntimeError", tampon.getvalue())
+        self.assertIn("could not connect", tampon.getvalue())
+        self.assertNotIn("gizli", tampon.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
