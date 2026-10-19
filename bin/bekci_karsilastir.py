@@ -2,7 +2,7 @@
 """Bekçi karşılaştırma — aynı koşu kaydını birden çok yola verip kararları yan yana koyar.
 
 ANAYASA §3 bekçinin ayrı aileden olmasını ister, ama **ayrı olması iyi olduğunu kanıtlamaz.**
-Bu araç onu ölçer: elde tutulan yedi fikstürden biri temiz, altısı kasıtlı bozuk. Her yolun
+Bu araç onu ölçer: elde tutulan sekiz fikstürden ikisi temiz (biri hasta ad soyadı taşır, ANAYASA §2), altısı kasıtlı bozuk. Her yolun
 her fikstüre ne dediği tabloya düşer; beklenenden sapan satır işaretlenir.
 
 Araç hiçbir dosyaya YAZMAZ — `bekci.denetle` bilerek çağrılmaz (o `durum.json`'a ve koşu
@@ -30,6 +30,7 @@ FIKSTURLER = [
     {"ad": "eposta-sizmis", "dosya": "eposta-sizmis.md", "beklenen": "red"},
     {"ad": "telefon-sizmis", "dosya": "telefon-sizmis.md", "beklenen": "red"},   # Nove: KVKK deseni
     {"ad": "bos", "dosya": "bos.md", "beklenen": "red"},
+    {"ad": "hasta-ad-soyadi", "dosya": "hasta-ad-soyadi.md", "beklenen": "kabul"},   # ANAYASA §2 revize 19.10.2026
 ]
 
 YOLLAR = {

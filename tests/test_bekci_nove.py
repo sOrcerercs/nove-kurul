@@ -91,10 +91,9 @@ class YonergeTesti(unittest.TestCase):
         for ad in ("kaynak", "hesap", "tutarlilik"):
             self.assertIn(ad, istem)
 
-    def test_personel_adi_kurallara_bagli_hasta_adi_her_zaman_ihlal(self):
-        """K7: personel adı yalnız kurallar.md izin vermiyorsa ihlal; hasta/müşteri adı her zaman."""
+    def test_personel_adi_kurallara_bagli(self):
+        """K7: personel adı yalnız kurallar.md izin vermiyorsa ihlal (hasta/müşteri ad soyadı: test_anayasa_uyum)."""
         istem = bekci._istem("anayasa", "kurallar", "kayıt")
-        self.assertIn("hasta/müşteri adı", istem)
         self.assertIn("personel adı yalnız kurallar dosyası izin vermiyorsa", istem)
         self.assertNotIn("kişi adı/", istem)
 

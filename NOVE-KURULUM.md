@@ -48,6 +48,7 @@
 | N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) |
 | N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
 | N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
+| N30 | **ANAYASA §2: hasta ve müşterinin ad soyadı yazılabilir;** telefon, e-posta, TC kimlik no yasak kalır; ad soyad taşıyabilen dosya (defter, onaylı form) herkese açık depoya girmez. Yapay zekâ sağlayıcılarına aktarım Kağan'ın teyidiyle uygun (19.10.2026) |
 
 ---
 
@@ -269,7 +270,8 @@ kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N
    Veri kaynakları salt okunurdur. Danışman yalnız kendi klasörüne yazar: `cikti/`, `kosu/`, `defter.md` (N26).
 2. **Kaynaksız sayı yok.** Etiket (✅/🟡/⛔) cümleye değil iddiaya konur. Dış dünya sayısının kaynağı,
    örneklemden türeyen sayının `n`'i yazılır (N24, N19 ile aynı sınır). Teyitsiz formül kullanılmaz.
-   Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz.
+   Hasta ve müşterinin telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz; ad soyad yazılabilir,
+   ad soyad taşıyabilen dosya herkese açık depoya girmez (N30).
 3. **İki onay.** Üreten kendi işini onaylayamaz. Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan geçer.
 4. **Her koşunun tavanı var.** Her koşunun, her sorunun ve her günün tavanı vardır; tavana çarpan sessiz kalmaz.
    Rakamlar anayasada değil, yalnız `bin/ayar.py`'de ve §9'da durur (N25).

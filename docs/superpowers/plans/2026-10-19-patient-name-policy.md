@@ -1,9 +1,9 @@
 ---
-durum: taslak
+durum: acik
 guncelleme: 2026-10-19
-dal: -
+dal: feature/patient-name-policy
 pr: -
-bekleyen: kullanici
+bekleyen: -
 ---
 
 # ANAYASA §2 revizesi — hasta ve müşteri adının yanıtta yazılması
