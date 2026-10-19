@@ -479,6 +479,8 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
 - [ ] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py`
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
+  - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
+    (K7 personel adı, N30 ad soyadı); `hasta-ad-soyadi` `kabul` almalı. Kağan, 19.10.2026: ölçüm buraya ertelendi
 
 ### Faz 5 · Panel
 > **Durum (09.10.2026):** kısmen — panel demo verisiyle çalışıyor; `panel.py` yok.
