@@ -48,6 +48,7 @@
 | N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) |
 | N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
 | N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
+| N30 | **ANAYASA §2: hasta ve müşterinin ad soyadı yazılabilir;** telefon, e-posta, TC kimlik no yasak kalır; ad soyad taşıyabilen dosya (defter, onaylı form) herkese açık depoya girmez. Yapay zekâ sağlayıcılarına aktarım Kağan'ın teyidiyle uygun (19.10.2026) |
 | N31 | **CEO tavanı geçici olarak 1,50 USD/kontrol, soru bütçesi 8 USD:** Opus 5.5 fiyatıyla (4 $ / 20 $ MTok, düşünme kapatılamıyor ve çıktı sayılıyor) tahmin tipik ~0,53, ağır ~1,28 USD; 0,50 USD'de CEO karar yazamadan kesilir. Kalıcı rakam Faz 4 beş gerçek soruda ölçülüp konur. En kötü yol 2 + 1,5 + 2 + 1,5 = 7 USD + 1 USD pay. Aylık 1.200 USD değişmez (günlük 40 USD belirliyor) (19.10.2026) |
 
 ---
@@ -131,10 +132,10 @@ nove-kurul/
 │   ├── _iskelet/              takim-olustur.sh'in kopyaladığı dört dosya
 │   ├── finans/  kalite/  okr/  raporlama/  satis-muduru/
 │   └── <danisman>/  takim.md · kurallar.md · defter.md · durum.json · gelen/ · kosu/ · cikti/ · veri/
-├── formlar/                   henüz yok — Faz 4'ün ilk adımında kurulur
+├── formlar/                   şablon: `DANISMAN-FORMU.md`
 │   ├── DANISMAN-FORMU.md      yöneticilere giden boş şablon (§6)
 │   ├── gelen/                 doldurulmuş formlar — git'e GİRMEZ
-│   └── onayli/                Kağan'ın revize ettiği formlar
+│   └── onayli/                Kağan'ın revize ettiği formlar — git'e GİRMEZ (19.10.2026)
 ├── yanitlar/                  Yanıt defteri — yalnız sürücü yazar
 ├── skills/<ad>/SKILL.md
 ├── bin/                       kos · bekci · ceo · dagitici · soru_kapisi · yanit_defteri · crm_zil · panel · ayar · …
@@ -253,54 +254,9 @@ Senin işin ikinci kontroldür: bu yanıt kurula gidecek kadar iyi mi?
 Her yöneticiye `formlar/DANISMAN-FORMU.md` gönderilir. Doldurulmuş form `formlar/gelen/<bolum>.md` olarak gelir.
 Kağan revize eder ve `formlar/onayli/` altına koyar. Ardından `bin/formdan_takim.py <bolum>` dört dosyayı üretir.
 
-```markdown
-# Danışman Formu — <Bölüm adı>
-
-> Bu formu bölüm yöneticisi doldurur. Son hâlini Kağan verir. Bilmediğin alanı boş bırak,
-> "?" yaz — uydurma. Hasta/müşteri adı, telefon, e-posta YAZMA.
-
-## 1. Kimlik
-- Danışman adı (odada görünecek):            ör. "Finans"
-- Bölüm yöneticisi (sahibi):                  ad, unvan
-- Tek cümleyle mesleği:                       "Finans danışmanı olarak kurulun bütçe, nakit ve
-                                               maliyet sorularını muhasebe verisiyle yanıtlamak."
-- Sahnedeki rengi (isteğe bağlı):             ör. yeşil
-
-## 2. Hangi soruları alır
-- Bu danışmana gelmesi gereken 5 örnek soru:
-  1.
-  2.
-- Anahtar kelimeler (İş Dağıtımcı bunlarla yönlendirir):  bütçe, nakit, maliyet, sapma, …
-- Bu danışmana GELMEMESİ gereken, karışabilecek sorular:
-
-## 3. Veri
-| Kaynak | Ne var içinde | Nerede (sistem/dosya) | Kim erişim verir | Ne sıklıkta güncellenir |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-- Bu verideki hassas alanlar (KVKK):
-- Formülü/tanımı herkesçe bilinmeyen göstergeler (ör. "upsell oranı nasıl hesaplanır"):
-
-## 4. Kurallar (kurallar.md'ye gidecek)
-- Bu danışman ASLA şunu yapmamalı:
-- Her yanıtta mutlaka olması gereken:
-- Hangi sayıyı kim teyit eder:
-
-## 5. İyi yanıt nasıl görünür
-- Kurula giden ideal yanıtın bir örneği (yarım sayfa yeter):
-
-## 6. Tempo (isteğe bağlı)
-- Soru beklemeden düzenli üretmesini istediğin bir rapor var mı? (ör. "her pazartesi bütçe sapması")
-```
-
-**Kağan'ın revize kontrol listesi** (`formlar/onayli/`'ye almadan önce):
-
-- [ ] Mesleği tek cümle ve bir fiille bitiyor (`description` alanı bu cümle olur)
-- [ ] Anahtar kelimeler diğer danışmanlarla çakışmıyor (`python3 bin/dagitici.py --cakisma` ile kontrol edilir)
-- [ ] Her veri kaynağı **salt okunur** bir yolla bağlanabiliyor (SELECT rolü, dışa aktarım, paylaşılan klasör)
-- [ ] Formülü teyitsiz gösterge `—` olarak işaretli ve teyit sahibi yazılı
-- [ ] Formda kişisel veri yok
-- [ ] Gereken en az bir yetenek seçilmiş (`skills:` boş kalırsa testler kırmızı verir)
+Şablon ve revize kontrol listesi: `formlar/DANISMAN-FORMU.md` (§1–§6 yönetici, §7 Revize Kağan). Betik bölümleri
+numarasından bulur; zorunlu alan, kişisel veri ve yetenek eksikse durur, anahtar kelime çakışmasında uyarır
+(`docs/superpowers/specs/2026-10-19-advisor-form-pipeline-design.md`).
 
 ---
 
@@ -315,7 +271,8 @@ kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N
    Veri kaynakları salt okunurdur. Danışman yalnız kendi klasörüne yazar: `cikti/`, `kosu/`, `defter.md` (N26).
 2. **Kaynaksız sayı yok.** Etiket (✅/🟡/⛔) cümleye değil iddiaya konur. Dış dünya sayısının kaynağı,
    örneklemden türeyen sayının `n`'i yazılır (N24, N19 ile aynı sınır). Teyitsiz formül kullanılmaz.
-   Hasta ve müşteri adı, telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz.
+   Hasta ve müşterinin telefonu, e-postası ve TC kimlik numarası hiçbir yerde yazılmaz; ad soyad yazılabilir,
+   ad soyad taşıyabilen dosya herkese açık depoya girmez (N30).
 3. **İki onay.** Üreten kendi işini onaylayamaz. Kurula giden her yanıt önce Denetçi'den (ayrı aile), sonra CEO'dan geçer.
 4. **Her koşunun tavanı var.** Her koşunun, her sorunun ve her günün tavanı vardır; tavana çarpan sessiz kalmaz.
    Rakamlar anayasada değil, yalnız `bin/ayar.py`'de ve §9'da durur (N25).
@@ -518,11 +475,13 @@ python3 bin/dagitici.py --kuru
 
 Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatti` örnek alınır: `QA_READONLY_URL`, `qa_ozet.py`
 ve `qa-koclugu-kurgusu` taşınır.
-- [ ] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
-  `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır
+- [x] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
+  `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır — 19.10.2026
 - [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
 - [ ] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py`
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
+  - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
+    (K7 personel adı, N30 ad soyadı); `hasta-ad-soyadi` `kabul` almalı. Kağan, 19.10.2026: ölçüm buraya ertelendi
   - Aynı adımda CEO kontrolünün gerçek maliyeti kayıtlardan okunur; `ayar.CEO_BUTCESI_USD`'nin kalıcı değeri
     buna göre konur (N31, şimdi geçici 1,50 USD)
 

@@ -91,6 +91,12 @@ class YonergeTesti(unittest.TestCase):
         for ad in ("kaynak", "hesap", "tutarlilik"):
             self.assertIn(ad, istem)
 
+    def test_personel_adi_kurallara_bagli(self):
+        """K7: personel adı yalnız kurallar.md izin vermiyorsa ihlal (hasta/müşteri ad soyadı: test_anayasa_uyum)."""
+        istem = bekci._istem("anayasa", "kurallar", "kayıt")
+        self.assertIn("personel adı yalnız kurallar dosyası izin vermiyorsa", istem)
+        self.assertNotIn("kişi adı/", istem)
+
     def test_sema_kontrol_alanini_ister(self):
         self.assertIn("kontrol", bekci.YANIT_SEMASI["required"])
         kontrol = bekci.YANIT_SEMASI["properties"]["kontrol"]
