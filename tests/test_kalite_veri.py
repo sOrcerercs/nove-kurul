@@ -232,3 +232,145 @@ class CekirdekTesti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _SorguImlec:
+    """Sorgu metnine göre hazır satır döndürür; (sql, params) kaydeder."""
+    def __init__(self, yanit):
+        self.yanit = yanit            # fonksiyon: (sql, params) -> satırlar
+        self.cagrilar = []
+        self._son = []
+
+    def execute(self, sql, params=None):
+        self.cagrilar.append((sql, params))
+        self._son = self.yanit(sql, params)
+
+    def fetchall(self):
+        return list(self._son)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+URL = {"QA_READONLY_URL": "postgresql://u:p@h/db"}
+
+
+def _calistir(argv, yanit):
+    imlec = _SorguImlec(yanit)
+    baglanti = _SahteBaglanti(imlec)
+    tampon = io.StringIO()
+    with redirect_stdout(tampon):
+        kod = kalite_veri.main(argv, ortam=URL, baglan=lambda url: baglanti)
+    return kod, tampon.getvalue(), imlec
+
+
+class EkipOzetTesti(unittest.TestCase):
+    def test_kayit_basina_agirlikli(self):
+        # A: temsilci1 [80,80,80], temsilci2 [50] → 290/4; temsilci ortalamalarının ortalaması (65) değil
+        tablo = kalite_veri.ekip_tablosu([("A", 290, 4, 2)])
+        self.assertEqual(tablo, [{"ekip": "A", "ortalama": kalite_veri.js_yuvarla(290 / 4),
+                                  "kayit": 4, "temsilci": 2}])
+        self.assertEqual(tablo[0]["ortalama"], 73)
+
+    def test_karsilastir_dususe_gore_sirali(self):
+        simdi = kalite_veri.ekip_tablosu([("B", 72, 1, 1), ("A", 71, 1, 1)])
+        onceki = kalite_veri.ekip_tablosu([("A", 78, 1, 1), ("B", 70, 1, 1)])
+        sonuc = kalite_veri.karsilastir(simdi, onceki)
+        self.assertEqual(sonuc[0]["ekip"], "A")
+        self.assertEqual(sonuc[0]["fark"], -7)
+        self.assertEqual(sonuc[0]["onceki_ortalama"], 78)
+        self.assertEqual(sonuc[1]["fark"], 2)
+        self.assertEqual(sonuc[1]["onceki_kayit"], 1)
+
+    def test_karsilastir_onceki_yoksa_fark_bos(self):
+        simdi = kalite_veri.ekip_tablosu([("A", 71, 1, 1)])
+        sonuc = kalite_veri.karsilastir(simdi, [])
+        self.assertIsNone(sonuc[0]["fark"])
+        self.assertIsNone(sonuc[0]["onceki_ortalama"])
+
+    def test_sorgu_kurallari_tasir(self):
+        bas, bit = kalite_veri.gun_siniri("2026-10-01", "2026-10-31")
+        sql, param = kalite_veri.ekip_ozet_sorgusu(bas, bit, None)
+        self.assertIn(kalite_veri.SAYIM_KOSULU, sql)
+        self.assertIn(kalite_veri.UYE_KOSULU, sql)
+        self.assertIn('"callDate" >=', sql)
+        self.assertIn('"callDate" <=', sql)
+        self.assertIn(bas, param.values())
+        self.assertIn(bit, param.values())
+        self.assertTrue(sql.lstrip().upper().startswith("SELECT"))
+        self.assertIsNone(YASAK.search(sql))
+
+    def test_sorgu_tip_ve_ekip_parametreli(self):
+        bas, bit = kalite_veri.gun_siniri("2026-10-01", "2026-10-31")
+        sql, param = kalite_veri.ekip_ozet_sorgusu(bas, bit, "first", ekip="X'; DROP")
+        self.assertIn("::text", sql)
+        self.assertIn("FIRST_CALL", param.values())
+        self.assertNotIn("DROP", sql)
+        self.assertIn("X'; DROP", param.values())
+
+    def test_bos_sonuc_uyari(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31"],
+                                  lambda sql, p: [])
+        self.assertEqual(kod, 1)
+        self.assertEqual(cikti.strip(),
+                         "**Hazırlanamadı:** 2026-10-01..2026-10-31 için sayılabilir kayıt yok")
+
+    def test_ekip_adi_bulunamaz(self):
+        def yanit(sql, p):
+            return [("Alfa", 3), ("Beta", 2)] if "GROUP BY t.name" in sql else []
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                                   "--ekip", "Olmayan"], yanit)
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:**", cikti)
+        self.assertIn("Alfa", cikti)
+        self.assertIn("Beta", cikti)
+
+    def test_cikti_kapsam_ve_payda(self):
+        def yanit(sql, p):
+            return [("Alfa", 290, 4, 2), ("Beta", 140, 2, 1)]
+        kod, cikti, imlec = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31"],
+                                      yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("## kapsam", cikti)
+        self.assertIn("kayit=6", cikti)
+        satirlar = [s for s in cikti.splitlines() if s.startswith("- ")]
+        self.assertEqual(len(satirlar), 2)
+        for s in satirlar:
+            self.assertIn("kayit=", s)
+            self.assertIn("temsilci=", s)
+        self.assertIn("ortalama=73", cikti)
+        self.assertIn("not=canlı Second Call formülü deploy bekliyor", cikti)
+
+    def test_first_call_notu_yok(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                                   "--tip", "first"], lambda s, p: [("Alfa", 80, 1, 1)])
+        self.assertEqual(kod, 0)
+        self.assertNotIn("Second Call formülü", cikti)
+
+    def test_karsilastirma_cikti(self):
+        def yanit(sql, p):
+            return [("Alfa", 71, 1, 1)] if p["bas"].month == 10 else [("Alfa", 78, 1, 1)]
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                                   "--karsilastir-baslangic", "2026-09-01",
+                                   "--karsilastir-bitis", "2026-09-30"], yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("fark=-7", cikti)
+        self.assertIn("onceki=78", cikti)
+
+    def test_karsilastir_tek_uc_kullanim_hatasi(self):
+        with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as c:
+            kalite_veri.main(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                              "--karsilastir-baslangic", "2026-09-01"], ortam=URL)
+        self.assertEqual(c.exception.code, 2)
+
+    def test_ekipler_cli(self):
+        kod, cikti, imlec = _calistir(["ekipler"], lambda s, p: [("Alfa", 3), ("Beta", 2)])
+        self.assertEqual(kod, 0)
+        self.assertIn("Alfa", cikti)
+        self.assertIn("temsilci=3", cikti)
+        sql = imlec.cagrilar[0][0]
+        self.assertIn(kalite_veri.UYE_KOSULU, sql)
+        self.assertIsNone(YASAK.search(sql))

@@ -8,6 +8,9 @@ gövdesi, müşteri adı, kanıt ve tıbbi işaret alanları hiçbir sorguda yok
 
 Kullanım:
   python3 bin/kalite_veri.py sema     # yapı ve izin ölçümü — içerik basmaz
+  python3 bin/kalite_veri.py ekipler
+  python3 bin/kalite_veri.py ekip-ozet --baslangic YYYY-MM-DD --bitis YYYY-MM-DD
+        [--karsilastir-baslangic .. --karsilastir-bitis ..] [--tip first|second] [--ekip <ad>]
 Çıkış: 0 tamam · 1 durdu (`**Hazırlanamadı:** <sebep>`) · 2 kullanım hatası
 """
 import argparse
@@ -156,15 +159,148 @@ def sema_bas(baglanti):
             print("    " + " | ".join(str(d) for d in satir))
 
 
+def ekipler_sorgusu():
+    """(sql, params) — ekip adı ve aktif AGENT/TEAM_LEADER üye sayısı."""
+    sql = ("SELECT t.name, count(u.id) AS temsilci\n"
+           "  FROM public.\"Team\" t\n"
+           "  LEFT JOIN public.\"User\" u ON u.\"teamId\" = t.id AND " + UYE_KOSULU + "\n"
+           " GROUP BY t.name\n ORDER BY t.name")
+    return sql, {}
+
+
+TIP_ESLEME = {"first": "FIRST_CALL", "second": "SECOND_CALL"}
+
+
+def ekip_ozet_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — ekip başına (ekip, toplam puan, kayıt, temsilci sayısı). Parametreli."""
+    kosul = ["e.\"callDate\" >= %(bas)s", "e.\"callDate\" <= %(bit)s", SAYIM_KOSULU]
+    param = {"bas": bas, "bit": bit}
+    if tip:
+        kosul.append("e.\"callType\"::text = %(tip)s")
+        param["tip"] = TIP_ESLEME[tip]
+    if ekip:
+        kosul.append("t.name = %(ekip)s")
+        param["ekip"] = ekip
+    sql = ("SELECT t.name, sum(e.score) AS toplam, count(*) AS adet,"
+           " count(DISTINCT e.\"agentId\") AS temsilci\n"
+           "  FROM public.\"Evaluation\" e\n"
+           "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
+           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           " WHERE " + "\n   AND ".join(kosul) + "\n"
+           " GROUP BY t.id, t.name\n ORDER BY t.name")
+    return sql, param
+
+
+def ekip_tablosu(satirlar):
+    """(ekip, toplam, adet, temsilci) → ortalama kayıt başına, JS yuvarlamasıyla tam sayı."""
+    tablo = []
+    for ekip, toplam, adet, temsilci in satirlar:
+        if not adet:
+            continue
+        tablo.append({"ekip": ekip, "ortalama": js_yuvarla(float(toplam) / adet),
+                      "kayit": int(adet), "temsilci": int(temsilci)})
+    return tablo
+
+
+def karsilastir(simdi, onceki):
+    """Önceki dönemle yan yana; düşüşe göre sıralı (en büyük düşüş ilk, karşılaştırması olmayan sonda)."""
+    eski = {s["ekip"]: s for s in onceki}
+    sonuc = []
+    for s in simdi:
+        o = eski.get(s["ekip"])
+        satir = dict(s)
+        satir["onceki_ortalama"] = o["ortalama"] if o else None
+        satir["onceki_kayit"] = o["kayit"] if o else None
+        satir["fark"] = (s["ortalama"] - o["ortalama"]) if o else None
+        sonuc.append(satir)
+    sonuc.sort(key=lambda r: (r["fark"] is None, r["fark"] if r["fark"] is not None else 0, r["ekip"]))
+    return sonuc
+
+
+def _sorgula(baglanti, sorgu):
+    sql, param = sorgu
+    with baglanti.cursor() as imlec:
+        imlec.execute(sql, param)
+        return imlec.fetchall()
+
+
+def ekipler_bas(baglanti):
+    satirlar = _sorgula(baglanti, ekipler_sorgusu())
+    if not satirlar:
+        print(hazirlanamadi("ekip bulunamadı"))
+        return 1
+    print(kapsam_bolumu("ekipler", "-", "-", {}, len(satirlar)))
+    for ad, temsilci in satirlar:
+        print("- %s: temsilci=%d" % (_tek_satir(ad), temsilci))
+    return 0
+
+
+def ekip_ozet_bas(baglanti, args):
+    try:
+        bas, bit = gun_siniri(args.baslangic, args.bitis)
+        onc = None
+        if args.karsilastir_baslangic:
+            onc = gun_siniri(args.karsilastir_baslangic, args.karsilastir_bitis)
+    except ValueError as hata:
+        print(hazirlanamadi("tarih geçersiz (%s)" % hata))
+        return 1
+    aralik = "%s..%s" % (args.baslangic, args.bitis)
+    if args.ekip:
+        adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
+        if args.ekip not in adlar:
+            print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
+                                % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar) or "yok")))
+            return 1
+    tablo = ekip_tablosu(_sorgula(baglanti, ekip_ozet_sorgusu(bas, bit, args.tip, args.ekip)))
+    if not tablo:
+        print(hazirlanamadi("%s için sayılabilir kayıt yok" % aralik))
+        return 1
+    filtre = {}
+    if args.tip:
+        filtre["tip"] = args.tip
+    if args.ekip:
+        filtre["ekip"] = args.ekip
+    if onc:
+        filtre["karsilastirma"] = "%s..%s" % (args.karsilastir_baslangic, args.karsilastir_bitis)
+        tablo = karsilastir(tablo, ekip_tablosu(
+            _sorgula(baglanti, ekip_ozet_sorgusu(onc[0], onc[1], args.tip, args.ekip))))
+    if args.tip != "first":
+        filtre["not"] = "canlı Second Call formülü deploy bekliyor"
+    print(kapsam_bolumu("ekip-ozet", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
+    for t in tablo:
+        satir = "- %s: ortalama=%s kayit=%d temsilci=%d" % (_tek_satir(t["ekip"]), t["ortalama"],
+                                                           t["kayit"], t["temsilci"])
+        if onc:
+            if t["fark"] is None:
+                satir += " onceki=yok fark=yok"
+            else:
+                satir += " onceki=%s onceki_kayit=%d fark=%+d" % (t["onceki_ortalama"], t["onceki_kayit"],
+                                                                   t["fark"])
+                satir = satir.replace("fark=+0", "fark=0")
+        print(satir)
+    return 0
+
+
 def _komutlar():
     ap = argparse.ArgumentParser(description="Kalite veri okuyucusu — salt okunur")
     alt = ap.add_subparsers(dest="komut", required=True)
     alt.add_parser("sema", help="yapı ve izin ölçümü (içerik basmaz)")
+    alt.add_parser("ekipler", help="ekip adları ve aktif temsilci sayısı")
+    oz = alt.add_parser("ekip-ozet", help="ekip başına kayıt ağırlıklı ortalama")
+    oz.add_argument("--baslangic", required=True)
+    oz.add_argument("--bitis", required=True)
+    oz.add_argument("--karsilastir-baslangic")
+    oz.add_argument("--karsilastir-bitis")
+    oz.add_argument("--tip", choices=sorted(TIP_ESLEME))
+    oz.add_argument("--ekip")
     return ap
 
 
 def main(argv, ortam=None, baglan=None):
-    args = _komutlar().parse_args(argv)            # kullanım hatası: SystemExit(2)
+    ap = _komutlar()
+    args = ap.parse_args(argv)                     # kullanım hatası: SystemExit(2)
+    if args.komut == "ekip-ozet" and bool(args.karsilastir_baslangic) != bool(args.karsilastir_bitis):
+        ap.error("--karsilastir-baslangic ve --karsilastir-bitis birlikte verilmeli")
     if ortam is None:
         ortam = ayar.ortam_yukle()
     url = (ortam.get("QA_READONLY_URL") or "").strip()
@@ -179,6 +315,11 @@ def main(argv, ortam=None, baglan=None):
     try:
         if args.komut == "sema":
             sema_bas(baglanti)
+            return 0
+        if args.komut == "ekipler":
+            return ekipler_bas(baglanti)
+        if args.komut == "ekip-ozet":
+            return ekip_ozet_bas(baglanti, args)
         return 0
     finally:
         try:
