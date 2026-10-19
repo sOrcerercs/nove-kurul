@@ -42,6 +42,8 @@ sirket/               AJAN-KIMLIGI.md · DENETCI.md · CEO-KIMLIGI.md · QA-DANI
 takimlar/<danisman>/  takim.md · kurallar.md · defter.md · durum.json · kosu/ · cikti/ · veri/
 takimlar/_iskelet/    yeni danışmanın dört dosyalık iskeleti (bin/takim-olustur.sh)
 skills/<ad>/SKILL.md  yetenekler
+formlar/              DANISMAN-FORMU.md şablonu · gelen/ (git'e girmez) · onayli/ (insanın)
+docs/superpowers/     PLANS.md · specs/ · plans/
 panel/                kurul üyelerinin arayüzü: giriş + Kurul Ofisi (demo verisiyle)
 tests/                python3 -m unittest discover -s tests
 sirket-log/           soru kayıtları, rapor, telemetri — git'e girmez
@@ -53,6 +55,7 @@ kasa/                 bilgi kasası (kendi git deposu) — git'e girmez
 - `.env` okuma, açma, ekrana basma — **kuralla değil, `.claude/settings.json`'daki `permissions.deny` ile kapalı**.
   Yanıt defteri (`yanitlar/`), onaylı formlar (`formlar/onayli/`), `ANAYASA.md`, `sirket/CEO-KIMLIGI.md` ve her
   danışmanın `kurallar.md`'si de aynı şekilde yazmaya kapalı; Yanıt defterine yalnız sürücü yazar.
+- `bin/formdan_takim.py`'yi ajan yalnız `--kuru` ile koşturur; yazan koşu Kağan'ın (spec K1)
 - Veri kaynaklarına, prod veritabanına yazma; DDL ya da migration
 - Mail, mesaj, yayın; kişiye ya da departmana talimat; tarayıcıyla panele giriş
 - `ANAYASA.md`, `kurallar.md`, `formlar/onayli/`, `sirket/CEO-KIMLIGI.md` değiştirme — insanın

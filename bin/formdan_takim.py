@@ -321,3 +321,47 @@ def uret(kok, bolum, kuru=False, yeniden=False):
         (hedef / ad).mkdir(parents=True, exist_ok=True)
     sonuc["durum"] = "yazildi"
     return sonuc
+
+
+# --- komut ------------------------------------------------------------------
+
+SONRAKI_ADIMLAR = ("python3 bin/agents_uret.py", "python3 -m unittest discover -s tests")
+
+
+def bas(sonuc, bolum):
+    for uyari in sonuc["uyarilar"]:
+        print(f"⚠ {uyari}")
+    if sonuc["durum"] == "durdu":
+        print(f"durdu — {len(sonuc['sebepler'])} sebep, hiçbir dosya yazılmadı:")
+        for sebep in sonuc["sebepler"]:
+            print(f"  - {sebep}")
+        return
+    for fark in sonuc["farklar"]:
+        print(fark)
+    if sonuc["durum"] == "kuru":
+        for yol, icerik in sonuc["dosyalar"].items():
+            print(f"=== {yol} ===\n{icerik}")
+        print("(kuru koşu: hiçbir dosya yazılmadı)")
+        return
+    print("yazıldı:")
+    for yol in sonuc["dosyalar"]:
+        print(f"  {yol}")
+    print(f"  takimlar/{bolum}/kosu/ · takimlar/{bolum}/cikti/")
+    print("Sonraki adımlar (betik koşturmaz, sen koştur):")
+    for komut in SONRAKI_ADIMLAR:
+        print(f"  {komut}")
+
+
+def main(argv, kok=None):
+    adlar = [a for a in argv if not a.startswith("--")]
+    bilinmeyen = [a for a in argv if a.startswith("--") and a not in ("--kuru", "--yeniden")]
+    if len(adlar) != 1 or bilinmeyen:
+        print("kullanım: python3 bin/formdan_takim.py <bolum> [--kuru] [--yeniden]", file=sys.stderr)
+        return 2
+    sonuc = uret(kok or ayar.KOK, adlar[0], kuru="--kuru" in argv, yeniden="--yeniden" in argv)
+    bas(sonuc, adlar[0])
+    return 1 if sonuc["durum"] == "durdu" else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

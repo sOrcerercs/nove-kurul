@@ -215,6 +215,79 @@ class UretimTesti(_GeciciKok):
         self.assertTrue((self.kok / "takimlar/kalite/kurallar.md").exists())
 
 
+class KomutTesti(_GeciciKok):
+    def kostur(self, *argv):
+        cikti = io.StringIO()
+        with redirect_stdout(cikti):
+            rc = ft.main(["kalite", *argv], kok=self.kok)
+        return rc, cikti.getvalue()
+
+    def test_kuru_hicbir_dosya_yazmaz(self):
+        """Test 8."""
+        skill_once = self.oku("skills/kurul-yaniti/SKILL.md")
+        rc, cikti = self.kostur("--kuru")
+        self.assertEqual(rc, 0)
+        self.assertIn("=== takimlar/kalite/takim.md ===", cikti)
+        self.assertIn("(kuru koşu: hiçbir dosya yazılmadı)", cikti)
+        self.assertEqual(self.oku("takimlar/kalite/takim.md"), "# Kalite Danışmanı\n")
+        for yol in ("kurallar.md", "defter.md", "durum.json", "kosu", "cikti"):
+            self.assertFalse((self.kok / "takimlar/kalite" / yol).exists(), yol)
+        self.assertEqual(self.oku("skills/kurul-yaniti/SKILL.md"), skill_once)
+
+    def test_kurulu_danisman_durur_yeniden_once_fark_gosterir(self):
+        """Test 7."""
+        self.assertEqual(self.kostur()[0], 0)
+        rc, cikti = self.kostur()
+        self.assertEqual(rc, 1)
+        self.assertIn("takimlar/kalite zaten kurulu", cikti)
+        self.form(FORM.replace("değerlendirme verisiyle yanıtlamak.", "değerlendirme ve şikâyet verisiyle yanıtlamak."))
+        rc, cikti = self.kostur("--yeniden")
+        self.assertEqual(rc, 0)
+        self.assertIn("--- a/takimlar/kalite/takim.md", cikti)
+        self.assertIn("+description: Kalite danışmanı olarak kurulun çağrı kalitesi ve şikâyet sorularını "
+                      "değerlendirme ve şikâyet verisiyle yanıtlamak.", cikti)
+        self.assertIn("şikâyet verisiyle", self.oku("takimlar/kalite/takim.md"))
+
+    def test_yeniden_defteri_ve_durumu_korur(self):
+        self.kostur()
+        (self.kok / "takimlar/kalite/defter.md").write_text("# Defter — kalite\n\n- ders\n", encoding="utf-8")
+        durum = self.oku("takimlar/kalite/durum.json")
+        self.assertEqual(self.kostur("--yeniden")[0], 0)
+        self.assertIn("- ders", self.oku("takimlar/kalite/defter.md"))
+        self.assertEqual(self.oku("takimlar/kalite/durum.json"), durum)
+
+    def test_durunca_sebepler_ve_rc1(self):
+        self.form(FORM.replace("yönlendirir): kalite, şikâyet, memnuniyet, denetim", "yönlendirir):"))
+        rc, cikti = self.kostur()
+        self.assertEqual(rc, 1)
+        self.assertIn("durdu — 1 sebep, hiçbir dosya yazılmadı:", cikti)
+        self.assertIn("eksik: §2 Anahtar kelimeler (en az bir)", cikti)
+
+    def test_yazinca_sonraki_adimlari_basar(self):
+        rc, cikti = self.kostur()
+        self.assertEqual(rc, 0)
+        self.assertIn("python3 bin/agents_uret.py", cikti)
+        self.assertIn("python3 -m unittest discover -s tests", cikti)
+
+
+class GirisNoktasiTesti(unittest.TestCase):
+    """Bağlantı: `python3 bin/formdan_takim.py` gerçekten `main`'i çağırıyor (yazmayan iki yol)."""
+
+    def _kostur(self, *argv):
+        return subprocess.run([sys.executable, str(KOK / "bin/formdan_takim.py"), *argv],
+                              capture_output=True, text=True, cwd=KOK)
+
+    def test_argumansiz_rc2(self):
+        sonuc = self._kostur()
+        self.assertEqual(sonuc.returncode, 2)
+        self.assertIn("kullanım:", sonuc.stderr)
+
+    def test_olmayan_form_rc1_ve_sebep(self):
+        sonuc = self._kostur("olmayan-bolum", "--kuru")
+        self.assertEqual(sonuc.returncode, 1)
+        self.assertIn("form yok: formlar/onayli/olmayan-bolum.md", sonuc.stdout)
+
+
 class KilitTesti(unittest.TestCase):
     """K6: insanın dosyaları kuralla değil yetkiyle kapalı; eski altı kilit de yerinde (12'nin 12'si)."""
 
