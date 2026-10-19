@@ -9,10 +9,12 @@
 | Danışman | Klasör | Durum |
 |---|---|---|
 | Finans Danışmanı | `takimlar/finans/` | kurulumda — form bekliyor (Faz 6) |
-| Kalite Danışmanı | `takimlar/kalite/` | kurulumda — ilk danışman (Faz 4) |
+| Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri betiği yok; SDR anahtarları `.env`'de olmadığı için koşmaz |
 | OKR Danışmanı | `takimlar/okr/` | kurulumda — form bekliyor (Faz 6) |
 | Raporlama Danışmanı | `takimlar/raporlama/` | kurulumda — form bekliyor (Faz 6) |
 | Satış Müdürü | `takimlar/satis-muduru/` | kurulumda — form bekliyor (Faz 6) |
+
+"Kurulu" ama koşmayan danışman: `gerekli_anahtarlar` eksikse sürücü "eksik anahtar" deyip atlar (`bin/kos.py`).
 
 "Kurulumda": `takim.md`'nin tanımı (frontmatter) henüz yok. Sürücü bu danışmanı koşturmaz, ajan dosyası üretmez,
 İş Dağıtımcı ona soru göndermez (`ayar.kurulumda_mi`). Form `takim.md`'ye işlenince danışman kendiliğinden kurulu olur.
