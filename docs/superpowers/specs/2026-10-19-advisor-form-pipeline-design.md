@@ -2,7 +2,7 @@
 durum: acik
 guncelleme: 2026-10-19
 dal: feature/advisor-form-pipeline
-pr: -
+pr: 5
 bekleyen: -
 ---
 
