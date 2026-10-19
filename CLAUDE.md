@@ -42,7 +42,7 @@ sirket/               AJAN-KIMLIGI.md · DENETCI.md · CEO-KIMLIGI.md · QA-DANI
 takimlar/<danisman>/  takim.md · kurallar.md · defter.md · durum.json · kosu/ · cikti/ · veri/
 takimlar/_iskelet/    yeni danışmanın dört dosyalık iskeleti (bin/takim-olustur.sh)
 skills/<ad>/SKILL.md  yetenekler
-formlar/              DANISMAN-FORMU.md şablonu · gelen/ (git'e girmez) · onayli/ (insanın)
+formlar/              DANISMAN-FORMU.md şablonu · gelen/ (git'e girmez) · onayli/ (insanın; ikisi de git'e girmez)
 docs/superpowers/     PLANS.md · specs/ · plans/
 panel/                kurul üyelerinin arayüzü: giriş + Kurul Ofisi (demo verisiyle)
 tests/                python3 -m unittest discover -s tests

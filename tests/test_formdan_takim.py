@@ -411,6 +411,12 @@ class DefterGitTesti(unittest.TestCase):
     def test_iskelet_defteri_izleniyor(self):
         self.assertFalse(self._yok_sayilir_mi("takimlar/_iskelet/defter.md"))
 
+    def test_onayli_formlar_git_disinda_sablon_izleniyor(self):
+        """Kağan, 19.10.2026: onaylı form yöneticinin ad soyadını taşır; yalnız boş şablon depoda."""
+        self.assertTrue(self._yok_sayilir_mi("formlar/onayli/kalite.md"))
+        self.assertTrue(self._yok_sayilir_mi("formlar/gelen/kalite.md"))
+        self.assertFalse(self._yok_sayilir_mi("formlar/DANISMAN-FORMU.md"))
+
 
 class KilitTesti(unittest.TestCase):
     """K6: insanın dosyaları kuralla değil yetkiyle kapalı; eski altı kilit de yerinde (12'nin 12'si)."""

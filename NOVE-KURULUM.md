@@ -133,7 +133,7 @@ nove-kurul/
 ├── formlar/                   şablon: `DANISMAN-FORMU.md`
 │   ├── DANISMAN-FORMU.md      yöneticilere giden boş şablon (§6)
 │   ├── gelen/                 doldurulmuş formlar — git'e GİRMEZ
-│   └── onayli/                Kağan'ın revize ettiği formlar
+│   └── onayli/                Kağan'ın revize ettiği formlar — git'e GİRMEZ (19.10.2026)
 ├── yanitlar/                  Yanıt defteri — yalnız sürücü yazar
 ├── skills/<ad>/SKILL.md
 ├── bin/                       kos · bekci · ceo · dagitici · soru_kapisi · yanit_defteri · crm_zil · panel · ayar · …

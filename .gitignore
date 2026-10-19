@@ -20,6 +20,8 @@ sirket-log/
 # NOVE-KURULUM.md §3: bunlar git'e girmez
 gelen/
 formlar/gelen/
+# Onaylı form yöneticinin ad soyadını ve şirket içi veri bilgisini taşır; depo herkese açık (Kağan, 19.10.2026)
+formlar/onayli/
 # Panel rolleri (personel e-postası) ve Yanıt defteri (kurulun soruları, soranlar) — kişisel ve şirket içi
 deploy/roller.json
 yanitlar/
