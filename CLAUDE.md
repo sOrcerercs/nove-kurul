@@ -51,8 +51,8 @@ kasa/                 bilgi kasası (kendi git deposu) — git'e girmez
 
 ## Yasaklar
 - `.env` okuma, açma, ekrana basma — **kuralla değil, `.claude/settings.json`'daki `permissions.deny` ile kapalı**.
-  Yanıt defteri (`yanitlar/`) ve onaylı formlar (`formlar/onayli/`) de aynı şekilde yazmaya kapalı; Yanıt defterine
-  yalnız sürücü yazar.
+  Yanıt defteri (`yanitlar/`), onaylı formlar (`formlar/onayli/`), `ANAYASA.md`, `sirket/CEO-KIMLIGI.md` ve her
+  danışmanın `kurallar.md`'si de aynı şekilde yazmaya kapalı; Yanıt defterine yalnız sürücü yazar.
 - Veri kaynaklarına, prod veritabanına yazma; DDL ya da migration
 - Mail, mesaj, yayın; kişiye ya da departmana talimat; tarayıcıyla panele giriş
 - `ANAYASA.md`, `kurallar.md`, `formlar/onayli/`, `sirket/CEO-KIMLIGI.md` değiştirme — insanın
