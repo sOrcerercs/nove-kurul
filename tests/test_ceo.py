@@ -247,3 +247,16 @@ class MainTesti(Kurulum):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TavanTesti(unittest.TestCase):
+    """§9 (N27, N31): soru bütçesi en kötü yola ve Denetçi payına yeter; rakam yalnız ayar.py'de (ANAYASA §4)."""
+
+    def test_soru_butcesi_en_kotu_yola_yeter(self):
+        en_kotu = 2 * ayar.KOSU_BUTCESI_USD + (1 + ayar.CEO_MAKS_RED) * ayar.CEO_BUTCESI_USD
+        self.assertLessEqual(en_kotu + 1.0, ayar.SORU_BUTCESI_USD)
+
+    def test_ceo_tavani_faz4_olcumune_kadar_1_5(self):
+        """Kağan, 19.10.2026: Opus 5.5 tahmini tipik ~0,53, ağır ~1,28 USD; Faz 4 beş gerçek soruda ölçülecek."""
+        self.assertEqual(ayar.CEO_BUTCESI_USD, 1.5)
+
