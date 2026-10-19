@@ -37,7 +37,16 @@ ad ve unvana kadar bilgi vermesini istedi; hasta ve müşteri adı için de "yaz
    Not: `nove-kurul` deposu PUBLIC; `takimlar/*/defter.md` git'e giriyordu (19.10.2026 ölçüldü).
 3. **Danışman defterleri git'e girmez (A)** — `.gitignore`: `takimlar/*/defter.md`, iskelet hariç. PR #5'te uygulandı.
 
-## Henüz karar yok
+4. **`takim.md` Sahibi = yalnız unvan; `formlar/onayli/` git dışında** — PR #5'te uygulandı (`24beb97`, `0c6fdd7`).
+5. **Yurt dışı aktarım (Anthropic, NVIDIA NIM, OpenAI): uygun** — Kağan'ın teyidi, 19.10.2026. Maskeleme yapılmaz
+   (adın deseni yok; güvenilir maskeleme mümkün değil).
+6. **ANAYASA §2 yeni metni onaylandı** — "Kişisel veri sınırlıdır. Hasta ve müşterinin adı soyadı yazılabilir;
+   telefonu, e-postası ve TC kimlik numarası … yazılmaz. … Ad soyad taşıyabilen dosya herkese açık bir depoya
+   girmez." Dosyayı Kağan kaydeder (ajan için kilitli). Ardından ayrı dalda: `bin/bekci.py` istemi,
+   `formdan_takim.HER_ZAMAN_YASAK`, `CLAUDE.md` Yasaklar, `formlar/DANISMAN-FORMU.md` uyarısı, `NOVE-KURULUM.md`,
+   `sirket/AJAN-KIMLIGI.md`, `sirket/DENETCI.md`, testler.
+
+## Henüz karar yok (eski liste — 1–6 ile cevaplandı)
 
 - Hukuk / KVKK sorumlusu hasta adının (özel nitelikli veri) kurul yanıtında, koşu kaydında ve logda tutulmasına
   hangi dayanakla izin veriyor? Kim onaylar?
