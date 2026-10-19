@@ -11,6 +11,7 @@ Kullanım:
   python3 bin/kalite_veri.py ekipler
   python3 bin/kalite_veri.py ekip-ozet --baslangic YYYY-MM-DD --bitis YYYY-MM-DD
         [--karsilastir-baslangic .. --karsilastir-bitis ..] [--tip first|second] [--ekip <ad>]
+  python3 bin/kalite_veri.py temsilci-ozet|kriterler|kocluk --baslangic .. --bitis .. [--ekip <ad>] [--tip ..]
 Çıkış: 0 tamam · 1 durdu (`**Hazırlanamadı:** <sebep>`) · 2 kullanım hatası
 """
 import argparse
@@ -235,6 +236,38 @@ def temsilci_tablosu(satirlar):
     return tablo
 
 
+# Okunmamış koçluk: SDR Analyzer paneli kuralı (app/lib/coachingInbox.ts, isCoachingUnseen) — agentRead DEĞİL.
+OKUNMAYAN_KOSULU = ("(e.\"coachingSeenAt\" IS NULL OR (e.\"coachingDoneAt\" IS NOT NULL"
+                    " AND e.\"coachingSeenAt\" < e.\"coachingDoneAt\"))")
+
+
+def kocluk_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — temsilci başına (temsilci, ekip, kayıt, koçluk yapılan, okunmayan). Parametreli."""
+    kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
+    sql = ("SELECT u.name, t.name, count(*) AS adet,\n"
+           "       count(*) FILTER (WHERE e.\"coachingDone\") AS kocluk_yapilan,\n"
+           "       count(*) FILTER (WHERE e.\"coachingDone\" AND " + OKUNMAYAN_KOSULU + ") AS okunmayan\n"
+           "  FROM public.\"Evaluation\" e\n"
+           "  JOIN public.\"User\" u ON u.id = e.\"agentId\"\n"
+           "  JOIN public.\"Team\" t ON t.id = u.\"teamId\"\n"
+           " WHERE " + kosul + "\n"
+           " GROUP BY u.id, u.name, t.name\n ORDER BY t.name, u.name")
+    return sql, param
+
+
+def kocluk_tablosu(satirlar):
+    """(temsilci, ekip, kayıt, koçluk yapılan, okunmayan) → okunan = yapılan - okunmayan."""
+    tablo = []
+    for temsilci, ekip, adet, yapilan, okunmayan in satirlar:
+        if not adet:
+            continue
+        tablo.append({"temsilci": temsilci, "ekip": ekip, "kayit": int(adet),
+                      "kocluk_yapilan": int(yapilan), "okunan": int(yapilan) - int(okunmayan),
+                      "okunmayan": int(okunmayan)})
+    tablo.sort(key=lambda t: (-t["okunmayan"], t["ekip"], t["temsilci"]))
+    return tablo
+
+
 def kriter_sorgusu(bas, bit, tip, ekip=None):
     """(sql, params) — ekip ve kriter başına (ekip, kriter_id, etiket, kaldı, kısmi, geçti). NA sayılmaz."""
     kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
@@ -403,6 +436,24 @@ def temsilci_ozet_bas(baglanti, args):
     return 0
 
 
+def kocluk_bas(baglanti, args):
+    sinir = _hazirla(baglanti, args)
+    if not sinir:
+        return 1
+    tablo = kocluk_tablosu(_sorgula(baglanti, kocluk_sorgusu(sinir[0], sinir[1], args.tip, args.ekip)))
+    if not tablo:
+        print(hazirlanamadi("%s için sayılabilir kayıt yok" % ("%s..%s" % (args.baslangic, args.bitis))))
+        return 1
+    filtre = _filtre_ozeti(args)
+    filtre["kocluk_sonrasi_gelisme"] = "— (ölçütü tanımlı değil; teyit: Quality Supervisor)"
+    print(kapsam_bolumu("kocluk", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
+    for t in tablo:
+        print("- %s: ekip=%s kayit=%d kocluk_yapilan=%d okunan=%d okunmayan=%d"
+              % (_tek_satir(t["temsilci"]), _tek_satir(t["ekip"]), t["kayit"], t["kocluk_yapilan"],
+                 t["okunan"], t["okunmayan"]))
+    return 0
+
+
 def kriterler_bas(baglanti, args):
     sinir = _hazirla(baglanti, args)
     if not sinir:
@@ -437,7 +488,8 @@ def _komutlar():
     oz.add_argument("--tip", choices=sorted(TIP_ESLEME))
     oz.add_argument("--ekip")
     for ad, yardim in (("temsilci-ozet", "temsilci başına ortalama"),
-                       ("kriterler", "kriter başına kaldı/kısmi/geçti")):
+                       ("kriterler", "kriter başına kaldı/kısmi/geçti"),
+                       ("kocluk", "temsilci başına koçluk yapılan / okunan / okunmayan")):
         k = alt.add_parser(ad, help=yardim)
         k.add_argument("--baslangic", required=True)
         k.add_argument("--bitis", required=True)
@@ -474,6 +526,8 @@ def main(argv, ortam=None, baglan=None):
             return temsilci_ozet_bas(baglanti, args)
         if args.komut == "kriterler":
             return kriterler_bas(baglanti, args)
+        if args.komut == "kocluk":
+            return kocluk_bas(baglanti, args)
         return 0
     finally:
         try:

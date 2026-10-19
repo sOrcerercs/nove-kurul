@@ -478,5 +478,48 @@ class TemsilciKriterTesti(unittest.TestCase):
         self.assertIn("**Hazırlanamadı:**", cikti)
 
 
+class KoclukTesti(unittest.TestCase):
+    ARALIK = ["--baslangic", "2026-10-01", "--bitis", "2026-10-31"]
+
+    def test_kocluk_okunmayan_sayisi(self):
+        # satır: (temsilci, ekip, kayit, kocluk_yapilan, okunmayan) — okunan = yapilan - okunmayan
+        tablo = kalite_veri.kocluk_tablosu([("Ayse", "A", 10, 4, 3)])
+        self.assertEqual(tablo, [{"temsilci": "Ayse", "ekip": "A", "kayit": 10,
+                                  "kocluk_yapilan": 4, "okunan": 1, "okunmayan": 3}])
+
+    def test_sorgu_panel_kuralini_tasir(self):
+        bas, bit = kalite_veri.gun_siniri("2026-10-01", "2026-10-31")
+        sql, param = kalite_veri.kocluk_sorgusu(bas, bit, "first", "X'; DROP")
+        self.assertIn(kalite_veri.SAYIM_KOSULU, sql)
+        self.assertIn(kalite_veri.UYE_KOSULU, sql)
+        self.assertIn('e."coachingDone"', sql)
+        self.assertIn('e."coachingSeenAt" IS NULL', sql)
+        self.assertIn('e."coachingSeenAt" < e."coachingDoneAt"', sql)
+        self.assertNotIn("agentRead", sql)
+        self.assertNotIn("DROP", sql)
+        self.assertIn("X'; DROP", param.values())
+        self.assertIsNone(YASAK.search(sql))
+        self.assertTrue(sql.lstrip().upper().startswith("SELECT"))
+
+    def test_gorulme_koclugun_oncesindeyse_okunmayan_sayilir(self):
+        # sahte veritabanı yok: kuralın SQL ifadesini Python'da aynen denetler
+        sql, _ = kalite_veri.kocluk_sorgusu(*kalite_veri.gun_siniri("2026-10-01", "2026-10-31"), None)
+        self.assertIn('e."coachingDoneAt" IS NOT NULL AND e."coachingSeenAt" < e."coachingDoneAt"', sql)
+
+    def test_gelisme_yok(self):
+        kod, cikti, _ = _calistir(["kocluk"] + self.ARALIK,
+                                  lambda s, p: [("Ayse", "Alfa", 10, 4, 3), ("Can", "Alfa", 5, 0, 0)])
+        self.assertEqual(kod, 0)
+        self.assertIn("kocluk_sonrasi_gelisme=— (ölçütü tanımlı değil; teyit: Quality Supervisor)", cikti)
+        self.assertIn("kayit=15", cikti)
+        self.assertIn("- Ayse: ekip=Alfa kayit=10 kocluk_yapilan=4 okunan=1 okunmayan=3", cikti)
+        self.assertIn("- Can: ekip=Alfa kayit=5 kocluk_yapilan=0 okunan=0 okunmayan=0", cikti)
+
+    def test_kocluk_bos(self):
+        kod, cikti, _ = _calistir(["kocluk"] + self.ARALIK, lambda s, p: [])
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:**", cikti)
+
+
 if __name__ == "__main__":
     unittest.main()
