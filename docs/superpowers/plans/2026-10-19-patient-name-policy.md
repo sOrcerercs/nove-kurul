@@ -2,7 +2,7 @@
 durum: acik
 guncelleme: 2026-10-19
 dal: feature/patient-name-policy
-pr: -
+pr: 6
 bekleyen: -
 ---
 
