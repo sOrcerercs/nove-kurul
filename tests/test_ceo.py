@@ -282,3 +282,16 @@ class ModelKaydiTesti(Kurulum):
         self.yaz(DENETCI_KABUL)
         self.kontrol({**_cozum(ONAY), "modeller": ["claude-opus-5-5"]})
         self.assertIn("- model: claude-opus-5-5\n", self.kayit.read_text(encoding="utf-8"))
+
+
+class BelgeRakamTesti(unittest.TestCase):
+    """ANAYASA §4: tavan rakamları yalnız bin/ayar.py'de; belgeler sabitin adını yazar (19.10.2026, Kağan'ın izniyle)."""
+
+    BELGELER = ("sirket/CEO-KIMLIGI.md", "sirket/QA-DANISMANI.md", "sirket/IS-DAGITIMCI.md")
+
+    def test_belgeler_butce_rakami_tasimaz(self):
+        self.assertEqual(len(self.BELGELER), 3)
+        for yol in self.BELGELER:
+            with self.subTest(belge=yol):
+                metin = (KOK / yol).read_text(encoding="utf-8")
+                self.assertNotRegex(metin, r"(?i)\b\d+(,\d+)? USD(['’]lik)? (/ kontrol|bütçe)|\b\d+,\d{2} USD\b|\*\*\d+ USD\*\* bütçe|`ayar\.\w+`, \d+ USD")
