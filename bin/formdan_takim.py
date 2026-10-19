@@ -41,7 +41,7 @@ BILINEN = {
     3: ("Bu verideki hassas alanlar", "Formülü/tanımı"),
     4: ("Bu danışman ASLA", "Her yanıtta mutlaka", "Hangi sayıyı kim teyit eder"),
     6: ("Soru beklemeden",),
-    7: ("Model", "Ek yetenekler", "Gerekli anahtarlar", "Personel adı"),
+    7: ("Model", "Ek yetenekler", "Gerekli anahtarlar", "İzinli komut", "Personel adı"),
 }
 SERBEST_BOLUM = 5
 FM_ALANLARI = (("meslek", "§1 Tek cümleyle mesleği"), ("renk", "§1 Sahnedeki rengi"), ("model", "§7 Model"))
@@ -50,6 +50,7 @@ FM_LISTELERI = (("anahtar_kelimeler", "§2 Anahtar kelimeler"), ("yetenekler", "
 ORTAK_YETENEK = "kurul-yaniti"
 AD_DESENI = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")   # bin/takim-olustur.sh ile aynı
 ARACLAR = "[Read, Write, Glob, Grep]"                  # takimlar/_iskelet/takim.md ile aynı
+IZINLI_KOMUT = re.compile(r"^python3 bin/[a-z0-9_]+\.py$")   # yalnız bin/ altındaki betik; Bash(<komut>:*) olur
 PERSONEL_IZNI = "Personel adı ve unvanı yazılabilir."
 PERSONEL_YASAGI = "Personel adı yazılmaz."
 HER_ZAMAN_YASAK = ("Hasta ve müşterinin adı soyadı yazılabilir; telefon, e-posta, TC kimlik no yazılmaz "
@@ -170,6 +171,7 @@ def oku(metin):
         "model": _tek(k[7], "Model"),
         "yetenekler": _virgullu(k[7], "Ek yetenekler"),
         "anahtarlar": _virgullu(k[7], "Gerekli anahtarlar"),
+        "izinli_komut": _tek(k[7], "İzinli komut"),
         "personel_adi": _tek(k[7], "Personel adı"),
     }
 
@@ -200,6 +202,8 @@ def deger_sorunlari(form):
                 for alan, etiket in FM_ALANLARI if "---" in form[alan] or form[alan].startswith("[")]
     sorunlar += [f"frontmatter'ı bozar: {etiket} (madde '---', '[' ya da ']' içeremez)"
                  for alan, etiket in FM_LISTELERI if any("---" in d or "[" in d or "]" in d for d in form[alan])]
+    if form["izinli_komut"] and not IZINLI_KOMUT.match(form["izinli_komut"]):
+        sorunlar.append("§7 İzinli komut yalnız 'python3 bin/<ad>.py' olabilir")
     if _personel(form) is None:
         sorunlar.append(f"§7 Personel adı yalnız evet ya da hayır olabilir (yazılan: '{form['personel_adi']}')")
     return sorunlar
@@ -261,9 +265,22 @@ def _maddeler(degerler, girinti=""):
     return [f"{girinti}- {d}" for d in degerler] or [f"{girinti}- (formda yok)"]
 
 
+def _komut_cumlesi(form):
+    komut = form["izinli_komut"]
+    if not komut:
+        return ""
+    return (f" Veriyi yalnız `{komut} <alt-komut> …` ile al; çıktının `## kapsam` bölümünü yanıtta kaynak olarak "
+            "yaz; `Hazırlanamadı` gelirse sayı uydurma, sebebi Bilinmeyenler'e yaz.")
+
+
+def _araclar(form):
+    komut = form["izinli_komut"]
+    return ARACLAR[:-1] + f", Bash({komut}:*)]" if komut else ARACLAR
+
+
 def takim_md(bolum, form):
     fm = ["---", f"name: {bolum}", f"description: {form['meslek']}", "saglayici: anthropic",
-          f"model: {form['model'] or 'sonnet'}", f"tools: {ARACLAR}",
+          f"model: {form['model'] or 'sonnet'}", f"tools: {_araclar(form)}",
           f"gerekli_anahtarlar: {_fm_liste(form['anahtarlar'])}", f"skills: {_fm_liste(_yetenekler(form))}",
           f"anahtar_kelimeler: {_fm_liste(form['anahtar_kelimeler'])}"]
     if form["renk"]:
@@ -281,7 +298,7 @@ def takim_md(bolum, form):
               "1. `durum.json` kuyruğuna bak. `s-<soru-id>` yeni sorudur; `r-<soru-id>` CEO reddinden sonra",
               "   düzeltmedir — maddenin `not` alanındaki CEO bulgularını oku, yalnız onları düzelt.",
               "2. Soru kaydını oku: `sirket-log/sorular/<soru-id>.md`. Soru belirsizse hangi yorumla yanıtladığını yaz.",
-              "3. Girdi kaynaklarına (aşağıda) yalnız salt okunur yollarla bak.",
+              "3. Girdi kaynaklarına (aşağıda) yalnız salt okunur yollarla bak." + _komut_cumlesi(form),
               f"4. Taslağı `takimlar/{bolum}/cikti/<soru-id>-taslak.md`'ye `kurul-yaniti` düzeninde yaz.",
               "5. İş bitince kuyruk maddesini `tamam` yap; `durum.json`'da `son_kosu` ve `defter_son_ders`'i güncelle.",
               "6. `defter.md`'ye bu koşudan çıkan **tek** dersi ekle (ders yoksa ekleme).",
