@@ -1,9 +1,9 @@
 ---
-durum: taslak
+durum: yazildi
 guncelleme: 2026-10-19
 dal: feature/quality-db-reader
 pr: -
-bekleyen: kullanici
+bekleyen: -
 ---
 
 # Kalite ajanının veri okuyucusu — Tasarım
