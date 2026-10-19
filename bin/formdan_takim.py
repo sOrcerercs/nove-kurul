@@ -12,6 +12,7 @@ Kullanım:
 Çıkış: 0 yazıldı ya da kuru · 1 durdu (sebeplerin hepsi listelenir) · 2 kullanım hatası
 """
 import difflib
+import os
 import re
 import sys
 from pathlib import Path
@@ -32,6 +33,20 @@ ZORUNLU = (
     ("ornek_sorular", "§2 Örnek sorular (en az bir)"),
     ("veri", "§3 Veri tablosu (en az bir dolu satır)"),
 )
+# Bölüm başına bilinen etiket önekleri. Burada olmayan `- X: y` satırı ya girintisiz yazılmış bir maddedir ya da
+# yazım hatasıdır; sessizce yeni alan sayılırsa içerik kaybolur (son inceleme, Önemli 5). §5 serbest metindir.
+BILINEN = {
+    1: ("Danışman adı", "Bölüm yöneticisi", "Tek cümleyle mesleği", "Sahnedeki rengi"),
+    2: ("Bu danışmana gelmesi gereken", "Anahtar kelimeler", "Bu danışmana GELMEMESİ"),
+    3: ("Bu verideki hassas alanlar", "Formülü/tanımı"),
+    4: ("Bu danışman ASLA", "Her yanıtta mutlaka", "Hangi sayıyı kim teyit eder"),
+    6: ("Soru beklemeden",),
+    7: ("Model", "Ek yetenekler", "Gerekli anahtarlar", "Personel adı"),
+}
+SERBEST_BOLUM = 5
+FM_ALANLARI = (("meslek", "§1 Tek cümleyle mesleği"), ("renk", "§1 Sahnedeki rengi"), ("model", "§7 Model"))
+FM_LISTELERI = (("anahtar_kelimeler", "§2 Anahtar kelimeler"), ("yetenekler", "§7 Ek yetenekler"),
+                ("anahtarlar", "§7 Gerekli anahtarlar"))
 ORTAK_YETENEK = "kurul-yaniti"
 AD_DESENI = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")   # bin/takim-olustur.sh ile aynı
 ARACLAR = "[Read, Write, Glob, Grep]"                  # takimlar/_iskelet/takim.md ile aynı
@@ -45,14 +60,18 @@ HER_ZAMAN_YASAK = "Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazı
 def bolumler(metin):
     """{numara: gövde} — `## N. …` başlıkları; gövde bir sonraki `## ` başlığında biter.
 
-    Başlık metni değil numara bağlar. Numarasız başlık (revize kontrol listesi) hiçbir bölüme girmez."""
+    Başlık metni değil numara bağlar. Numarasız başlık (revize kontrol listesi) hiçbir bölüme girmez.
+    §5 serbest metindir: içine yapıştırılan `## Kısa yanıt` gibi başlıklar onu bitirmez, yalnız `## 6.` bitirir."""
     baslar = list(BASLIK.finditer(metin))
+    numaralar = [NUMARA.match(b.group(1).strip()) for b in baslar]
     sonuc = {}
-    for i, bas in enumerate(baslar):
-        numara = NUMARA.match(bas.group(1).strip())
-        if numara:
-            son = baslar[i + 1].start() if i + 1 < len(baslar) else len(metin)
-            sonuc[int(numara.group(1))] = metin[bas.end():son]
+    for i, (bas, numara) in enumerate(zip(baslar, numaralar)):
+        if not numara:
+            continue
+        no = int(numara.group(1))
+        son = next((baslar[j].start() for j in range(i + 1, len(baslar))
+                    if numaralar[j] or no != SERBEST_BOLUM), len(metin))
+        sonuc[no] = metin[bas.end():son]
     return sonuc
 
 
@@ -97,10 +116,25 @@ def _virgullu(k, onek):
     return [p for p in parcalar if p and p not in ("?", "…", "...")]
 
 
-def _metin(k, onek):
-    """Çok satırlı serbest metin: satırlar sırasıyla, girinti atılır; yalnız '?' ise boş."""
-    satirlar = [s.strip() for s in _bul(k, onek).splitlines() if s.strip()]
-    return "" if satirlar in ([], ["?"]) else "\n".join(satirlar)
+def _serbest(govde, onek):
+    """Serbest metin bölümü: etiket satırından bölüm sonuna kadar her satır (girinti atılır, boş satır düşer).
+
+    `alanlar` kullanılmaz: yapıştırılan `- Dayanak: …` satırı yeni alan sanılıp kesilmesin. Yalnız '?' ise boş."""
+    satirlar = govde.splitlines()
+    onek = dagitici._tr_kucuk(onek)
+    bas = next((i for i, s in enumerate(satirlar) if (a := ALAN.match(s))
+                and dagitici._tr_kucuk(a.group(1)).startswith(onek)), None)
+    if bas is None:
+        return ""
+    ilk = ALAN.match(satirlar[bas]).group(2)
+    temiz = [s.strip() for s in [ilk, *satirlar[bas + 1:]] if s.strip()]
+    return "" if temiz in ([], ["?"]) else "\n".join(temiz)
+
+
+def _personel(form):
+    """'' / 'evet' / 'hayır' — sondaki noktalama atılır; başka değer `None` (durdurur, açık sayılmaz)."""
+    deger = dagitici._tr_kucuk(form["personel_adi"]).strip().rstrip(".!")
+    return {"": "evet", "evet": "evet", "hayır": "hayır", "hayir": "hayır"}.get(deger)
 
 
 def tablo(govde):
@@ -130,7 +164,7 @@ def oku(metin):
         "asla": _liste(k[4], "Bu danışman ASLA"),
         "mutlaka": _liste(k[4], "Her yanıtta mutlaka"),
         "teyit": _liste(k[4], "Hangi sayıyı kim teyit eder"),
-        "iyi_yanit": _metin(k[5], "Kurula giden ideal yanıtın"),
+        "iyi_yanit": _serbest(b.get(SERBEST_BOLUM, ""), "Kurula giden ideal yanıtın"),
         "tempo": _tek(k[6], "Soru beklemeden"),
         "model": _tek(k[7], "Model"),
         "yetenekler": _virgullu(k[7], "Ek yetenekler"),
@@ -142,6 +176,32 @@ def oku(metin):
 def eksikler(form):
     """Boş zorunlu alanların hepsi — ilk eksikte durulmaz."""
     return [f"eksik: {etiket}" for alan, etiket in ZORUNLU if not form[alan]]
+
+
+def bilinmeyen_alanlar(metin):
+    """`BILINEN`'de olmayan etiketler → durdurur; girintisiz madde sessizce yeni alan olup kaybolmasın."""
+    sorunlar = []
+    for no, govde in sorted(bolumler(metin).items()):
+        if no not in BILINEN:
+            continue
+        onekler = [dagitici._tr_kucuk(o) for o in BILINEN[no]]
+        for etiket in alanlar(govde):
+            if not any(dagitici._tr_kucuk(etiket).startswith(o) for o in onekler):
+                sorunlar.append(f"§{no} bilinmeyen alan: '{etiket}' — madde ise iki boşluk girintiyle yaz")
+    return sorunlar
+
+
+def deger_sorunlari(form):
+    """Frontmatter'a giden değerler `ayar.frontmatter`'ı bozamaz: '---' dosyayı keser, '[' listeye çevirir.
+
+    Bozulan frontmatter'da `tools` düşer ve ajan dosyası bütün araçları alır (son inceleme, Önemli 1)."""
+    sorunlar = [f"frontmatter'ı bozar: {etiket} ('---' içeremez, '[' ile başlayamaz)"
+                for alan, etiket in FM_ALANLARI if "---" in form[alan] or form[alan].startswith("[")]
+    sorunlar += [f"frontmatter'ı bozar: {etiket} (madde '---', '[' ya da ']' içeremez)"
+                 for alan, etiket in FM_LISTELERI if any("---" in d or "[" in d or "]" in d for d in form[alan])]
+    if _personel(form) is None:
+        sorunlar.append(f"§7 Personel adı yalnız evet ya da hayır olabilir (yazılan: '{form['personel_adi']}')")
+    return sorunlar
 
 
 # --- kontroller (K4) --------------------------------------------------------
@@ -231,7 +291,8 @@ def takim_md(bolum, form):
               "## Çıktı sözleşmesi",
               f"- Dosya: `takimlar/{bolum}/cikti/<soru-id>-taslak.md`",
               "- Düzen: `skills/kurul-yaniti/SKILL.md` — Kısa yanıt · Dayanak · Bilinmeyenler · Not", "",
-              "### İyi yanıt örneği (formdan, §5)", form["iyi_yanit"] or "(formda yok)", "",
+              "### İyi yanıt örneği (formdan, §5)",
+              *([f"> {s}" for s in form["iyi_yanit"].splitlines()] or ["(formda yok)"]), "",
               "## Tempo",
               (form["tempo"] or "Yok — yalnız soruyla koşar.")
               + " Zamanlı koşu `gunluk.ZAMANLI`'ya elle eklenir; bu dosya koşu başlatmaz.", ""]
@@ -239,8 +300,7 @@ def takim_md(bolum, form):
 
 
 def kurallar_md(bolum, form):
-    personel = (PERSONEL_YASAGI if dagitici._tr_kucuk(form["personel_adi"]) in ("hayır", "hayir")
-                else PERSONEL_IZNI)
+    personel = PERSONEL_YASAGI if _personel(form) == "hayır" else PERSONEL_IZNI
     satirlar = [
         f"# Kurallar — {form['ad']} Danışmanı", "",
         "> Bekçi bu dosyayı okur ve koşu kaydını buna göre denetler. Yalnızca insan değiştirir.",
@@ -270,6 +330,33 @@ def yetenege_ekle(metin, bolum):
     return re.sub(r"^takimlar:.*$", "takimlar: " + _fm_liste([*mevcut, bolum]), metin, count=1, flags=re.M)
 
 
+def _yaz(kok, dosyalar):
+    """Hepsi ya da hiçbiri. `takim.md` en son yazılır: danışmanı o kurar (Önemli 3).
+
+    Her dosya önce `<ad>.yeni`'ye yazılır, sonra `os.replace` ile yerine konur. Bir yazım düşerse o ana kadar
+    yerine konanlar eski hâline döner (yoksa silinir). Döner: hata metni ya da None."""
+    sira = sorted(dosyalar, key=lambda y: y.endswith("/takim.md"))
+    eskiler, konan = {}, []
+    for yol in sira:
+        hedef = Path(kok) / yol
+        gecici = hedef.with_name(hedef.name + ".yeni")
+        try:
+            hedef.parent.mkdir(parents=True, exist_ok=True)
+            eskiler[yol] = hedef.read_bytes() if hedef.exists() else None
+            gecici.write_text(dosyalar[yol], encoding="utf-8")
+            os.replace(gecici, hedef)
+            konan.append(yol)
+        except OSError as exc:
+            gecici.unlink(missing_ok=True)
+            for geri in reversed(konan):
+                if eskiler[geri] is None:
+                    (Path(kok) / geri).unlink(missing_ok=True)
+                else:
+                    (Path(kok) / geri).write_bytes(eskiler[geri])
+            return f"yazılamadı: {yol} ({exc.strerror or exc}) — yazılanlar geri alındı, hiçbir dosya değişmedi"
+    return None
+
+
 def uret(kok, bolum, kuru=False, yeniden=False):
     """Formu denetler, dosya metinlerini bellekte üretir; durma yoksa ve kuru değilse yazar.
 
@@ -286,7 +373,8 @@ def uret(kok, bolum, kuru=False, yeniden=False):
     metin = form_yolu.read_text(encoding="utf-8")
     form = oku(metin)
     hedef = kok / "takimlar" / bolum
-    sebepler = eksikler(form) + kisisel_veri(metin) + yetenek_sorunlari(kok, _yetenekler(form))
+    sebepler = (eksikler(form) + bilinmeyen_alanlar(metin) + deger_sorunlari(form) + kisisel_veri(metin)
+                + yetenek_sorunlari(kok, _yetenekler(form)))
     if ((hedef / "kurallar.md").exists() or ayar.takim_bilgisi(bolum, kok)) and not yeniden:
         sebepler.append(f"takimlar/{bolum} zaten kurulu (kurallar.md ya da tanımlı takim.md var) — "
                         "yeniden üretmek için --yeniden; önce farkı gösterir")
@@ -310,13 +398,20 @@ def uret(kok, bolum, kuru=False, yeniden=False):
             if (kok / yol).exists() and (eski := (kok / yol).read_text(encoding="utf-8")) != yeni:
                 sonuc["farklar"].append("".join(difflib.unified_diff(
                     eski.splitlines(True), yeni.splitlines(True), f"a/{yol}", f"b/{yol}")))
+    # Ham formda satıra bölünmüş bir numara üretilen metinde birleşir: yazılacak metin de taranır (Önemli 2).
+    uretilen = [f"kişisel veri: {tur} (üretilen {yol})" for yol in (f"takimlar/{bolum}/takim.md",
+                f"takimlar/{bolum}/kurallar.md") for tur in bekci.on_kontrol(dosyalar[yol])]
+    if uretilen:
+        sonuc["sebepler"] = uretilen
+        return sonuc
     sonuc["dosyalar"] = dosyalar
     if kuru:
         sonuc["durum"] = "kuru"
         return sonuc
-    for yol, icerik in dosyalar.items():
-        (kok / yol).parent.mkdir(parents=True, exist_ok=True)
-        (kok / yol).write_text(icerik, encoding="utf-8")
+    hata = _yaz(kok, dosyalar)
+    if hata:
+        sonuc["sebepler"] = [hata]
+        return sonuc
     for ad in ("kosu", "cikti"):
         (hedef / ad).mkdir(parents=True, exist_ok=True)
     sonuc["durum"] = "yazildi"

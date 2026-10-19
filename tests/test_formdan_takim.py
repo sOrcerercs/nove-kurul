@@ -191,7 +191,8 @@ class UretimTesti(_GeciciKok):
     def test_durunca_hicbir_dosya_yazilmaz(self):
         """Test 2 + 4 + 5 birlikte: üç sebep listelenir, kalite kurulumda kalır, yetenek dosyası değişmez."""
         skill_once = self.oku("skills/kurul-yaniti/SKILL.md")
-        metin = FORM.replace("- Tek cümleyle mesleği: Kalite", "- Tek cümleyle mesleği:\n- x: Kalite")
+        metin = FORM.replace("- Tek cümleyle mesleği: Kalite danışmanı olarak kurulun çağrı kalitesi ve şikâyet "
+                             "sorularını değerlendirme verisiyle yanıtlamak.", "- Tek cümleyle mesleği:")
         metin = metin.replace("değerlendirilen temsilcinin adı", "0532 123 45 67")
         metin = metin.replace("kendiliğinden eklenir):", "kendiliğinden eklenir): olmayan-yetenek")
         self.form(metin)
@@ -213,6 +214,82 @@ class UretimTesti(_GeciciKok):
         self.assertEqual(sonuc["durum"], "yazildi")
         self.assertEqual(len(sonuc["uyarilar"]), 1)
         self.assertTrue((self.kok / "takimlar/kalite/kurallar.md").exists())
+
+
+class IncelemeDuzeltmeTesti(_GeciciKok):
+    """Son incelemenin Önemli 1–5 bulguları: her biri bulunan girdiyle yeniden üretilir."""
+
+    def test_uc_tire_frontmatteri_bozamaz(self):
+        """Önemli 1: '---' meslek değeri frontmatter'ı keser, tools/skills düşer → durmalı."""
+        self.form(FORM.replace("değerlendirme verisiyle", "değerlendirme --- verisiyle"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertIn("frontmatter'ı bozar: §1 Tek cümleyle mesleği", " ".join(sonuc["sebepler"]))
+        self.assertTrue(ayar.kurulumda_mi("kalite", self.kok))
+
+    def test_koseli_parantezli_deger_durur(self):
+        """Önemli 1: '[…]' ile başlayan değer listeye dönüşür → durmalı."""
+        self.form(FORM.replace("kapatmak için hayır):", "kapatmak için hayır):").replace(
+            "- Sahnedeki rengi (isteğe bağlı): mor", "- Sahnedeki rengi (isteğe bağlı): [mor, mavi]"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertIn("frontmatter'ı bozar: §1 Sahnedeki rengi", " ".join(sonuc["sebepler"]))
+
+    def test_satira_bolunmus_telefon_uretilen_dosyada_yakalanir(self):
+        """Önemli 2: ham formda bölünmüş numara, birleşince üretilen takim.md'de telefon olur → durmalı."""
+        self.form(FORM.replace("- Bölüm yöneticisi (sahibi): Kalite Müdürü",
+                               "- Bölüm yöneticisi (sahibi): Kalite Müdürü, dahili 0532 123\n  45 67"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertIn("kişisel veri: telefon numarası (üretilen takimlar/kalite/takim.md)", sonuc["sebepler"])
+        self.assertEqual(self.oku("takimlar/kalite/takim.md"), "# Kalite Danışmanı\n")
+
+    def test_yazma_hatasi_yarim_kurulum_birakmaz(self):
+        """Önemli 3: yetenek klasörü yazılamıyorsa yazılanlar geri alınır, danışman kurulumda kalır."""
+        klasor = self.kok / "skills/kurul-yaniti"
+        klasor.chmod(0o500)
+        try:
+            sonuc = ft.uret(self.kok, "kalite")
+        finally:
+            klasor.chmod(0o700)   # tearDown geçici kökü silebilsin
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertTrue(sonuc["sebepler"][0].startswith("yazılamadı: skills/kurul-yaniti/SKILL.md"))
+        self.assertTrue(ayar.kurulumda_mi("kalite", self.kok))
+        self.assertEqual(self.oku("takimlar/kalite/takim.md"), "# Kalite Danışmanı\n")
+        for ad in ("kurallar.md", "defter.md", "durum.json"):
+            self.assertFalse((self.kok / "takimlar/kalite" / ad).exists(), ad)
+        self.assertEqual(sorted(p.name for p in (self.kok / "takimlar/kalite").iterdir()), ["takim.md"])
+
+    def test_personel_hayir_noktali_da_kapatir(self):
+        """Önemli 4: 'Hayır.' kapatır."""
+        metin = FORM.replace("kapatmak için hayır):", "kapatmak için hayır): Hayır.")
+        self.assertIn("Personel adı yazılmaz.", ft.kurallar_md("kalite", ft.oku(metin)))
+
+    def test_personel_belirsiz_deger_durur(self):
+        """Önemli 4: evet/hayır dışı değer açık sayılmaz → durur."""
+        self.form(FORM.replace("kapatmak için hayır):", "kapatmak için hayır): kapalı"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertIn("§7 Personel adı yalnız evet ya da hayır olabilir (yazılan: 'kapalı')", sonuc["sebepler"])
+
+    def test_girintisiz_madde_sessizce_kaybolmaz(self):
+        """Önemli 5a: girintisiz `- X: y` maddesi bilinmeyen alan olur → durur, içerik kaybolmaz."""
+        self.form(FORM.replace("  - Bölüm ağırlıkları: Kalite Müdürü", "- Bölüm ağırlıkları: Kalite Müdürü"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual(sonuc["durum"], "durdu")
+        self.assertIn("§4 bilinmeyen alan: 'Bölüm ağırlıkları' — madde ise iki boşluk girintiyle yaz",
+                      sonuc["sebepler"])
+
+    def test_iyi_yanit_baslik_ve_alan_satirlarini_korur(self):
+        """Önemli 5b: §5'e yapıştırılan kurul-yaniti düzeni kesilmez, takim.md'de başlık olmaz."""
+        self.form(FORM.replace("  Önce tek cümlelik cevap.\n",
+                               "## Kısa yanıt\n- Dayanak: puan ✅\n  Önce tek cümlelik cevap.\n"))
+        sonuc = ft.uret(self.kok, "kalite")
+        self.assertEqual((sonuc["durum"], sonuc["sebepler"]), ("yazildi", []))
+        takim = self.oku("takimlar/kalite/takim.md")
+        self.assertIn("> ## Kısa yanıt\n> - Dayanak: puan ✅\n> Önce tek cümlelik cevap.", takim)
+        self.assertNotIn("\n## Kısa yanıt", takim)
+        self.assertEqual(ft.oku(self.oku("formlar/onayli/kalite.md"))["tempo"], "")   # §6 hâlâ ayrı
 
 
 class KomutTesti(_GeciciKok):
