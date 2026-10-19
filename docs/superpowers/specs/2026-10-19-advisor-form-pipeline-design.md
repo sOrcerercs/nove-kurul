@@ -27,7 +27,8 @@ Form `formlar/onayli/<bolum>.md`'ye girince `bin/formdan_takim.py <bolum>` danı
 | `bin/formdan_takim.py` | Formu okur, denetler, dosyaları yazar |
 | `skills/kurul-yaniti/SKILL.md` | İlk ortak yetenek: kurula giden taslağın düzeni |
 | `.claude/settings.json` | Üç yeni kilit (aşağıda, Karar 6) |
-| `tests/test_formdan_takim.py` | Aşağıdaki dokuz test |
+| `tests/test_formdan_takim.py` | Aşağıdaki testler (1–10); 11 `tests/` altındaki Denetçi testlerine |
+| `bin/bekci.py` | Denetçi isteminde personel adı kuralı (K7) |
 
 ## Kararlar
 
@@ -111,6 +112,17 @@ Her bölüm için kısa bir örnek içerir. `tests/test_skills.py` sözleşmesin
 Betik etkilenmez: Kağan onu terminalden koşturur; kilit yalnız ajanın dosya araçlarını kapatır.
 `CLAUDE.md`'deki "Yasaklar" maddesi bu üç dosyanın da yetkiyle kapalı olduğunu söyleyecek şekilde güncellenir.
 
+### K7 · Personel adı ve unvanı yazılabilir
+Kurul, yanıtta kimin sorumlu olduğunu ad ve unvanıyla görmeli (Kağan, 19.10.2026). ANAYASA §2 bunu
+`kurallar.md` izniyle zaten mümkün kılar; ANAYASA değişmez.
+- Betik her danışmanın `kurallar.md`'sindeki "Teyit ve hassas veri" bölümüne şu satırı yazar:
+  "Personel adı ve unvanı yazılabilir. Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz."
+- Varsayılan **açık**. §7 Revize'de "Personel adı: hayır" yazılırsa satır "Personel adı yazılmaz." olur.
+- Bölüm yöneticisinin adı ve unvanı `takim.md` gövdesine "Sahibi" satırı olarak girer.
+- **Denetçi düzeltmesi** (`bin/bekci.py` istemi): bugün "kişi adı"nı ayrımsız ihlal sayıyor, `kurallar.md`'deki izni
+  görmüyor. Yeni metin: hasta/müşteri adı her zaman ihlal; personel adı yalnız `kurallar.md` izin vermiyorsa ihlal.
+  `bekci.gecersiz_gerekceyi_ayikla`'nın "kişi adı" gerekçesine dokunmaması korunur.
+
 ## Testler
 
 | # | Girdi | Beklenen |
@@ -124,6 +136,8 @@ Betik etkilenmez: Kağan onu terminalden koşturur; kilit yalnız ajanın dosya 
 | 7 | `kurallar.md` zaten var | Durur; `--yeniden` önce farkı gösterir |
 | 8 | `--kuru` | Ekrana basar, hiçbir dosya yazılmaz |
 | 9 | `.claude/settings.json` | Altı kilit satırı yerinde |
+| 10 | Form §7'de personel adı belirtilmemiş / "hayır" | `kurallar.md`'de izin satırı var / yasak satırı var |
+| 11 | Denetçi istemi | Personel adını `kurallar.md` iznine bağlıyor; hasta/müşteri adını her zaman ihlal sayıyor |
 
 Testler geçici bir kök klasörde koşar; gerçek `takimlar/`'a dokunmaz.
 Taban: `python3 -m unittest discover -s tests` → 414 test, OK (8 atlanan) — 19.10.2026.
@@ -134,7 +148,5 @@ Taban: `python3 -m unittest discover -s tests` → 414 test, OK (8 atlanan) — 
 - CEO tavanı ölçümü (ayrı konu, Kağan'ın kararını bekliyor).
 - `bin/takim-olustur.sh` değişmez; boş oda açmak için kalır.
 
-## Açık soru (onaydan önce)
-1. **Bölüm yöneticisinin adı.** §1 "Bölüm yöneticisi (sahibi): ad, unvan" istiyor. ANAYASA §2 personel adını
-   yalnız `kurallar.md` izin verirse çıktıya alır. Öneri: form adı taşısın (Kağan'ın iletişimi için), betik
-   üretilen dosyalara **yalnız unvanı** yazsın.
+- Hasta ve müşteri adı: ayrı taslak, ANAYASA §2 revizesi ve hukuk onayı bekliyor
+  (`docs/superpowers/plans/2026-10-19-patient-name-policy.md`). Bu hat bugünkü kuralla ilerler.
