@@ -447,12 +447,21 @@ def bas(sonuc, bolum):
         print(f"  {komut}")
 
 
-def main(argv, kok=None):
+AJAN_ISARETI = "CLAUDECODE"   # Claude Code ajanın her Bash komutuna koyar; Kağan'ın terminalinde yoktur
+
+
+def main(argv, kok=None, ortam=None):
+    """K1 yetkiyle: ajan ortamında yalnız `--kuru`. Kural yazılı kalsaydı ajan `kurallar.md`'nin Write/Edit
+    kilidini betik üzerinden dolanabilirdi."""
+    ortam = os.environ if ortam is None else ortam
     adlar = [a for a in argv if not a.startswith("--")]
     bilinmeyen = [a for a in argv if a.startswith("--") and a not in ("--kuru", "--yeniden")]
     if len(adlar) != 1 or bilinmeyen:
         print("kullanım: python3 bin/formdan_takim.py <bolum> [--kuru] [--yeniden]", file=sys.stderr)
         return 2
+    if "--kuru" not in argv and ortam.get(AJAN_ISARETI):
+        print("durdu — ajan ortamında yazma kapalı; yalnız --kuru. Yazan koşu Kağan'ın (spec K1).")
+        return 1
     sonuc = uret(kok or ayar.KOK, adlar[0], kuru="--kuru" in argv, yeniden="--yeniden" in argv)
     bas(sonuc, adlar[0])
     return 1 if sonuc["durum"] == "durdu" else 0

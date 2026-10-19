@@ -34,6 +34,8 @@ Form `formlar/onayli/<bolum>.md`'ye girince `bin/formdan_takim.py <bolum>` danı
 
 ### K1 · Betiği yalnız Kağan koşturur
 - Ajan yalnız `--kuru` ile çalıştırabilir: sonuç ekrana basılır, **hiçbir dosya yazılmaz**.
+- Bu kural yetkiyle de korunur (Kağan, 19.10.2026): `CLAUDECODE` ortam değişkeni varsa (Claude Code ajanın her
+  Bash komutuna koyar) betik `--kuru` dışında durur. Kağan'ın kendi terminalinde değişken yoktur.
 - Hedefte `kurallar.md` varsa ya da `takim.md` frontmatter'lıysa (danışman kuruluysa) betik **durur**.
 - `--yeniden` ile koşturulursa önce eski ve yeni hâlin farkını gösterir, sonra yazar.
 

@@ -5,6 +5,7 @@ python3 -m unittest discover -s tests
 """
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -293,11 +294,27 @@ class IncelemeDuzeltmeTesti(_GeciciKok):
 
 
 class KomutTesti(_GeciciKok):
-    def kostur(self, *argv):
+    def kostur(self, *argv, ortam=None):
+        """Varsayılan ortam boş: Kağan'ın terminali. Testler Claude Code içinde koştuğu için açıkça verilir."""
         cikti = io.StringIO()
         with redirect_stdout(cikti):
-            rc = ft.main(["kalite", *argv], kok=self.kok)
+            rc = ft.main(["kalite", *argv], kok=self.kok, ortam={} if ortam is None else ortam)
         return rc, cikti.getvalue()
+
+    def test_ajan_ortaminda_yazma_reddedilir(self):
+        """K1 yetkiyle: CLAUDECODE varken yazan koşu durur, hiçbir dosya değişmez."""
+        for argv in ((), ("--yeniden",)):
+            with self.subTest(argv=argv):
+                rc, cikti = self.kostur(*argv, ortam={"CLAUDECODE": "1"})
+                self.assertEqual(rc, 1)
+                self.assertIn("ajan ortamında yazma kapalı; yalnız --kuru", cikti)
+                self.assertEqual(self.oku("takimlar/kalite/takim.md"), "# Kalite Danışmanı\n")
+                self.assertFalse((self.kok / "takimlar/kalite/kurallar.md").exists())
+
+    def test_ajan_ortaminda_kuru_calisir(self):
+        rc, cikti = self.kostur("--kuru", ortam={"CLAUDECODE": "1"})
+        self.assertEqual(rc, 0)
+        self.assertIn("(kuru koşu: hiçbir dosya yazılmadı)", cikti)
 
     def test_kuru_hicbir_dosya_yazmaz(self):
         """Test 8."""
@@ -358,6 +375,13 @@ class GirisNoktasiTesti(unittest.TestCase):
         sonuc = self._kostur()
         self.assertEqual(sonuc.returncode, 2)
         self.assertIn("kullanım:", sonuc.stderr)
+
+    def test_gercek_ortam_okunuyor(self):
+        """Bağlantı: `main` ortamı gerçekten `os.environ`'dan alıyor (ajan terminali taklidi)."""
+        sonuc = subprocess.run([sys.executable, str(KOK / "bin/formdan_takim.py"), "olmayan-bolum"],
+                               capture_output=True, text=True, cwd=KOK, env={**os.environ, "CLAUDECODE": "1"})
+        self.assertEqual(sonuc.returncode, 1)
+        self.assertIn("ajan ortamında yazma kapalı", sonuc.stdout)
 
     def test_olmayan_form_rc1_ve_sebep(self):
         sonuc = self._kostur("olmayan-bolum", "--kuru")
