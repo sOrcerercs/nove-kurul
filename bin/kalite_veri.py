@@ -2,7 +2,7 @@
 """Kalite danışmanının veri okuyucusu — SDR Analyzer Postgres'inden SALT OKUNUR sorgular.
 
 Bağlantı `QA_READONLY_URL` ile `.env`'den gelir (`ayar.ortam_yukle`); rol `qa_okuyucu`'dur.
-Yalnız SELECT; her bağlantı `read_only`, `statement_timeout = 15s`, `connect_timeout = 20`.
+Yalnız SELECT; her bağlantı `read_only`, `statement_timeout = 15s` (bağlantı seçeneği), `connect_timeout = 20`.
 Bağlantı adresi hiçbir çıktıya, loga ya da hata iletisine girmez. Çağrı transkripti, rapor
 gövdesi, müşteri adı, kanıt ve tıbbi işaret alanları hiçbir sorguda yoktur.
 
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
 
 BAGLANTI_ZAMAN_ASIMI = 20
-SORGU_ZAMAN_ASIMI = "15s"
+SORGU_ZAMAN_ASIMI_MS = 15000        # 15s — bağlantı seçeneği olarak verilir, rollback'ten etkilenmez
 
 
 def hazirlanamadi(sebep):
@@ -41,7 +41,7 @@ SELECT table_name, column_name, privilege_type
         ("sinif_farki", """
 SELECT count(*) AS fark_sayisi
   FROM public."Evaluation"
- WHERE "callClassification" IS DISTINCT FROM "reportData"->>'callClassification'
+ WHERE "callClassification"::text IS DISTINCT FROM "reportData"->>'callClassification'
 """),
         ("saat_dilimi", "SELECT current_setting('timezone') AS timezone"),
     ]
@@ -49,15 +49,18 @@ SELECT count(*) AS fark_sayisi
 
 def baglan_varsayilan(url):
     import psycopg
-    return psycopg.connect(url, connect_timeout=BAGLANTI_ZAMAN_ASIMI)
+    return psycopg.connect(url, connect_timeout=BAGLANTI_ZAMAN_ASIMI,
+                           options="-c statement_timeout=%d" % SORGU_ZAMAN_ASIMI_MS)
 
 
 def baglanti_ac(url, baglan=None):
     """Salt okunur, zaman aşımlı bağlantı. Hata iletisi çağırana URL taşımaz."""
     baglanti = (baglan or baglan_varsayilan)(url)
-    baglanti.read_only = True
-    with baglanti.cursor() as imlec:
-        imlec.execute("SET statement_timeout = '%s'" % SORGU_ZAMAN_ASIMI)
+    try:
+        baglanti.read_only = True            # oturum özelliği: rollback'ten sonra da geçerli
+    except Exception:
+        baglanti.close()
+        raise
     return baglanti
 
 

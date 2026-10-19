@@ -111,11 +111,40 @@ class SemaTesti(unittest.TestCase):
         cikti = tampon.getvalue()
         self.assertEqual(kod, 0)
         self.assertIs(baglanti.read_only, True)
-        self.assertTrue(any("statement_timeout" in s and "15s" in s for s in imlec.sql))
+        self.assertFalse(any("statement_timeout" in s for s in imlec.sql),
+                         "SET işlem içinde kalır, rollback geri alır; bağlantı seçeneği olmalı")
         self.assertIn("- izinler: okunamadı (PermissionError)", cikti)
         self.assertNotIn("gizli-url", cikti)
         self.assertTrue(baglanti.kapandi)
         self.assertGreaterEqual(baglanti.rollback_sayisi, 1)
+
+    def test_zaman_asimi_baglanti_seceneginde_rollback_etkilemez(self):
+        from unittest import mock
+        import types
+        sahte = types.SimpleNamespace(connect=mock.Mock(return_value="b"))
+        with mock.patch.dict(sys.modules, {"psycopg": sahte}):
+            self.assertEqual(kalite_veri.baglan_varsayilan("postgresql://x"), "b")
+        sahte.connect.assert_called_once_with(
+            "postgresql://x", connect_timeout=20, options="-c statement_timeout=15000")
+
+    def test_sinif_farki_enum_metne_cevrilir(self):
+        sql = dict(kalite_veri.sema_sorgulari())["sinif_farki"]
+        self.assertIn('"callClassification"::text', sql)
+
+    def test_read_only_atanamazsa_baglanti_kapanir(self):
+        class Bozuk(_SahteBaglanti):
+            hazir = False
+
+            def __setattr__(self, ad, v):
+                if ad == "read_only" and self.hazir:
+                    raise RuntimeError("x")
+                object.__setattr__(self, ad, v)
+
+        b = Bozuk(_SahteImlec({}))
+        b.hazir = True
+        with self.assertRaises(RuntimeError):
+            kalite_veri.baglanti_ac("u", lambda url: b)
+        self.assertTrue(b.kapandi)
 
     def test_baglanti_hatasi_urli_sizdirmaz(self):
         def baglan(url):
