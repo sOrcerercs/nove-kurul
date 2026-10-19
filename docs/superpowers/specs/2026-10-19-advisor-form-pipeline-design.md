@@ -71,6 +71,7 @@ Form `formlar/onayli/<bolum>.md`'ye girince `bin/formdan_takim.py <bolum>` danı
 - "Çıktı kalite ölçütleri": iskeletin iki maddesi + §4 "her yanıtta mutlaka olması gereken".
 - Yeni bölüm "Teyit ve hassas veri": §4 "hangi sayıyı kim teyit eder", §3 hassas alanlar, §3 formülü teyitsiz
   göstergeler (her biri `—` ve teyit sahibiyle).
+  Hassas alanlar listesi bilgi amaçlıdır, kural koymaz; ne yazılacağını personel/hasta satırı belirler (Kağan, 19.10.2026).
 
 **`defter.md`, `durum.json`** — iskeletten, `TAKIM` yerine danışman adı.
 

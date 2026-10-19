@@ -181,6 +181,12 @@ class UretimTesti(_GeciciKok):
         """Test 10a."""
         self.assertIn("Personel adı ve unvanı yazılabilir.", ft.kurallar_md("kalite", ft.oku(FORM)))
 
+    def test_hassas_alanlar_bilgi_amacli_isaretli(self):
+        """Önemli 7, Kağan C (19.10.2026): liste kural koymaz; başlık bunu söyler, Denetçi çelişki görmez."""
+        kurallar = ft.kurallar_md("kalite", ft.oku(FORM))
+        self.assertIn("- Hassas alanlar (KVKK) — bilgi amaçlı, kural koymaz; ne yazılacağını yukarıdaki satır belirler:\n"
+                      "  - değerlendirilen temsilcinin adı", kurallar)
+
     def test_personel_adi_hayir_ise_yasak(self):
         """Test 10b — hasta/müşteri yasağı her iki durumda da yazılır."""
         metin = FORM.replace("kapatmak için hayır):", "kapatmak için hayır): Hayır")

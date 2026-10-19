@@ -314,7 +314,8 @@ def kurallar_md(bolum, form):
         "## Teyit ve hassas veri",
         f"- {personel} {HER_ZAMAN_YASAK}",
         "- Sayıyı kim teyit eder:", *_maddeler(form["teyit"], "  "),
-        "- Hassas alanlar (KVKK):", *_maddeler(form["hassas"], "  "),
+        "- Hassas alanlar (KVKK) — bilgi amaçlı, kural koymaz; ne yazılacağını yukarıdaki satır belirler:",
+        *_maddeler(form["hassas"], "  "),
         "- Formülü teyitsiz göstergeler — hesaplanmaz, `—` gösterilir ve teyit sahibi yazılır:",
         *_maddeler(form["teyitsiz"], "  "), ""]
     return "\n".join(satirlar)
