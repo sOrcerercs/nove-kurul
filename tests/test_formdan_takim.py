@@ -55,6 +55,61 @@ class OkumaTesti(unittest.TestCase):
         self.assertEqual(ft.eksikler(ft.oku(metin)), ["eksik: §2 Anahtar kelimeler (en az bir)"])
 
 
+class KontrolTesti(unittest.TestCase):
+    def setUp(self):
+        self._g = tempfile.TemporaryDirectory()
+        self.kok = Path(self._g.name)
+        shutil.copytree(KOK / "skills/kurul-yaniti", self.kok / "skills/kurul-yaniti")
+
+    def tearDown(self):
+        self._g.cleanup()
+
+    def test_telefon_durdurur_degeri_basmaz(self):
+        """Test 4a."""
+        metin = FORM.replace("  - Tek bir çağrıdan", "  - Arayan 0532 123 45 67 ise\n  - Tek bir çağrıdan")
+        sorunlar = ft.kisisel_veri(metin)
+        self.assertEqual(sorunlar, ["kişisel veri: telefon numarası (4. Kurallar (kurallar.md'ye gidecek))"])
+        self.assertNotIn("0532", " ".join(sorunlar))
+
+    def test_tc_kimlik_durdurur(self):
+        """Test 4b — sağlama hanesi geçerli sentetik numara."""
+        metin = FORM.replace("değerlendirilen temsilcinin adı", "değerlendirilen temsilcinin adı, 10000000146")
+        self.assertIn("kişisel veri: TC kimlik numarası (3. Veri)", ft.kisisel_veri(metin))
+
+    def test_temiz_form_ve_bos_sablon_temiz(self):
+        self.assertEqual(ft.kisisel_veri(FORM), [])
+        self.assertEqual(ft.kisisel_veri((KOK / "formlar/DANISMAN-FORMU.md").read_text(encoding="utf-8")), [])
+
+    def test_olmayan_yetenek_durdurur(self):
+        """Test 5."""
+        self.assertEqual(ft.yetenek_sorunlari(self.kok, ["kurul-yaniti", "olmayan-yetenek"]),
+                         ["yetenek yok: skills/olmayan-yetenek/SKILL.md"])
+
+    def test_takimlar_alani_olmayan_yetenek_durdurur(self):
+        yol = self.kok / "skills/bozuk/SKILL.md"
+        yol.parent.mkdir(parents=True)
+        yol.write_text("---\nname: bozuk\n---\n\n# bozuk\n", encoding="utf-8")
+        self.assertEqual(ft.yetenek_sorunlari(self.kok, ["bozuk"]),
+                         ["yetenek bozuk: skills/bozuk/SKILL.md 'takimlar: [...]' alanı taşımıyor"])
+
+    def test_cakisma_uyari_metni(self):
+        """Test 6 (birim): kurulu finans 'Şikâyet' taşıyor; büyük/küçük harf farkı çakışmayı gizlemez."""
+        (self.kok / "takimlar/finans").mkdir(parents=True)
+        (self.kok / "takimlar/finans/takim.md").write_text(
+            "---\nname: finans\ndescription: x\nanahtar_kelimeler: [bütçe, Şikâyet]\n---\n\n# Finans\n",
+            encoding="utf-8")
+        uyarilar = ft.cakismalar(self.kok, "kalite", ["kalite", "şikâyet"])
+        self.assertEqual(len(uyarilar), 1)
+        self.assertIn("'şikâyet' → finans", uyarilar[0])
+
+    def test_kendi_kelimesi_cakisma_sayilmaz(self):
+        """`--yeniden`de danışman zaten kurulu: kendi kelimeleri uyarı vermez."""
+        (self.kok / "takimlar/kalite").mkdir(parents=True)
+        (self.kok / "takimlar/kalite/takim.md").write_text(
+            "---\nname: kalite\ndescription: x\nanahtar_kelimeler: [kalite]\n---\n", encoding="utf-8")
+        self.assertEqual(ft.cakismalar(self.kok, "kalite", ["kalite"]), [])
+
+
 class KilitTesti(unittest.TestCase):
     """K6: insanın dosyaları kuralla değil yetkiyle kapalı; eski altı kilit de yerinde (12'nin 12'si)."""
 

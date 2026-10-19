@@ -136,3 +136,45 @@ def oku(metin):
 def eksikler(form):
     """Boş zorunlu alanların hepsi — ilk eksikte durulmaz."""
     return [f"eksik: {etiket}" for alan, etiket in ZORUNLU if not form[alan]]
+
+
+# --- kontroller (K4) --------------------------------------------------------
+
+def kisisel_veri(metin):
+    """Formda kişisel veri ya da anahtar (`bekci.ON_KONTROL`) → durdurur. Değer basılmaz: yalnız tür ve yer.
+
+    Her `## ` başlığının altı ayrı taranır; ilk başlıktan önceki metin de ("başlık") taranır."""
+    baslar = list(BASLIK.finditer(metin))
+    parcalar = [("başlık", metin[:baslar[0].start()] if baslar else metin)]
+    for i, bas in enumerate(baslar):
+        son = baslar[i + 1].start() if i + 1 < len(baslar) else len(metin)
+        parcalar.append((bas.group(1).strip(), metin[bas.end():son]))
+    return [f"kişisel veri: {tur} ({yer})" for yer, govde in parcalar for tur in bekci.on_kontrol(govde)]
+
+
+def yetenek_sorunlari(kok, adlar):
+    """Diskte olmayan ya da `takimlar: [...]` alanı taşımayan yetenek → durdurur."""
+    sorunlar = []
+    for ad in adlar:
+        yol = Path(kok) / "skills" / ad / "SKILL.md"
+        if not yol.is_file():
+            sorunlar.append(f"yetenek yok: skills/{ad}/SKILL.md")
+        elif not isinstance(ayar.frontmatter(yol.read_text(encoding="utf-8"))[0].get("takimlar"), list):
+            sorunlar.append(f"yetenek bozuk: skills/{ad}/SKILL.md 'takimlar: [...]' alanı taşımıyor")
+    return sorunlar
+
+
+def cakismalar(kok, bolum, kelimeler):
+    """Kurulu başka bir danışmanda da geçen kelimeler → uyarı, durdurmaz."""
+    sahipler = {}
+    for d in dagitici.aktif_danismanlar(kok):
+        if d["takim"] != bolum:
+            for kelime in d["kelimeler"]:
+                sahipler.setdefault(kelime, []).append(d["takim"])
+    uyarilar = []
+    for kelime in kelimeler:
+        diger = sahipler.get(dagitici._tr_kucuk(kelime).strip())
+        if diger:
+            uyarilar.append(f"anahtar kelime çakışması: '{kelime}' → {', '.join(sorted(diger))} "
+                            "(İş Dağıtımcı karışabilir; python3 bin/dagitici.py --cakisma)")
+    return uyarilar
