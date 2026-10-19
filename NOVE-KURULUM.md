@@ -477,8 +477,10 @@ Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatt
 ve `qa-koclugu-kurgusu` taşınır.
 - [x] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
   `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır — 19.10.2026
-- [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
-- [ ] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py`
+- [x] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur — 19.10.2026 (veri: SDR Analyzer API, ayrı MANAGER kullanıcı, yalnız GET; tempo pzt–cuma 11:00)
+- [x] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py` — 19.10.2026
+- [ ] SDR Analyzer okuma betiği (izinli GET listesi) ve danışmanın onu kullanma yolu; `.env`'ye `SDR_API_URL`, `SDR_API_EMAIL`, `SDR_API_SIFRE`
+- [ ] Günlük rapor zamanlayıcısı: pzt–cuma, 11:00'de kurula ulaşacak şekilde (`gunluk.ZAMANLI`); pazartesi = cuma–pazar
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
   - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
     (K7 personel adı, N30 ad soyadı); `hasta-ad-soyadi` `kabul` almalı. Kağan, 19.10.2026: ölçüm buraya ertelendi

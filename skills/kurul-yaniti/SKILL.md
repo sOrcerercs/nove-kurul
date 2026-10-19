@@ -4,7 +4,7 @@ description: Kurula giden taslağın düzeni — Kısa yanıt, Dayanak, Bilinmey
 kaynak: Nove Kurul Ofisi (yerli yetenek, 19.10.2026)
 lisans: MIT (LICENSE)
 uyarlayan: Nove Kurul Ofisi
-takimlar: []
+takimlar: [kalite]
 ---
 
 # kurul-yaniti — taslağın düzeni

@@ -6,6 +6,7 @@ python3 -m unittest discover -s tests
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -122,6 +123,10 @@ class _GeciciKok(unittest.TestCase):
         self.kok = Path(self._g.name)
         shutil.copytree(KOK / "takimlar/_iskelet", self.kok / "takimlar/_iskelet")
         shutil.copytree(KOK / "skills/kurul-yaniti", self.kok / "skills/kurul-yaniti")
+        # Gerçek kopya kurulu danışmanları taşır (19.10: kalite); testler deponun durumuna bağlı kalmasın.
+        skill = self.kok / "skills/kurul-yaniti/SKILL.md"
+        skill.write_text(re.sub(r"^takimlar:.*$", "takimlar: []", skill.read_text(encoding="utf-8"),
+                                count=1, flags=re.M), encoding="utf-8")
         (self.kok / "takimlar/kalite").mkdir()
         (self.kok / "takimlar/kalite/takim.md").write_text("# Kalite Danışmanı\n", encoding="utf-8")
         self.form(FORM)
