@@ -230,10 +230,6 @@ class CekirdekTesti(unittest.TestCase):
         self.assertEqual(len(m.splitlines()), 8)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class _SorguImlec:
     """Sorgu metnine göre hazır satır döndürür; (sql, params) kaydeder."""
     def __init__(self, yanit):
@@ -274,6 +270,22 @@ class EkipOzetTesti(unittest.TestCase):
         self.assertEqual(tablo, [{"ekip": "A", "ortalama": kalite_veri.js_yuvarla(290 / 4),
                                   "kayit": 4, "temsilci": 2}])
         self.assertEqual(tablo[0]["ortalama"], 73)
+        self.assertIsInstance(tablo[0]["ortalama"], int)
+
+    def test_js_yuvarla_hane0_int_hane1_float(self):
+        self.assertIsInstance(kalite_veri.js_yuvarla(72.5), int)
+        self.assertIsInstance(kalite_veri.js_yuvarla(70.45, 1), float)
+
+    def test_karsilastir_sifira_dusen_ekip_gorunur(self):
+        simdi = kalite_veri.ekip_tablosu([("A", 71, 1, 1)])
+        onceki = kalite_veri.ekip_tablosu([("A", 78, 1, 1), ("B", 70, 2, 1)])
+        sonuc = kalite_veri.karsilastir(simdi, onceki)
+        b = [r for r in sonuc if r["ekip"] == "B"]
+        self.assertEqual(len(b), 1)
+        self.assertIsNone(b[0]["ortalama"])
+        self.assertEqual(b[0]["kayit"], 0)
+        self.assertEqual(b[0]["onceki_ortalama"], 35)
+        self.assertEqual(b[0]["onceki_kayit"], 2)
 
     def test_karsilastir_dususe_gore_sirali(self):
         simdi = kalite_veri.ekip_tablosu([("B", 72, 1, 1), ("A", 71, 1, 1)])
@@ -358,7 +370,19 @@ class EkipOzetTesti(unittest.TestCase):
                                    "--karsilastir-bitis", "2026-09-30"], yanit)
         self.assertEqual(kod, 0)
         self.assertIn("fark=-7", cikti)
-        self.assertIn("onceki=78", cikti)
+        self.assertIn("onceki=78 ", cikti)
+        self.assertIn("ortalama=71 ", cikti)
+        self.assertNotIn(".0", cikti)
+
+    def test_karsilastirma_cikti_sifira_dusen(self):
+        def yanit(sql, p):
+            return [("Alfa", 71, 1, 1)] if p["bas"].month == 10 else [("Alfa", 78, 1, 1), ("Beta", 70, 1, 1)]
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                                   "--karsilastir-baslangic", "2026-09-01",
+                                   "--karsilastir-bitis", "2026-09-30"], yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("- Beta: ortalama=yok kayit=0 temsilci=0 onceki=70 onceki_kayit=1 fark=yok", cikti)
+        self.assertIn("kayit=1\n", cikti.split("- ")[0])
 
     def test_karsilastir_tek_uc_kullanim_hatasi(self):
         with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as c:
@@ -374,3 +398,7 @@ class EkipOzetTesti(unittest.TestCase):
         sql = imlec.cagrilar[0][0]
         self.assertIn(kalite_veri.UYE_KOSULU, sql)
         self.assertIsNone(YASAK.search(sql))
+
+
+if __name__ == "__main__":
+    unittest.main()

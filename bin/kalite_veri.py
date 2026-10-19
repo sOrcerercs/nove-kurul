@@ -49,6 +49,8 @@ def js_yuvarla(x, hane=0):
     """JS `Math.round(x*10^h)/10^h` — yarımlar yukarı; Python round() değil."""
     kat = 10 ** hane
     sonuc = math.floor(x * kat + 0.5) / kat
+    if hane == 0:
+        return int(sonuc)                        # Math.round tam sayı verir (73, 73.0 değil)
     return 0 if sonuc == 0 else sonuc
 
 
@@ -213,7 +215,13 @@ def karsilastir(simdi, onceki):
         satir["onceki_kayit"] = o["kayit"] if o else None
         satir["fark"] = (s["ortalama"] - o["ortalama"]) if o else None
         sonuc.append(satir)
-    sonuc.sort(key=lambda r: (r["fark"] is None, r["fark"] if r["fark"] is not None else 0, r["ekip"]))
+    for ad, o in eski.items():                   # önceki dönemde kaydı olup şimdi hiç kaydı kalmayan ekip
+        if ad not in {s["ekip"] for s in simdi}:
+            sonuc.append({"ekip": ad, "ortalama": None, "kayit": 0, "temsilci": 0,
+                          "onceki_ortalama": o["ortalama"], "onceki_kayit": o["kayit"], "fark": None})
+    # sıra: şimdi kaydı kalmayanlar (en ağır), sonra düşüşe göre, önceki dönemi olmayanlar sonda
+    sonuc.sort(key=lambda r: (r["ortalama"] is not None, r["onceki_ortalama"] is None,
+                              r["fark"] if r["fark"] is not None else 0, r["ekip"]))
     return sonuc
 
 
@@ -268,11 +276,14 @@ def ekip_ozet_bas(baglanti, args):
         filtre["not"] = "canlı Second Call formülü deploy bekliyor"
     print(kapsam_bolumu("ekip-ozet", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
     for t in tablo:
-        satir = "- %s: ortalama=%s kayit=%d temsilci=%d" % (_tek_satir(t["ekip"]), t["ortalama"],
+        ort = "yok" if t["ortalama"] is None else t["ortalama"]
+        satir = "- %s: ortalama=%s kayit=%d temsilci=%d" % (_tek_satir(t["ekip"]), ort,
                                                            t["kayit"], t["temsilci"])
         if onc:
-            if t["fark"] is None:
+            if t["onceki_ortalama"] is None:
                 satir += " onceki=yok fark=yok"
+            elif t["fark"] is None:
+                satir += " onceki=%s onceki_kayit=%d fark=yok" % (t["onceki_ortalama"], t["onceki_kayit"])
             else:
                 satir += " onceki=%s onceki_kayit=%d fark=%+d" % (t["onceki_ortalama"], t["onceki_kayit"],
                                                                    t["fark"])
