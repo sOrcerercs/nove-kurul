@@ -1,9 +1,9 @@
 ---
-durum: taslak
+durum: yazildi
 guncelleme: 2026-10-19
 dal: feature/advisor-form-pipeline
 pr: -
-bekleyen: kullanici
+bekleyen: -
 ---
 
 # Danışman formu hattı — Tasarım
