@@ -46,15 +46,34 @@ liderleri Nove'yi görmez (Kağan).
     — ekip bazında ortalama puan ve kayıt sayısı, istenirse iki dönem yan yana ve fark
   - `kriterler --baslangic … --bitis … [--ekip …] [--tip …]` — kriter bazında kaldı/kısmi/geçti sayıları, en sık kaçırılanlar
   - `temsilci-ozet --baslangic … --bitis … [--ekip …]` — temsilci bazında ortalama ve kayıt sayısı
+  - `kocluk --baslangic … --bitis … [--ekip …]` — **[Claude'un kararı]** koçluk yapılan / temsilcinin okuduğu
+    kayıt sayıları. `qa_ozet.py` aynı rolle `coachingDone` ve `agentRead`'i okuyor (inceleme bulgusu); formun 4.
+    sorusu için. "Koçluktan sonra gelişme" yine `—` (ölçütü yok, Kağan).
+  - Haftanın çağrısı **[Claude'un kararı]**: rol bu tabloları okuyabiliyorsa komut eklenir; okuyamıyorsa ajan `—` ve
+    sebebini yazar. Uygulayıcı izni ölçer.
 - Her çıktı başında: kaynak (görünüm adları), tarih aralığı (TR saati), filtre, toplam kayıt sayısı.
 - Ajana tek yeni izin: bu betiği çalıştırmak. Başka komut yok.
 - Formdan üretilen dosyalar bunu taşır (aşağıda "Form ve kurulum").
 
+## Referans ekran (Kağan, 19.10.2026)
+
+Kağan ekip puanına **Raporlar → Raporlarım**'dan bakıyor. Bu sekme `ReportsView` →
+`GET /api/reports/auto?start=…&end=…&agentIds=…` (`sdr-analyzer/app/api/reports/auto/route.ts`). "Fark 0" ölçümünün
+referansı bu ekrandır; betik onun kuralını birebir uygular:
+
+- kayıtlar: `callDate` `gte start` ve `lte end` (uç dahil), `agent.role ∈ {AGENT, TEAM_LEADER}` (`REPORTABLE_ROLES`,
+  `app/lib/reportScope.ts:3`), `scoringWhere()` (sınıf sütunu boş ya da `CONNECTED_QUALIFIED`)
+- ortalama: **kayıt başına** (çağrı sayısıyla ağırlıklı), virgülden sonra bir haneye yuvarlanmış
+  (`app/lib/reportAggregation.ts`, `healthScore`/`avgScore`)
+- ekip: ekranda ekip, temsilci seçilerek oluşur; betik ekibi `User.teamId` ile kurar. Pasif kullanıcıların
+  kayıtlarının sayılıp sayılmadığı (`isActive` yalnız listeyi mi süzüyor, kayıtları da mı) uygulayıcı tarafından
+  `route.ts`'den doğrulanır ve aynısı yapılır.
+- `start`/`end`'in saat dilimi ve ekranın gönderdiği değerler uygulayıcı tarafından ön yüz kodundan doğrulanır.
+
+`/api/scores/compare` referans **değildir** (tarih aralığı yok, temsilci ortalamalarının ağırlıksız ortalaması).
+
 ## Hedef değil (bilerek dışarıda)
 
-- **[Claude'un kararı, Kağan'a soruldu]** Koçluk takibi ve haftanın çağrısı komutları: bu veriler `qa_okuyucu`'nun
-  bugün görebildiği görünümlerde yok; ilk sürüm ekip/temsilci/kriter sorularıyla sınırlı. Formdaki 4. ve 5. örnek
-  soru (koçluk, haftanın çağrısı) bu sürümde `—` ve sebebiyle yanıtlanır.
 - Günlük rapor zamanlayıcısı (pzt–cuma 11:00) — ayrı iş.
 - API yolu, SDR Analyzer'da kod değişikliği, deploy.
 - Transkript, müşteri adı, rapor metni okumak — rol bunlara kapalı ve kapalı kalmalı.
@@ -69,6 +88,11 @@ liderleri Nove'yi görmez (Kağan).
 
 ## Kısıtlar
 
+- **[Claude'un kararı] Önce mevcut izinler.** `qa_okuyucu` bazı tablo sütunlarını doğrudan okuyabiliyor
+  (`qa_ozet.py`: `Evaluation.score`, `callType`, `coachingDone`, `agentRead`, `sectionScores`; `User`, `Team`).
+  Betik bunları kullanır. Ek izin ya da görünüm gerekirse **yeni** bir görünüm/izin eklenir; `qa-hatti`'nin
+  kullandığı `qa_degerlendirme` ve `qa_kriter` **değiştirilmez**. Not (inceleme): `qa_degerlendirme`
+  `reportData`'sı nesne olmayan kayıtları düşürüyor; panel onları sayıyor — ekip ortalaması bu görünümden alınmaz.
 - **Panelle aynı sayım kuralı.** Panel ortalamaya yalnız `callClassification` sütunu boş ya da
   `CONNECTED_QUALIFIED` olan kayıtları katar (`sdr-analyzer/app/lib/callVisibility.ts:90`, `scoringWhere`).
   Kağan'ın elle koyduğu `TRANSCRIPT_UNUSABLE` işaretleri bu **sütunda**. `qa_degerlendirme` ise sınıfı
