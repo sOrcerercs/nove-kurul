@@ -15,6 +15,7 @@ KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "bin"))
 import ayar  # noqa: E402
 import ceo  # noqa: E402
+import kos  # noqa: E402
 
 SORU_ID = "20261012-1000-abcd"
 BASLIK = f"""# Soru {SORU_ID}
@@ -260,3 +261,24 @@ class TavanTesti(unittest.TestCase):
         """Kağan, 19.10.2026: Opus 5.5 tahmini tipik ~0,53, ağır ~1,28 USD; Faz 4 beş gerçek soruda ölçülecek."""
         self.assertEqual(ayar.CEO_BUTCESI_USD, 1.5)
 
+
+
+class ModelKaydiTesti(Kurulum):
+    """N31: Faz 4 maliyet ölçümü için kayıt, koşuyu gerçekte hangi modelin yaptığını söyler (`opus` takma adı varsayım)."""
+
+    def test_cozumleyici_modelleri_maliyete_gore_siralar(self):
+        cikti = json.dumps({"result": "x", "total_cost_usd": 0.42, "num_turns": 3, "is_error": False,
+                            "modelUsage": {"claude-haiku-5-5": {"costUSD": 0.004},
+                                           "claude-opus-5-5": {"costUSD": 0.416}}})
+        self.assertEqual(kos.sonucu_cozumle(cikti)["modeller"], ["claude-opus-5-5", "claude-haiku-5-5"])
+
+    def test_model_bilgisi_yoksa_bilinmiyor_der(self):
+        cozum = kos.sonucu_cozumle(json.dumps({"result": "x", "total_cost_usd": 0.1}))
+        self.assertEqual(cozum["modeller"], [])
+        self.assertEqual(kos.model_metni(cozum), "bilinmiyor")
+        self.assertEqual(kos.model_metni({"hata": True}), "bilinmiyor")
+
+    def test_ceo_bolumu_modeli_yazar(self):
+        self.yaz(DENETCI_KABUL)
+        self.kontrol({**_cozum(ONAY), "modeller": ["claude-opus-5-5"]})
+        self.assertIn("- model: claude-opus-5-5\n", self.kayit.read_text(encoding="utf-8"))
