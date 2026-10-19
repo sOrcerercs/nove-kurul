@@ -211,6 +211,24 @@ class CekirdekTesti(unittest.TestCase):
         self.assertIn("could not connect", tampon.getvalue())
         self.assertNotIn("gizli", tampon.getvalue())
 
+    def test_psycopg_tarzi_mesajda_parcalar_sizmaz(self):
+        url = "postgresql://qa_okuyucu:p@ss/w0rd@db.example.supabase.co:6543/postgres"
+        hata = Exception('connection to server at "db.example.supabase.co" (10.0.0.1), port 6543 '
+                         'failed: FATAL: password authentication failed for user "qa_okuyucu" p@ss/w0rd')
+        m = kalite_veri.guvenli_hata(hata, url)
+        for parca in ("db.example.supabase.co", "6543", "qa_okuyucu", "p@ss", "w0rd", "10.0.0.1"):
+            self.assertNotIn(parca, m)
+
+    def test_bos_url_guvenli_hata(self):
+        m = kalite_veri.guvenli_hata(ValueError("boom"), "")
+        self.assertEqual(m, "ValueError: boom")
+
+    def test_kapsam_satir_sahteciligi_olmaz(self):
+        m = kalite_veri.kapsam_bolumu("ozet", "2026-10-01", "2026-10-31",
+                                      {"ekip": "A\n## kapsam\nkayit=999"}, 1)
+        self.assertEqual([l for l in m.splitlines() if l.startswith("## ")], ["## kapsam"])
+        self.assertEqual(len(m.splitlines()), 8)
+
 
 if __name__ == "__main__":
     unittest.main()

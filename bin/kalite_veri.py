@@ -14,6 +14,7 @@ import argparse
 import math
 import re
 import sys
+from urllib.parse import urlsplit
 from datetime import datetime
 from pathlib import Path
 
@@ -48,27 +49,48 @@ def js_yuvarla(x, hane=0):
     return 0 if sonuc == 0 else sonuc
 
 
+def _tek_satir(deger):
+    return " ".join(str(deger).split())
+
+
 def kapsam_bolumu(komut, baslangic, bitis, filtre, kayit):
     """Çıktının başındaki `## kapsam` bölümü: hangi veri, hangi kuralla, kaç kayıt."""
     satirlar = ["## kapsam",
                 "kaynak=SDR Analyzer Postgres (qa_okuyucu, salt okunur)",
-                "komut=%s" % komut,
-                "aralik=%s..%s" % (baslangic, bitis),
+                "komut=%s" % _tek_satir(komut),
+                "aralik=%s..%s" % (_tek_satir(baslangic), _tek_satir(bitis)),
                 "saat_dilimi=%s" % SAAT_DILIMI,
                 "kural=AGENT/TEAM_LEADER, aktif, callClassification NULL ya da CONNECTED_QUALIFIED"]
     for anahtar, deger in (filtre or {}).items():
-        satirlar.append("%s=%s" % (anahtar, deger))
+        satirlar.append("%s=%s" % (_tek_satir(anahtar), _tek_satir(deger)))
     satirlar.append("kayit=%d" % kayit)
     return "\n".join(satirlar)
 
 
 def guvenli_hata(hata, url):
-    """Tür adı + mesaj; adres, `://` sonrası kimlik ve parola parçaları `***`."""
+    """Tür adı + mesaj; adres parçaları (url, ana makine, port, rol, parola) `***`."""
     mesaj = str(hata)
+    parcalar = []
     if url:
-        mesaj = mesaj.replace(url, "***")
+        parcalar.append(url)
+        try:
+            u = urlsplit(url)
+            parcalar += [u.hostname, str(u.port) if u.port else None, u.username, u.password]
+        except ValueError:
+            pass
+        if "://" in url:                         # parola `@` ya da `/` içerebilir: son `@`'ten böl
+            kalan = url.split("://", 1)[1]
+            kimlik, ayrac, makine = kalan.rpartition("@")
+            if ayrac:
+                kullanici, _, parola = kimlik.partition(":")
+                parcalar += [kullanici, parola]
+            ad_port = makine.split("/", 1)[0].split("?", 1)[0]
+            parcalar += [ad_port.rsplit(":", 1)[0], ad_port.rsplit(":", 1)[-1]]
+    for parca in sorted({p for p in parcalar if p}, key=len, reverse=True):
+        mesaj = mesaj.replace(parca, "***")
     mesaj = re.sub(r"://[^@/\s\"']*@", "://***@", mesaj)
     mesaj = re.sub(r"(?i)password\s*=\s*\S+", "password=***", mesaj)
+    mesaj = re.sub(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", "***", mesaj)      # çözülmüş IP
     return "%s: %s" % (type(hata).__name__, mesaj)
 
 
