@@ -400,5 +400,76 @@ class EkipOzetTesti(unittest.TestCase):
         self.assertIsNone(YASAK.search(sql))
 
 
+class TemsilciKriterTesti(unittest.TestCase):
+    ARALIK = ["--baslangic", "2026-10-01", "--bitis", "2026-10-31"]
+
+    def test_temsilci_bir_hane(self):
+        tablo = kalite_veri.temsilci_tablosu([("Ayse", "A", 141, 2)])
+        self.assertEqual(tablo[0]["ortalama"], 70.5)
+        self.assertIsInstance(tablo[0]["ortalama"], float)
+        self.assertEqual(tablo[0]["kayit"], 2)
+
+    def test_az_kayitli_temsilci_isaretli(self):
+        tablo = kalite_veri.temsilci_tablosu([("Ayse", "A", 141, 2), ("Can", "A", 240, 3)])
+        az = {t["temsilci"]: t["az_ornek"] for t in tablo}
+        self.assertEqual(az, {"Ayse": True, "Can": False})
+
+    def test_kriter_kaldiya_gore_sirali_ve_oranli(self):
+        satirlar = [("A", 1, "Selam", 1, 1, 1), ("A", 2, "Kapanis", 2, 0, 0)]
+        tablo, disi = kalite_veri.kriter_tablosu(satirlar, ["A"])
+        self.assertEqual([k["kriter_id"] for k in tablo], [2, 1])
+        self.assertEqual(tablo[1]["oran_kaldi"], 0.33)
+        self.assertEqual(tablo[0]["oran_kaldi"], 1)
+        self.assertEqual(disi, [])
+
+    def test_kriter_verisi_olmayan_ekip_adiyla(self):
+        tablo, disi = kalite_veri.kriter_tablosu([("A", 1, "Selam", 1, 0, 1)], ["A", "B"])
+        self.assertEqual(disi, ["B"])
+
+    def test_sorgular_kurallari_tasir_ve_parametreli(self):
+        bas, bit = kalite_veri.gun_siniri("2026-10-01", "2026-10-31")
+        for sql, param in (kalite_veri.temsilci_ozet_sorgusu(bas, bit, "first", "X'; DROP"),
+                           kalite_veri.kriter_sorgusu(bas, bit, "first", "X'; DROP")):
+            self.assertIn(kalite_veri.SAYIM_KOSULU, sql)
+            self.assertNotIn("DROP", sql)
+            self.assertIn("X'; DROP", param.values())
+            self.assertIn("FIRST_CALL", param.values())
+            self.assertIsNone(YASAK.search(sql))
+            self.assertTrue(sql.lstrip().upper().startswith("SELECT"))
+        sql, _ = kalite_veri.kriter_sorgusu(bas, bit, None)
+        self.assertIn("public.qa_kriter", sql)
+        self.assertIn('e.id = k.eval_id', sql)
+        self.assertIn('"callDate" >=', sql)
+
+    def test_temsilci_ozet_cli(self):
+        kod, cikti, _ = _calistir(["temsilci-ozet"] + self.ARALIK,
+                                  lambda s, p: [("Ayse", "Alfa", 141, 2), ("Can", "Alfa", 240, 3)])
+        self.assertEqual(kod, 0)
+        self.assertIn("## kapsam", cikti)
+        self.assertIn("kayit=5", cikti)
+        self.assertIn("- Ayse: ekip=Alfa ortalama=70.5 kayit=2 az_ornek=evet", cikti)
+        self.assertIn("- Can: ekip=Alfa ortalama=80.0 kayit=3 az_ornek=hayir", cikti)
+
+    def test_temsilci_ozet_bos(self):
+        kod, cikti, _ = _calistir(["temsilci-ozet"] + self.ARALIK, lambda s, p: [])
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:**", cikti)
+
+    def test_kriterler_cli_kapsam_disi(self):
+        def yanit(sql, p):
+            if "qa_kriter" in sql:
+                return [("Alfa", 1, "Selam", 1, 1, 1)]
+            return [("Alfa", 100, 3, 1), ("Beta", 70, 1, 1)]
+        kod, cikti, _ = _calistir(["kriterler"] + self.ARALIK, yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("kapsam_disi=Beta", cikti)
+        self.assertIn("- Selam: kaldi=1 kismi=1 gecti=1 oran_kaldi=0.33", cikti)
+
+    def test_kriterler_bos(self):
+        kod, cikti, _ = _calistir(["kriterler"] + self.ARALIK, lambda s, p: [])
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:**", cikti)
+
+
 if __name__ == "__main__":
     unittest.main()
