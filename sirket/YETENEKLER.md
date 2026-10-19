@@ -18,8 +18,9 @@
 
 | Danışman | Yetenek | Ne işe yarar | Kaynak | Lisans |
 |---|---|---|---|---|
+| hepsi (formdan kendiliğinden) | `kurul-yaniti` | Kurula giden taslağın düzeni: Kısa yanıt · Dayanak · Bilinmeyenler · Not | yerli (19.10.2026) | MIT |
 
-**Toplam 0 yetenek.** Danışmanlar formdan doldurulup kuruldukça (NOVE-KURULUM.md Faz 4 ve 6) eklenir.
+**Toplam 1 yetenek.** Danışmanlar formdan doldurulup kuruldukça (NOVE-KURULUM.md Faz 4 ve 6) eklenir.
 
 ## Planlanan
 
