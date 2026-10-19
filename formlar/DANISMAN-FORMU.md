@@ -1,7 +1,7 @@
 # Danışman Formu — <Bölüm adı>
 
 > Bu formu bölüm yöneticisi doldurur. Son hâlini Kağan verir. Bilmediğin alanı boş bırak ya da "?" yaz — uydurma.
-> Hasta/müşteri adı, telefon, e-posta, TC kimlik no YAZMA: betik formda bunları bulursa durur.
+> Telefon, e-posta, TC kimlik no YAZMA: betik formda bunları bulursa durur.
 > Biçim: her alan `- Etiket: değer` satırıdır. Birden çok madde varsa alt satırlara iki boşluk girintiyle yaz.
 > Başlık numaralarını (`## 1.` … `## 7.`) değiştirme; betik bölümleri numarasından bulur.
 

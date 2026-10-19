@@ -60,7 +60,8 @@ kasa/                 bilgi kasası (kendi git deposu) — git'e girmez
 - Veri kaynaklarına, prod veritabanına yazma; DDL ya da migration
 - Mail, mesaj, yayın; kişiye ya da departmana talimat; tarayıcıyla panele giriş
 - `ANAYASA.md`, `kurallar.md`, `formlar/onayli/`, `sirket/CEO-KIMLIGI.md` değiştirme — insanın
-- Hasta ve müşteri adı, telefon, e-posta, TC kimlik numarası — hiçbir dosyaya
+- Hasta ve müşterinin telefonu, e-postası, TC kimlik numarası — hiçbir dosyaya. Ad soyad yazılabilir, ama ad soyad
+  taşıyabilen dosya herkese açık depoya girmez (ANAYASA §2, revize 19.10.2026)
 
 ## Lisans
 `LICENSE` dosyası olduğu gibi kalır; telif satırı silinmez ve değiştirilmez.

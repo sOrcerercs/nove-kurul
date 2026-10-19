@@ -195,7 +195,7 @@ class UretimTesti(_GeciciKok):
         kurallar = ft.kurallar_md("kalite", ft.oku(metin))
         self.assertIn("Personel adı yazılmaz.", kurallar)
         self.assertNotIn("Personel adı ve unvanı yazılabilir.", kurallar)
-        self.assertIn("Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz", kurallar)
+        self.assertIn("Hasta ve müşterinin adı soyadı yazılabilir; telefon, e-posta, TC kimlik no yazılmaz", kurallar)
 
     def test_durunca_hicbir_dosya_yazilmaz(self):
         """Test 2 + 4 + 5 birlikte: üç sebep listelenir, kalite kurulumda kalır, yetenek dosyası değişmez."""

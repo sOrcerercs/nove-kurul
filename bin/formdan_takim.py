@@ -52,7 +52,8 @@ AD_DESENI = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")   # bin/takim-olustur.sh ile
 ARACLAR = "[Read, Write, Glob, Grep]"                  # takimlar/_iskelet/takim.md ile aynı
 PERSONEL_IZNI = "Personel adı ve unvanı yazılabilir."
 PERSONEL_YASAGI = "Personel adı yazılmaz."
-HER_ZAMAN_YASAK = "Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz (ANAYASA §2)."
+HER_ZAMAN_YASAK = ("Hasta ve müşterinin adı soyadı yazılabilir; telefon, e-posta, TC kimlik no yazılmaz "
+                   "(ANAYASA §2).")
 
 
 # --- form okuma (K2) --------------------------------------------------------
