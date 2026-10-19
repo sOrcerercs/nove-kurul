@@ -7,11 +7,12 @@
 
 ## 1. Kimlik
 - Danışman adı (odada görünecek):
-- Bölüm yöneticisi (sahibi):
+- Yöneticinin adı soyadı (yalnız formda kalır):
+- Yöneticinin unvanı:
 - Tek cümleyle mesleği:
 - Sahnedeki rengi (isteğe bağlı):
 
-> ör. Danışman adı: Finans · Bölüm yöneticisi: ad, unvan · Renk: yeşil
+> ör. Danışman adı: Finans · Yöneticinin unvanı: Finans Müdürü · Renk: yeşil
 > ör. Mesleği: "Finans danışmanı olarak kurulun bütçe, nakit ve maliyet sorularını muhasebe verisiyle yanıtlamak."
 
 ## 2. Hangi soruları alır

@@ -28,7 +28,8 @@ class OkumaTesti(unittest.TestCase):
     def test_tam_form_okunur(self):
         form = ft.oku(FORM)
         self.assertEqual(form["ad"], "Kalite")                       # `>` örnek satırı ezmez
-        self.assertEqual(form["sahibi"], "Kalite Müdürü")
+        self.assertEqual(form["unvan"], "Kalite Müdürü")
+        self.assertNotIn("sahibi", form)              # ad soyad okunmaz: hiçbir dosyaya gitmez
         self.assertTrue(form["meslek"].startswith("Kalite danışmanı olarak"))
         self.assertEqual(form["anahtar_kelimeler"], ["kalite", "şikâyet", "memnuniyet", "denetim"])
         self.assertEqual(len(form["ornek_sorular"]), 2)              # "3. ?" ve boş 4., 5. düşer
@@ -150,6 +151,7 @@ class UretimTesti(_GeciciKok):
         self.assertEqual(fm["gerekli_anahtarlar"], ["QA_READONLY_URL"])
         self.assertEqual((fm["model"], fm["renk"], fm["butce_usd"]), ("sonnet", "mor", "2"))
         self.assertIn("Sahibi: Kalite Müdürü", govde)
+        self.assertNotIn("Örnek Kişi", self.oku("takimlar/kalite/takim.md") + self.oku("takimlar/kalite/kurallar.md"))
         self.assertIn("kuyruk maddesini `tamam` yap", govde)
         self.assertIn("| Kalite değerlendirmeleri |", govde)
         self.assertEqual(ayar.kurulu_takimlar(self.kok), ["kalite"])
@@ -244,8 +246,8 @@ class IncelemeDuzeltmeTesti(_GeciciKok):
 
     def test_satira_bolunmus_telefon_uretilen_dosyada_yakalanir(self):
         """Önemli 2: ham formda bölünmüş numara, birleşince üretilen takim.md'de telefon olur → durmalı."""
-        self.form(FORM.replace("- Bölüm yöneticisi (sahibi): Kalite Müdürü",
-                               "- Bölüm yöneticisi (sahibi): Kalite Müdürü, dahili 0532 123\n  45 67"))
+        self.form(FORM.replace("- Yöneticinin unvanı: Kalite Müdürü",
+                               "- Yöneticinin unvanı: Kalite Müdürü, dahili 0532 123\n  45 67"))
         sonuc = ft.uret(self.kok, "kalite")
         self.assertEqual(sonuc["durum"], "durdu")
         self.assertIn("kişisel veri: telefon numarası (üretilen takimlar/kalite/takim.md)", sonuc["sebepler"])

@@ -2,7 +2,8 @@
 
 ## 1. Kimlik
 - Danışman adı (odada görünecek): Kalite
-- Bölüm yöneticisi (sahibi): Kalite Müdürü
+- Yöneticinin adı soyadı (yalnız formda kalır): Örnek Kişi
+- Yöneticinin unvanı: Kalite Müdürü
 - Tek cümleyle mesleği: Kalite danışmanı olarak kurulun çağrı kalitesi ve şikâyet sorularını değerlendirme verisiyle yanıtlamak.
 - Sahnedeki rengi (isteğe bağlı): mor
 

@@ -121,7 +121,8 @@ Kurul, yanıtta kimin sorumlu olduğunu ad ve unvanıyla görmeli (Kağan, 19.10
 - Betik her danışmanın `kurallar.md`'sindeki "Teyit ve hassas veri" bölümüne şu satırı yazar:
   "Personel adı ve unvanı yazılabilir. Hasta ve müşteri adı, telefon, e-posta, TC kimlik no yazılmaz."
 - Varsayılan **açık**. §7 Revize'de "Personel adı: hayır" yazılırsa satır "Personel adı yazılmaz." olur.
-- Bölüm yöneticisinin adı ve unvanı `takim.md` gövdesine "Sahibi" satırı olarak girer.
+- `takim.md` gövdesine "Sahibi" satırı olarak **yalnız yöneticinin unvanı** girer; form ad soyadı ayrı alanda
+  ister ve betik onu okumaz — depo herkese açık (Kağan, 19.10.2026).
 - **Denetçi düzeltmesi** (`bin/bekci.py` istemi): bugün "kişi adı"nı ayrımsız ihlal sayıyor, `kurallar.md`'deki izni
   görmüyor. Yeni metin: hasta/müşteri adı her zaman ihlal; personel adı yalnız `kurallar.md` izin vermiyorsa ihlal.
   `bekci.gecersiz_gerekceyi_ayikla`'nın "kişi adı" gerekçesine dokunmaması korunur.

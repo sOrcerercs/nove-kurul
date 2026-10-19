@@ -36,7 +36,7 @@ ZORUNLU = (
 # Bölüm başına bilinen etiket önekleri. Burada olmayan `- X: y` satırı ya girintisiz yazılmış bir maddedir ya da
 # yazım hatasıdır; sessizce yeni alan sayılırsa içerik kaybolur (son inceleme, Önemli 5). §5 serbest metindir.
 BILINEN = {
-    1: ("Danışman adı", "Bölüm yöneticisi", "Tek cümleyle mesleği", "Sahnedeki rengi"),
+    1: ("Danışman adı", "Yöneticinin adı soyadı", "Yöneticinin unvanı", "Tek cümleyle mesleği", "Sahnedeki rengi"),
     2: ("Bu danışmana gelmesi gereken", "Anahtar kelimeler", "Bu danışmana GELMEMESİ"),
     3: ("Bu verideki hassas alanlar", "Formülü/tanımı"),
     4: ("Bu danışman ASLA", "Her yanıtta mutlaka", "Hangi sayıyı kim teyit eder"),
@@ -151,7 +151,7 @@ def oku(metin):
     veri_baslik, veri = tablo(b.get(3, ""))
     return {
         "ad": _tek(k[1], "Danışman adı"),
-        "sahibi": _tek(k[1], "Bölüm yöneticisi"),
+        "unvan": _tek(k[1], "Yöneticinin unvanı"),   # ad soyad okunmaz: depo herkese açık (Kağan, 19.10.2026)
         "meslek": _tek(k[1], "Tek cümleyle mesleği"),
         "renk": _tek(k[1], "Sahnedeki rengi"),
         "ornek_sorular": _liste(k[2], "Bu danışmana gelmesi gereken"),
@@ -272,8 +272,8 @@ def takim_md(bolum, form):
         f"# {form['ad']} Danışmanı", "",
         f"> Formdan üretildi: `formlar/onayli/{bolum}.md` → `bin/formdan_takim.py`. Elle değiştirme: formu revize et,",
         f"> `python3 bin/formdan_takim.py {bolum} --yeniden` koştur.", ""]
-    if form["sahibi"]:
-        govde += [f"Sahibi: {form['sahibi']}", ""]
+    if form["unvan"]:
+        govde += [f"Sahibi: {form['unvan']}", ""]
     govde += ["## Hangi soruları alır", *_maddeler(form["ornek_sorular"]), "",
               "## Hangi soruları almaz", *_maddeler(form["almaz"]), "",
               "## Koşu adımları",
