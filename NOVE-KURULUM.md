@@ -49,6 +49,7 @@
 | N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
 | N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
 | N30 | **ANAYASA §2: hasta ve müşterinin ad soyadı yazılabilir;** telefon, e-posta, TC kimlik no yasak kalır; ad soyad taşıyabilen dosya (defter, onaylı form) herkese açık depoya girmez. Yapay zekâ sağlayıcılarına aktarım Kağan'ın teyidiyle uygun (19.10.2026) |
+| N31 | **CEO tavanı geçici olarak 1,50 USD/kontrol, soru bütçesi 8 USD:** Opus 5.5 fiyatıyla (4 $ / 20 $ MTok, düşünme kapatılamıyor ve çıktı sayılıyor) tahmin tipik ~0,53, ağır ~1,28 USD; 0,50 USD'de CEO karar yazamadan kesilir. Kalıcı rakam Faz 4 beş gerçek soruda ölçülüp konur. En kötü yol 2 + 1,5 + 2 + 1,5 = 7 USD + 1 USD pay. Aylık 1.200 USD değişmez (günlük 40 USD belirliyor) (19.10.2026) |
 
 ---
 
@@ -238,7 +239,7 @@ Senin işin ikinci kontroldür: bu yanıt kurula gidecek kadar iyi mi?
 **Teknik ayrıntılar:**
 
 - `bin/ceo.py <soru-id>` yalnız soru kaydında Bekçi kararı `kabul` ise çalışır; değilse hata verir. Bu bir testle sabitlenir.
-- `kos.py`'nin `_claude_kos` yolu kullanılır. Model **`opus`**, araçlar yalnız `[Read, Glob, Grep]`, bütçe **0,50 USD/kontrol**.
+- `kos.py`'nin `_claude_kos` yolu kullanılır. Model **`opus`**, araçlar yalnız `[Read, Glob, Grep]`, bütçe **`ayar.CEO_BUTCESI_USD`/kontrol** (geçici 1,50 USD, N31).
   CEO dosya yazamaz: JSON'u sürücü yakalar ve soru kaydına `## CEO — karar: onay/red` başlığıyla yazar.
 - CEO içerik üretmediği için Stop hook'ta Bekçi'ye tabi değildir. `SIRKET_TAKIM` ayarlanmaz; bekçi bu durumda karışmaz.
   JSON şemaya uymazsa karar `red` sayılır ve "CEO yanıtı okunamadı" gerekçesi yazılır. Hiçbir zaman sessizce `onay` sayılmaz.
@@ -383,8 +384,8 @@ panel/
 |---|---|---|---|
 | Mesai | 09:00–23:00 | 08:00–20:00, haftanın her günü | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
 | Danışman koşusu | 2 USD / 15 dk | 2 USD / 15 dk | Aynı kalır |
-| CEO kontrolü | — | 0,50 USD / 5 dk | Opus kullanılır |
-| **Soru başına toplam** | — | **6 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol 2 + 0,5 + 2 + 0,5 = 5 USD; 1 USD Denetçi ve pay (N27) |
+| CEO kontrolü | — | **1,50 USD** / 5 dk | Opus kullanılır. **Geçici** — Faz 4 beş gerçek soruda ölçülecek (N31) |
+| **Soru başına toplam** | — | **8 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol 2 + 1,5 + 2 + 1,5 = 7 USD; 1 USD Denetçi ve pay (N27, N31) |
 | Kurul üyesi başına gün | — | 10 soru | Kötüye kullanım freni |
 | Danışman başına gün | 2 koşu | 15 koşu | Soru akışı olaylıdır, takvimli değildir |
 | Şirket günü | 5 USD | **40 USD** | İlk ay ölçülür (`sirket-log/rapor/`), sonra karar verilir |
@@ -481,6 +482,8 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
   - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
     (K7 personel adı, N30 ad soyadı); `hasta-ad-soyadi` `kabul` almalı. Kağan, 19.10.2026: ölçüm buraya ertelendi
+  - Aynı adımda CEO kontrolünün gerçek maliyeti kayıtlardan okunur; `ayar.CEO_BUTCESI_USD`'nin kalıcı değeri
+    buna göre konur (N31, şimdi geçici 1,50 USD)
 
 ### Faz 5 · Panel
 > **Durum (09.10.2026):** kısmen — panel demo verisiyle çalışıyor; `panel.py` yok.

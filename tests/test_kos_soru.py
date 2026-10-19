@@ -175,3 +175,18 @@ class KosuYoluTesti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelSatiriTesti(Kurulum):
+    """N31: koşu kaydının son satırı modeli taşır; günlük maliyet toplamı bozulmaz."""
+
+    def test_kosu_kaydi_modeli_ve_maliyeti_tasir(self):
+        sahte = self.sahte_claude(maliyet=0.4)
+        def kos_(*a, **k):
+            return {**sahte(*a, **k), "modeller": ["claude-sonnet-5-5"]}
+        self.kostur(claude=kos_)
+        kayit = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).read_text(encoding="utf-8")
+        self.assertIn("· model: claude-sonnet-5-5", kayit)
+        bugun = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).name[:10]
+        self.assertAlmostEqual(ayar.gunluk_maliyet(self.kok, bugun), 0.4)
+

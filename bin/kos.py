@@ -348,13 +348,24 @@ def claude_komutu(metin, araclar, butce_usd, model="sonnet"):
 
 
 def sonucu_cozumle(stdout):
-    """`claude -p --output-format json` çıktısı → {hata, maliyet, tur, metin}."""
+    """`claude -p --output-format json` çıktısı → {hata, maliyet, tur, metin, modeller}.
+
+    `modeller`: `modelUsage` anahtarları, maliyete göre azalan — `--model opus` gibi takma adın gerçekte hangi
+    modele gittiğini kayda geçirmek için (N31). Alan yoksa boş liste."""
     try:
         veri = json.loads(stdout)
     except ValueError:
-        return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": stdout[-2000:]}
+        return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": stdout[-2000:], "modeller": []}
+    kullanim = veri.get("modelUsage") if isinstance(veri.get("modelUsage"), dict) else {}
+    modeller = sorted(kullanim, key=lambda ad: -float((kullanim[ad] or {}).get("costUSD") or 0))
     return {"hata": bool(veri.get("is_error")), "maliyet": float(veri.get("total_cost_usd") or 0),
-            "tur": int(veri.get("num_turns") or 0), "metin": str(veri.get("result") or "")}
+            "tur": int(veri.get("num_turns") or 0), "metin": str(veri.get("result") or ""),
+            "modeller": modeller}
+
+
+def model_metni(cozum):
+    """Kayıttaki `model:` değeri; bilgi yoksa açıkça 'bilinmiyor' (sessiz boşluk yok)."""
+    return ", ".join(cozum.get("modeller") or []) or "bilinmiyor"
 
 
 def _ustbilgi(takim, zaman, fm):
@@ -498,7 +509,8 @@ def kos(takim, kuru=False, zorla=False):
                         encoding="utf-8")
         cozum = {**cozum, "hata": True}
     with open(kosu, "a", encoding="utf-8") as dosya:
-        dosya.write(f"\n\n---\n- maliyet: {cozum['maliyet']:.3f} USD · tur: {cozum['tur']} · hata: {cozum['hata']}\n")
+        dosya.write(f"\n\n---\n- maliyet: {cozum['maliyet']:.3f} USD · tur: {cozum['tur']} · hata: {cozum['hata']}"
+                    f" · model: {model_metni(cozum)}\n")
     for s in sonhazirlik_kos(takim, fm.get("sonhazirlik") or []):
         try:
             with open(kosu, "a", encoding="utf-8") as dosya:

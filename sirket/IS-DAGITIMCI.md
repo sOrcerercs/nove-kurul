@@ -48,7 +48,8 @@ anahtar kelimeler). Haiku'dan aldığın yalnız JSON:
 - Haiku listede olmayan bir ad döndürürse ya da JSON bozuksa: soru **yönlendirilemedi** sayılır. Hiçbir danışmana
   tahminle gönderilmez. Soru kaydına `durum: yönlendirilemedi` ve sebebi yazılır; yönetici (Kağan) bunu görür,
   soranın panelinde "sorun inceleniyor" görünür *(öneri)*.
-- Haiku çağrısının maliyeti sorunun 5 USD'lik bütçesinden düşer (§9). Çağrı başına tavan 0,05 USD *(öneri)*.
+- Haiku çağrısının maliyeti sorunun bütçesinden (`ayar.SORU_BUTCESI_USD`) düşer (§9). Çağrı başına tavan
+  `ayar.DAGITIM_HAIKU_BUTCESI_USD` *(öneri)*.
 
 ### 1c · Yalnız aktif danışmana gönder
 Bir danışman **ancak verisi bağlıysa** devreye girer; verisi olmayan sahnede "kurulumda" görünür (Faz 6).
@@ -105,7 +106,7 @@ ama yalnız şu kapıların hepsi açıksa *(kagan-sirketi `tetik_karari`, Nove 
 | Danışman başına gün | 15 koşu | Soru bekler; sebebi soru kaydına ve panele yazılır |
 | Şirket günü | 40 USD | Soru bekler; sebebi görünür |
 | Eşzamanlı koşu | 3 | Sıra boşalınca başlar |
-| Soru bütçesi | `ayar.SORU_BUTCESI_USD`, 6 USD (kalan bütçe yetmiyorsa) | Koşu başlamaz; sahibi panelde görür (ANAYASA §4) |
+| Soru bütçesi | `ayar.SORU_BUTCESI_USD` (kalan bütçe yetmiyorsa) | Koşu başlamaz; sahibi panelde görür (ANAYASA §4) |
 | `takim.md` var mı | — | Koşu başlamaz; `takim.md yok` |
 
 **Sayılar burada yazmaz, `bin/ayar.py`'de durur.** kagan-sirketi'de bir dosyada elle yazılmış sayılar, sabitler

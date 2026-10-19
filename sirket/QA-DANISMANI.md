@@ -58,12 +58,12 @@ soru kaydına "maskelendi: telefon (1)" gibi bir satır düşersin; maskelenen d
 - soran: <e-posta> (rol: kurul)
 - zaman: 2026-10-09 14:32
 - soru: Q3 bütçe sapmasının ana nedenleri neler?
-- bütçe: 6,00 USD
+- bütçe: <ayar.SORU_BUTCESI_USD> USD
 - durum: alındı
 ```
 
 - `soru-id` biçimi *(öneri)*: `YYYYMMDD-HHMM-<4 harf>` — sıralanabilir ve panelde okunabilir.
-- Her soru **6 USD** bütçe taşır (`ayar.SORU_BUTCESI_USD`, §9). Bütçeyi kayda sen yazarsın; harcamayı sürücü işler.
+- Her soru `ayar.SORU_BUTCESI_USD` kadar bütçe taşır (§9). Bütçeyi kayda sen yazarsın; harcamayı sürücü işler.
 
 ### 5 · İş Dağıtımcı'ya teslim et
 Soruyu `bin/dagitici.py`'ye verirsin. Hangi danışmana gideceğine **sen karar vermezsin** (`sirket/IS-DAGITIMCI.md`).

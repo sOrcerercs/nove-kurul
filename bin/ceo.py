@@ -134,7 +134,7 @@ def claude_sor(metin):
     return kos.sonucu_cozumle(sonuc.stdout)
 
 
-def _bolum(karar, tur, maliyet):
+def _bolum(karar, tur, maliyet, model="bilinmiyor"):
     satirlar = [f"\n## CEO — karar: {karar['karar']}",
                 f"- tur: {tur}/{1 + ayar.CEO_MAKS_RED}",
                 f"- gerekçe: {karar['gerekce'] or '-'}"]
@@ -143,6 +143,7 @@ def _bolum(karar, tur, maliyet):
         satirlar += [f"  {i}. {b}" for i, b in enumerate(karar["bulgular"], 1)]
     satirlar += [f"- kurula not: {karar['kurula_not'] or '-'}",
                  f"- maliyet: {maliyet:.3f} USD",
+                 f"- model: {model}",
                  f"- zaman: {ayar.simdi_iso()}"]
     return "\n".join(satirlar) + "\n"
 
@@ -171,7 +172,7 @@ def kontrol_et(kok, soru_id, calistir=claude_sor):
     cozum = calistir(istem(kimlik_yolu.read_text(encoding="utf-8"), soru_id, takim, tur))
     karar = _okunamadi(cozum["metin"][:300]) if cozum["hata"] else karari_ayristir(cozum["metin"])
     with open(kayit, "a", encoding="utf-8") as dosya:
-        dosya.write(_bolum(karar, tur, cozum["maliyet"]))
+        dosya.write(_bolum(karar, tur, cozum["maliyet"], kos.model_metni(cozum)))
     return {**karar, "tur": tur}
 
 

@@ -108,7 +108,7 @@ Yalnız şu JSON'u döndür:
 |---|---|---|
 | Model | Claude **Opus** (danışman Sonnet'te çalıştığı için ondan daha güçlü) | §5 |
 | Araçlar | yalnız `Read`, `Glob`, `Grep` | §5 |
-| Bütçe | 0,50 USD / kontrol, 5 dk | §9 |
+| Bütçe | `ayar.CEO_BUTCESI_USD` ve `ayar.CEO_SURESI_SN`, kontrol başına | §9 |
 | Red hakkı | 1 (sonra yanıt kurula gitmez) | §2, `ayar.CEO_MAKS_RED` |
 | Soru toplamı | `ayar.SORU_BUTCESI_USD` (danışman + düzeltme + Denetçi + sen) | §9 |
 
