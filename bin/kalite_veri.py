@@ -174,8 +174,7 @@ AZ_ORNEK_ESIGI = 3                  # kurallar: 3'ten az değerlendirmeli temsil
 TIP_ESLEME = {"first": "FIRST_CALL", "second": "SECOND_CALL"}
 
 
-def ekip_ozet_sorgusu(bas, bit, tip, ekip=None):
-    """(sql, params) — ekip başına (ekip, toplam puan, kayıt, temsilci sayısı). Parametreli."""
+def _filtre_kosullari(bas, bit, tip, ekip):
     kosul = ["e.\"callDate\" >= %(bas)s", "e.\"callDate\" <= %(bit)s", SAYIM_KOSULU]
     param = {"bas": bas, "bit": bit}
     if tip:
@@ -184,12 +183,18 @@ def ekip_ozet_sorgusu(bas, bit, tip, ekip=None):
     if ekip:
         kosul.append("t.name = %(ekip)s")
         param["ekip"] = ekip
+    return "\n   AND ".join(kosul), param
+
+
+def ekip_ozet_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — ekip başına (ekip, toplam puan, kayıt, temsilci sayısı). Parametreli."""
+    kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
     sql = ("SELECT t.name, sum(e.score) AS toplam, count(*) AS adet,"
            " count(DISTINCT e.\"agentId\") AS temsilci\n"
            "  FROM public.\"Evaluation\" e\n"
            "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
            "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
-           " WHERE " + "\n   AND ".join(kosul) + "\n"
+           " WHERE " + kosul + "\n"
            " GROUP BY t.id, t.name\n ORDER BY t.name")
     return sql, param
 
@@ -203,18 +208,6 @@ def ekip_tablosu(satirlar):
         tablo.append({"ekip": ekip, "ortalama": js_yuvarla(float(toplam) / adet),
                       "kayit": int(adet), "temsilci": int(temsilci)})
     return tablo
-
-
-def _filtre_kosullari(bas, bit, tip, ekip):
-    kosul = ["e.\"callDate\" >= %(bas)s", "e.\"callDate\" <= %(bit)s", SAYIM_KOSULU]
-    param = {"bas": bas, "bit": bit}
-    if tip:
-        kosul.append("e.\"callType\"::text = %(tip)s")
-        param["tip"] = TIP_ESLEME[tip]
-    if ekip:
-        kosul.append("t.name = %(ekip)s")
-        param["ekip"] = ekip
-    return "\n   AND ".join(kosul), param
 
 
 def temsilci_ozet_sorgusu(bas, bit, tip, ekip=None):
@@ -368,7 +361,7 @@ def ekip_ozet_bas(baglanti, args):
     return 0
 
 
-def _hazirla(baglanti, args, komut):
+def _hazirla(baglanti, args):
     """Ortak: tarih + ekip doğrulama. (bas, bit) ya da None (sebep yazıldı)."""
     try:
         bas, bit = gun_siniri(args.baslangic, args.bitis)
@@ -394,7 +387,7 @@ def _filtre_ozeti(args):
 
 
 def temsilci_ozet_bas(baglanti, args):
-    sinir = _hazirla(baglanti, args, "temsilci-ozet")
+    sinir = _hazirla(baglanti, args)
     if not sinir:
         return 1
     tablo = temsilci_tablosu(_sorgula(baglanti, temsilci_ozet_sorgusu(sinir[0], sinir[1], args.tip, args.ekip)))
@@ -404,14 +397,14 @@ def temsilci_ozet_bas(baglanti, args):
     print(kapsam_bolumu("temsilci-ozet", args.baslangic, args.bitis, _filtre_ozeti(args),
                         sum(t["kayit"] for t in tablo)))
     for t in tablo:
-        print("- %s: ekip=%s ortalama=%.1f kayit=%d az_ornek=%s"
-              % (_tek_satir(t["temsilci"]), _tek_satir(t["ekip"]), t["ortalama"], t["kayit"],
+        print("- %s: ekip=%s ortalama=%s kayit=%d az_ornek=%s"
+              % (_tek_satir(t["temsilci"]), _tek_satir(t["ekip"]), "%g" % t["ortalama"], t["kayit"],
                  "evet" if t["az_ornek"] else "hayir"))
     return 0
 
 
 def kriterler_bas(baglanti, args):
-    sinir = _hazirla(baglanti, args, "kriterler")
+    sinir = _hazirla(baglanti, args)
     if not sinir:
         return 1
     bas, bit = sinir

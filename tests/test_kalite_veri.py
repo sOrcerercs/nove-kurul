@@ -431,11 +431,18 @@ class TemsilciKriterTesti(unittest.TestCase):
         for sql, param in (kalite_veri.temsilci_ozet_sorgusu(bas, bit, "first", "X'; DROP"),
                            kalite_veri.kriter_sorgusu(bas, bit, "first", "X'; DROP")):
             self.assertIn(kalite_veri.SAYIM_KOSULU, sql)
+            self.assertIn(kalite_veri.UYE_KOSULU, sql)
             self.assertNotIn("DROP", sql)
             self.assertIn("X'; DROP", param.values())
             self.assertIn("FIRST_CALL", param.values())
             self.assertIsNone(YASAK.search(sql))
             self.assertTrue(sql.lstrip().upper().startswith("SELECT"))
+        for kur in (kalite_veri.temsilci_ozet_sorgusu, kalite_veri.kriter_sorgusu):
+            sql0, param0 = kur(bas, bit, None)
+            sql1, param1 = kur(bas, bit, "second")
+            self.assertNotEqual(sql0, sql1)
+            self.assertNotIn("tip", param0)
+            self.assertEqual(param1["tip"], "SECOND_CALL")
         sql, _ = kalite_veri.kriter_sorgusu(bas, bit, None)
         self.assertIn("public.qa_kriter", sql)
         self.assertIn('e.id = k.eval_id', sql)
@@ -448,7 +455,7 @@ class TemsilciKriterTesti(unittest.TestCase):
         self.assertIn("## kapsam", cikti)
         self.assertIn("kayit=5", cikti)
         self.assertIn("- Ayse: ekip=Alfa ortalama=70.5 kayit=2 az_ornek=evet", cikti)
-        self.assertIn("- Can: ekip=Alfa ortalama=80.0 kayit=3 az_ornek=hayir", cikti)
+        self.assertIn("- Can: ekip=Alfa ortalama=80 kayit=3 az_ornek=hayir", cikti)
 
     def test_temsilci_ozet_bos(self):
         kod, cikti, _ = _calistir(["temsilci-ozet"] + self.ARALIK, lambda s, p: [])
