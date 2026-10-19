@@ -130,10 +130,10 @@ nove-kurul/
 │   ├── _iskelet/              takim-olustur.sh'in kopyaladığı dört dosya
 │   ├── finans/  kalite/  okr/  raporlama/  satis-muduru/
 │   └── <danisman>/  takim.md · kurallar.md · defter.md · durum.json · gelen/ · kosu/ · cikti/ · veri/
-├── formlar/                   henüz yok — Faz 4'ün ilk adımında kurulur
+├── formlar/                   şablon: `DANISMAN-FORMU.md`
 │   ├── DANISMAN-FORMU.md      yöneticilere giden boş şablon (§6)
 │   ├── gelen/                 doldurulmuş formlar — git'e GİRMEZ
-│   └── onayli/                Kağan'ın revize ettiği formlar
+│   └── onayli/                Kağan'ın revize ettiği formlar — git'e GİRMEZ (19.10.2026)
 ├── yanitlar/                  Yanıt defteri — yalnız sürücü yazar
 ├── skills/<ad>/SKILL.md
 ├── bin/                       kos · bekci · ceo · dagitici · soru_kapisi · yanit_defteri · crm_zil · panel · ayar · …
@@ -252,54 +252,9 @@ Senin işin ikinci kontroldür: bu yanıt kurula gidecek kadar iyi mi?
 Her yöneticiye `formlar/DANISMAN-FORMU.md` gönderilir. Doldurulmuş form `formlar/gelen/<bolum>.md` olarak gelir.
 Kağan revize eder ve `formlar/onayli/` altına koyar. Ardından `bin/formdan_takim.py <bolum>` dört dosyayı üretir.
 
-```markdown
-# Danışman Formu — <Bölüm adı>
-
-> Bu formu bölüm yöneticisi doldurur. Son hâlini Kağan verir. Bilmediğin alanı boş bırak,
-> "?" yaz — uydurma. Hasta/müşteri adı, telefon, e-posta YAZMA.
-
-## 1. Kimlik
-- Danışman adı (odada görünecek):            ör. "Finans"
-- Bölüm yöneticisi (sahibi):                  ad, unvan
-- Tek cümleyle mesleği:                       "Finans danışmanı olarak kurulun bütçe, nakit ve
-                                               maliyet sorularını muhasebe verisiyle yanıtlamak."
-- Sahnedeki rengi (isteğe bağlı):             ör. yeşil
-
-## 2. Hangi soruları alır
-- Bu danışmana gelmesi gereken 5 örnek soru:
-  1.
-  2.
-- Anahtar kelimeler (İş Dağıtımcı bunlarla yönlendirir):  bütçe, nakit, maliyet, sapma, …
-- Bu danışmana GELMEMESİ gereken, karışabilecek sorular:
-
-## 3. Veri
-| Kaynak | Ne var içinde | Nerede (sistem/dosya) | Kim erişim verir | Ne sıklıkta güncellenir |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-- Bu verideki hassas alanlar (KVKK):
-- Formülü/tanımı herkesçe bilinmeyen göstergeler (ör. "upsell oranı nasıl hesaplanır"):
-
-## 4. Kurallar (kurallar.md'ye gidecek)
-- Bu danışman ASLA şunu yapmamalı:
-- Her yanıtta mutlaka olması gereken:
-- Hangi sayıyı kim teyit eder:
-
-## 5. İyi yanıt nasıl görünür
-- Kurula giden ideal yanıtın bir örneği (yarım sayfa yeter):
-
-## 6. Tempo (isteğe bağlı)
-- Soru beklemeden düzenli üretmesini istediğin bir rapor var mı? (ör. "her pazartesi bütçe sapması")
-```
-
-**Kağan'ın revize kontrol listesi** (`formlar/onayli/`'ye almadan önce):
-
-- [ ] Mesleği tek cümle ve bir fiille bitiyor (`description` alanı bu cümle olur)
-- [ ] Anahtar kelimeler diğer danışmanlarla çakışmıyor (`python3 bin/dagitici.py --cakisma` ile kontrol edilir)
-- [ ] Her veri kaynağı **salt okunur** bir yolla bağlanabiliyor (SELECT rolü, dışa aktarım, paylaşılan klasör)
-- [ ] Formülü teyitsiz gösterge `—` olarak işaretli ve teyit sahibi yazılı
-- [ ] Formda kişisel veri yok
-- [ ] Gereken en az bir yetenek seçilmiş (`skills:` boş kalırsa testler kırmızı verir)
+Şablon ve revize kontrol listesi: `formlar/DANISMAN-FORMU.md` (§1–§6 yönetici, §7 Revize Kağan). Betik bölümleri
+numarasından bulur; zorunlu alan, kişisel veri ve yetenek eksikse durur, anahtar kelime çakışmasında uyarır
+(`docs/superpowers/specs/2026-10-19-advisor-form-pipeline-design.md`).
 
 ---
 
@@ -517,8 +472,8 @@ python3 bin/dagitici.py --kuru
 
 Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatti` örnek alınır: `QA_READONLY_URL`, `qa_ozet.py`
 ve `qa-koclugu-kurgusu` taşınır.
-- [ ] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
-  `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır
+- [x] **Form hattı kurulur** (Faz 1–3'te atlanmıştı, 13.10.2026'da fark edildi): `formlar/DANISMAN-FORMU.md` (§6 şablonu),
+  `formlar/gelen/` (git'e girmez), `formlar/onayli/` ve `bin/formdan_takim.py` + testi. Faz 6 da aynı hattı kullanır — 19.10.2026
 - [ ] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur
 - [ ] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py`
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir

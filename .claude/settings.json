@@ -6,7 +6,13 @@
       "Write(./yanitlar/**)",
       "Edit(./yanitlar/**)",
       "Write(./formlar/onayli/**)",
-      "Edit(./formlar/onayli/**)"
+      "Edit(./formlar/onayli/**)",
+      "Write(./takimlar/*/kurallar.md)",
+      "Edit(./takimlar/*/kurallar.md)",
+      "Write(./ANAYASA.md)",
+      "Edit(./ANAYASA.md)",
+      "Write(./sirket/CEO-KIMLIGI.md)",
+      "Edit(./sirket/CEO-KIMLIGI.md)"
     ]
   },
   "hooks": {

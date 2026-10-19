@@ -65,6 +65,13 @@ class SkillSozlesmesiTesti(unittest.TestCase):
             with self.subTest(skill=yol.parent.name):
                 self.assertLessEqual(len(yol.read_text(encoding="utf-8").splitlines()), 250)
 
+    def test_kurul_yaniti_dort_bolumu_sirayla_tasir(self):
+        """K5: kurula giden her taslak aynı dört başlığı aynı sırayla taşır."""
+        metin = (KOK / "skills/kurul-yaniti/SKILL.md").read_text(encoding="utf-8")
+        yerler = [metin.find(f"## {b}\n") for b in ("Kısa yanıt", "Dayanak", "Bilinmeyenler", "Not")]
+        self.assertNotIn(-1, yerler)
+        self.assertEqual(yerler, sorted(yerler))
+
 
 class KuyrukKapatmaTesti(unittest.TestCase):
     """Her takım işini bitirince kuyruk maddesini `tamam` yapmalı.
