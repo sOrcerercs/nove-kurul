@@ -395,6 +395,21 @@ class GirisNoktasiTesti(unittest.TestCase):
         self.assertIn("form yok: formlar/onayli/olmayan-bolum.md", sonuc.stdout)
 
 
+class DefterGitTesti(unittest.TestCase):
+    """Kağan, 19.10.2026: depo herkese açık; danışman defterleri (ad soyad taşıyabilir) git'e girmez, iskelet girer."""
+
+    def _yok_sayilir_mi(self, yol):
+        return subprocess.run(["git", "check-ignore", "-q", yol], cwd=KOK).returncode == 0
+
+    def test_danisman_defteri_git_disinda(self):
+        for takim in ("kalite", "finans", "satis-muduru"):
+            with self.subTest(takim=takim):
+                self.assertTrue(self._yok_sayilir_mi(f"takimlar/{takim}/defter.md"))
+
+    def test_iskelet_defteri_izleniyor(self):
+        self.assertFalse(self._yok_sayilir_mi("takimlar/_iskelet/defter.md"))
+
+
 class KilitTesti(unittest.TestCase):
     """K6: insanın dosyaları kuralla değil yetkiyle kapalı; eski altı kilit de yerinde (12'nin 12'si)."""
 

@@ -28,6 +28,15 @@ ad ve unvana kadar bilgi vermesini istedi; hasta ve müşteri adı için de "yaz
 - `kasa/decisions/n13-tc-deseni-saglama-hanesiyle-calisir.md` (hasta verisi riski, KVKK)
 - `kasa/concepts/danisman-formu.md` · `kasa/entities/denetci-bekci.md`
 
+## Verilen kararlar (Kağan, 19.10.2026 — ANAYASA §2 taslağı için)
+
+1. **Kapsam: yalnız ad soyad** (önce B seçildi, aynı gün geri alındı — depo herkese açık çıktı). Hasta ve
+   müşterinin adı soyadı yazılabilir; telefon, e-posta ve TC kimlik numarası yasak kalır. `bekci.ON_KONTROL`
+   ve formdan_takim kişisel veri taraması değişmez.
+2. **Yer: her yer (C)** — çıktı, Yanıt defteri, koşu kaydı, defter, log.
+   Not: `nove-kurul` deposu PUBLIC; `takimlar/*/defter.md` git'e giriyordu (19.10.2026 ölçüldü).
+3. **Danışman defterleri git'e girmez (A)** — `.gitignore`: `takimlar/*/defter.md`, iskelet hariç. PR #5'te uygulandı.
+
 ## Henüz karar yok
 
 - Hukuk / KVKK sorumlusu hasta adının (özel nitelikli veri) kurul yanıtında, koşu kaydında ve logda tutulmasına

@@ -11,6 +11,9 @@ takimlar/*/kosu/
 takimlar/*/cikti/
 takimlar/*/gelen/
 takimlar/*/veri/
+# Danışman defteri ajanın hafızasıdır ve hasta/müşteri ad soyadı taşıyabilir; depo herkese açık (Kağan, 19.10.2026).
+takimlar/*/defter.md
+!takimlar/_iskelet/defter.md
 sirket-log/
 *.jsonl
 
