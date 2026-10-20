@@ -34,7 +34,8 @@ SORGU_ZAMAN_ASIMI_MS = 15000        # 15s — bağlantı seçeneği olarak veril
 UYE_KOSULU = "u.\"role\" IN ('AGENT', 'TEAM_LEADER') AND u.\"isActive\" = true"
 SAYIM_KOSULU = ("(e.\"callClassification\" IS NULL OR e.\"callClassification\" = 'CONNECTED_QUALIFIED')"
                 " AND " + UYE_KOSULU)
-SAAT_DILIMI = "sunucu saati (varsayılan UTC)"
+SAAT_DILIMI = "UTC gün sınırı (TR 03:00)"      # DB timezone UTC; panel (Vercel) de UTC günleri kullanır
+PUANLAMA_DEGISIM_TARIHI = datetime(2026, 9, 1)  # öncesinde puanlama farklı; karşılaştırma geçersiz
 
 
 def gun_siniri(baslangic, bitis):
@@ -90,13 +91,15 @@ def guvenli_hata(hata, url):
             if ayrac:
                 kullanici, _, parola = kimlik.partition(":")
                 parcalar += [kullanici, parola]
+                parcalar += [f for f in re.split(r"[/:@]", kimlik) if len(f) >= 2]   # `Abc/123` → `Abc`, `123`
             ad_port = makine.split("/", 1)[0].split("?", 1)[0]
             parcalar += [ad_port.rsplit(":", 1)[0], ad_port.rsplit(":", 1)[-1]]
     for parca in sorted({p for p in parcalar if p}, key=len, reverse=True):
         mesaj = mesaj.replace(parca, "***")
     mesaj = re.sub(r"://[^@/\s\"']*@", "://***@", mesaj)
     mesaj = re.sub(r"(?i)password\s*=\s*\S+", "password=***", mesaj)
-    mesaj = re.sub(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", "***", mesaj)      # çözülmüş IP
+    mesaj = re.sub(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", "***", mesaj)      # çözülmüş IPv4
+    mesaj = re.sub(r"([(\[])[0-9a-fA-F:.]*:[0-9a-fA-F:.]*([)\]])", r"\1***\2", mesaj)   # IPv6
     return "%s: %s" % (type(hata).__name__, mesaj)
 
 
@@ -285,6 +288,19 @@ def kriter_sorgusu(bas, bit, tip, ekip=None):
     return sql, param
 
 
+def kriter_kayit_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — kriter satırı olan DEĞERLENDİRME sayısı (kriterli kayıt; First Call'lar dışarıda kalabilir)."""
+    kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
+    sql = ("SELECT count(DISTINCT e.id) AS kriter_kayit\n"
+           "  FROM public.qa_kriter k\n"
+           "  JOIN public.\"Evaluation\" e ON e.id = k.eval_id\n"
+           "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
+           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           " WHERE " + kosul + "\n"
+           "   AND k.verdict IN ('FAIL', 'PARTIAL', 'PASS')")
+    return sql, param
+
+
 def kriter_tablosu(satirlar, ekipler_tum):
     """Ekipler üstünden toplanır; kaldıya göre sıralı. İkinci dönüş: sayılan kaydı olup kriter satırı
     olmayan ekipler (\"0 kaçırma\" diye gösterilmez)."""
@@ -374,6 +390,8 @@ def ekip_ozet_bas(baglanti, args):
         filtre["karsilastirma"] = "%s..%s" % (args.karsilastir_baslangic, args.karsilastir_bitis)
         tablo = karsilastir(tablo, ekip_tablosu(
             _sorgula(baglanti, ekip_ozet_sorgusu(onc[0], onc[1], args.tip, args.ekip))))
+    if bas < PUANLAMA_DEGISIM_TARIHI or (onc and onc[0] < PUANLAMA_DEGISIM_TARIHI):
+        filtre["uyari"] = "1 Eylül 2026 öncesi puanlama farklı; karşılaştırma geçersiz"
     if args.tip != "first":
         filtre["not"] = "canlı Second Call formülü deploy bekliyor"
     print(kapsam_bolumu("ekip-ozet", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
@@ -466,6 +484,8 @@ def kriterler_bas(baglanti, args):
     tablo, disi = kriter_tablosu(_sorgula(baglanti, kriter_sorgusu(bas, bit, args.tip, args.ekip)),
                                  [e["ekip"] for e in ekipler])
     filtre = _filtre_ozeti(args)
+    kk = _sorgula(baglanti, kriter_kayit_sorgusu(bas, bit, args.tip, args.ekip))
+    filtre["kriter_kayit"] = int(kk[0][0]) if kk else 0
     if disi:
         filtre["kapsam_disi"] = ",".join(_tek_satir(e) for e in disi)
     print(kapsam_bolumu("kriterler", args.baslangic, args.bitis, filtre, sum(e["kayit"] for e in ekipler)))
@@ -518,17 +538,15 @@ def main(argv, ortam=None, baglan=None):
         if args.komut == "sema":
             sema_bas(baglanti)
             return 0
-        if args.komut == "ekipler":
-            return ekipler_bas(baglanti)
-        if args.komut == "ekip-ozet":
-            return ekip_ozet_bas(baglanti, args)
-        if args.komut == "temsilci-ozet":
-            return temsilci_ozet_bas(baglanti, args)
-        if args.komut == "kriterler":
-            return kriterler_bas(baglanti, args)
-        if args.komut == "kocluk":
-            return kocluk_bas(baglanti, args)
-        return 0
+        islev = {"ekipler": lambda: ekipler_bas(baglanti),
+                 "ekip-ozet": lambda: ekip_ozet_bas(baglanti, args),
+                 "temsilci-ozet": lambda: temsilci_ozet_bas(baglanti, args),
+                 "kriterler": lambda: kriterler_bas(baglanti, args),
+                 "kocluk": lambda: kocluk_bas(baglanti, args)}.get(args.komut)
+        return islev() if islev else 0
+    except Exception as hata:                      # noqa: BLE001 — zaman aşımı, izin, kopan bağlantı
+        print(hazirlanamadi("sorgu başarısız (%s)" % guvenli_hata(hata, url)))
+        return 1
     finally:
         try:
             baglanti.close()

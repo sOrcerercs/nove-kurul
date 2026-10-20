@@ -230,6 +230,81 @@ class CekirdekTesti(unittest.TestCase):
         self.assertEqual(len(m.splitlines()), 8)
 
 
+class SonInceleme(unittest.TestCase):
+    ARALIK = ["--baslangic", "2026-10-01", "--bitis", "2026-10-31"]
+
+    def _hatali(self, hata, komut=None):
+        import contextlib
+
+        def yanit(sql, p):
+            raise hata
+        imlec = _SorguImlec(yanit)
+        baglanti = _SahteBaglanti(imlec)
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), contextlib.redirect_stderr(err):
+            kod = kalite_veri.main(komut or ["ekipler"],
+                                   ortam={"QA_READONLY_URL": "postgresql://qa:Gizli123@h.example.co:6543/db"},
+                                   baglan=lambda url: baglanti)
+        return kod, out.getvalue(), err.getvalue()
+
+    def test_sorgu_hatasi_hazirlanamadi_rc1(self):
+        for komut in (["ekipler"], ["kocluk"] + self.ARALIK, ["ekip-ozet"] + self.ARALIK):
+            with self.subTest(komut=komut[0]):
+                kod, out, err = self._hatali(
+                    RuntimeError('canceling statement; postgresql://qa:Gizli123@h.example.co:6543/db'), komut)
+                self.assertEqual(kod, 1)
+                self.assertTrue(out.startswith("**Hazırlanamadı:** sorgu başarısız (RuntimeError"))
+                for parca in ("Gizli123", "h.example.co", "6543"):
+                    self.assertNotIn(parca, out)
+                self.assertEqual(err, "")
+
+    def test_ipv6_maskelenir(self):
+        h = Exception('connection to server at "h.example.co" (2a05:d014:1234::5), port 5432 failed')
+        m = kalite_veri.guvenli_hata(h, "postgresql://qa:x@h.example.co:5432/db")
+        self.assertNotIn("2a05", m)
+        self.assertIn("(***)", m)
+
+    def test_parola_parcalari_maskelenir(self):
+        url = "postgresql://qa:Abc/123@h.example.co:5432/db"
+        h = Exception('invalid integer value "Abc" for connection option "port"')
+        m = kalite_veri.guvenli_hata(h, url)
+        self.assertNotIn("Abc", m)
+
+    def test_saat_dilimi_etiketi(self):
+        self.assertEqual(kalite_veri.SAAT_DILIMI, "UTC gün sınırı (TR 03:00)")
+        m = kalite_veri.kapsam_bolumu("x", "2026-10-01", "2026-10-02", {}, 1)
+        self.assertIn("saat_dilimi=UTC gün sınırı (TR 03:00)", m)
+
+    def test_kriterler_kriter_kayit_ayri_yazilir(self):
+        def yanit(sql, p):
+            if "count(DISTINCT e.id)" in sql:
+                return [(7,)]
+            if "qa_kriter" in sql:
+                return [("Alfa", 1, "Selam", 1, 1, 1)]
+            return [("Alfa", 100, 20, 3)]
+        kod, cikti, _ = _calistir(["kriterler"] + self.ARALIK, yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("kriter_kayit=7", cikti)
+        self.assertIn("kayit=20", cikti)
+
+    def test_eylul_oncesi_uyari(self):
+        yanit = lambda s, p: [("Alfa", 100, 3, 1)]
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31",
+                                   "--karsilastir-baslangic", "2026-08-01",
+                                   "--karsilastir-bitis", "2026-08-31"], yanit)
+        self.assertEqual(kod, 0)
+        self.assertIn("uyari=1 Eylül 2026 öncesi puanlama farklı; karşılaştırma geçersiz", cikti)
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-08-15", "--bitis", "2026-10-31"], yanit)
+        self.assertIn("uyari=1 Eylül 2026", cikti)
+
+    def test_eylul_sonrasi_uyari_yok(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-09-01", "--bitis", "2026-10-31",
+                                   "--karsilastir-baslangic", "2026-09-01",
+                                   "--karsilastir-bitis", "2026-09-30"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertNotIn("uyari=", cikti)
+
+
 class _SorguImlec:
     """Sorgu metnine göre hazır satır döndürür; (sql, params) kaydeder."""
     def __init__(self, yanit):
@@ -464,6 +539,8 @@ class TemsilciKriterTesti(unittest.TestCase):
 
     def test_kriterler_cli_kapsam_disi(self):
         def yanit(sql, p):
+            if "count(DISTINCT e.id)" in sql:
+                return [(2,)]
             if "qa_kriter" in sql:
                 return [("Alfa", 1, "Selam", 1, 1, 1)]
             return [("Alfa", 100, 3, 1), ("Beta", 70, 1, 1)]
