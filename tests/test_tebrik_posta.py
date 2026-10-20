@@ -35,6 +35,10 @@ class IstisnaTest(unittest.TestCase):
         var = "# ANAYASA\n\n## İstisna — tebrik postası\n\nMetin.\n"
         self.assertTrue(tebrik_posta.istisna_var(var))
         self.assertFalse(tebrik_posta.istisna_var("# ANAYASA\n\n## Madde 1\n"))
+        self.assertTrue(tebrik_posta.istisna_var(
+            "Önceki.\n\n**İstisna — tebrik postası (revize 21.10.2026):** Tebrik danışmanının hazırladığı görsel.\n"))
+        self.assertTrue(tebrik_posta.istisna_var("__İstisna — tebrik postası__ metin\n"))
+        self.assertFalse(tebrik_posta.istisna_var("## İstisna — tebrik postasıX\n"))
         self.assertFalse(tebrik_posta.istisna_var("## İstisna — tebrik\n"))
         self.assertFalse(tebrik_posta.istisna_var("Metinde İstisna — tebrik postası geçiyor ama başlık değil\n"))
 

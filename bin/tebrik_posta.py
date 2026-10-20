@@ -33,8 +33,9 @@ def alici_dogrula(adres: str) -> str:
 
 
 def istisna_var(anayasa_metni: str) -> bool:
-    """ANAYASA metninde istisna başlığı (tam başlık satırı) var mı."""
-    kalip = re.compile(r"^\s{0,3}#{1,6}\s*" + re.escape(ISTISNA_BASLIGI) + r"\s*#*\s*$", re.MULTILINE)
+    """ANAYASA metninde istisna başlığı satır başında (başlık ya da kalın girişli paragraf) var mı."""
+    kalip = re.compile(r"^\s{0,3}(?:#{1,6}\s*)?(?:\*\*|__)?" + re.escape(ISTISNA_BASLIGI) + r"(?![^\W_])",
+                       re.MULTILINE)
     return bool(kalip.search(anayasa_metni or ""))
 
 
