@@ -108,6 +108,11 @@ class _Patlayan(_SahteSMTP):
         raise OSError("giriş reddedildi cok-gizli-sifre alici@nove.group")
 
 
+class _KapanirkenPatlayan(_SahteSMTP):
+    def __exit__(self, *a):
+        raise OSError("quit sırasında bağlantı koptu")
+
+
 class GonderTest(unittest.TestCase):
     def setUp(self):
         _SahteSMTP.ornekler = []
@@ -150,6 +155,10 @@ class GonderTest(unittest.TestCase):
         self.assertEqual(s, "SMTP: OSError")
         self.assertNotIn("cok-gizli-sifre", s)
         self.assertNotIn("alici@nove.group", s)
+
+    def test_gonderimden_sonra_kapanis_hatasi_yutulur(self):
+        tebrik_posta.gonder(self.mesaj, ORTAM, smtp_kur=_KapanirkenPatlayan)
+        self.assertIn(("send", ["alici@nove.group"]), _SahteSMTP.ornekler[0].cagrilar)
 
 
 if __name__ == "__main__":

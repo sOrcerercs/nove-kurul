@@ -4,6 +4,7 @@ Adlar uydurmadır. python3 -m unittest discover -s tests
 """
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -101,10 +102,10 @@ class SurucuTestleri(unittest.TestCase):
     def kayit(self, gun="2026-10-20"):
         return json.loads((self.kok / "sirket-log" / "tebrik" / f"{gun}.json").read_text(encoding="utf-8"))
 
-    def dun_kosuldu(self, gun="2026-10-19"):
+    def dun_kosuldu(self, gun="2026-10-19", durum="bos"):
         klasor = self.kok / "sirket-log" / "tebrik"
         klasor.mkdir(parents=True, exist_ok=True)
-        (klasor / f"{gun}.json").write_text(json.dumps({"gun": gun, "durum": "bos"}), encoding="utf-8")
+        (klasor / f"{gun}.json").write_text(json.dumps({"gun": gun, "durum": durum}), encoding="utf-8")
 
     # --- gün ---------------------------------------------------------------
 
@@ -180,11 +181,25 @@ class SurucuTestleri(unittest.TestCase):
     # --- notlar --------------------------------------------------------------
 
     def test_dun_kacan_not(self):
+        self.dun_kosuldu("2026-10-18")  # önceki bir koşu var, dünün kaydı yok
         self.assertEqual(self.kos(), 0)
         govde = _govde(self.gonderilen[0])
         self.assertIn("Dün kaçan tebrikler: Ömer Şükrü Güneş", govde)
         self.assertEqual(len(_ekler(self.gonderilen[0])), 1)
         self.assertNotIn("omer", " ".join(_ekler(self.gonderilen[0])))
+
+    def test_dun_hata_ya_da_kuru_ise_kacan_sayilir(self):
+        for durum in ("hata", "kuru"):
+            with self.subTest(durum=durum):
+                self.gonderilen = []
+                (self.kok / "sirket-log" / "tebrik" / "2026-10-20.json").unlink(missing_ok=True)
+                self.dun_kosuldu(durum=durum)
+                self.kos()
+                self.assertIn("Dün kaçan tebrikler: Ömer Şükrü Güneş", _govde(self.gonderilen[0]))
+
+    def test_ilk_kosuda_kacan_notu_yok(self):
+        self.kos()
+        self.assertNotIn("Dün kaçan", _govde(self.gonderilen[0]))
 
     def test_dun_kosulduysa_kacan_notu_yok(self):
         self.dun_kosuldu()
@@ -232,16 +247,56 @@ class SurucuTestleri(unittest.TestCase):
 
     def test_aralikta_gelecek_yil_bayram_yoksa_hatirlatma(self):
         self.satirlar = [("İpek Yağmur Öztürk", "Şef", "05.03", None)]
-        self.dun_kosuldu("2026-12-06")
-        self.kos(_an(2026, 12, 7))
+        # 1 Aralık 2026 Salı: aralığın ilk iş günü → hatırlatma; 2 Aralık → yok.
+        self.dun_kosuldu("2026-11-30")
+        self.kos(_an(2026, 12, 1))
         self.assertIn("Gelecek yılın bayram tarihleri takvimde yok", _govde(self.gonderilen[0]))
+        self.assertEqual(self.kos(_an(2026, 12, 2)), 0)
+        self.assertEqual(len(self.gonderilen), 1)
+        self.assertEqual(self.kayit("2026-12-02")["durum"], "bos")
+
+    def test_aralik_ilk_is_gunu_bayram_varsa_hatirlatma_yok(self):
+        self.satirlar = [("İpek Yağmur Öztürk", "Şef", "05.03", None)]
         (self.kok / "tebrik" / "bayramlar.json").write_text(json.dumps([
             {"ad": "Yılbaşı", "baslangic": "2027-01-01", "sablon": "yilbasi", "tr": "a", "en": "b"}]),
             encoding="utf-8")
-        self.dun_kosuldu("2026-12-07")
-        self.assertEqual(self.kos(_an(2026, 12, 8)), 0)
+        self.dun_kosuldu("2026-11-30")
+        self.assertEqual(self.kos(_an(2026, 12, 1)), 0)
+        self.assertEqual(self.gonderilen, [])
+        self.assertEqual(self.kayit("2026-12-01")["durum"], "bos")
+
+    def test_bozuk_bayramlar_rc1_kayit_hata(self):
+        (self.kok / "tebrik" / "bayramlar.json").write_text("[{bozuk", encoding="utf-8")
+        hata = io.StringIO()
+        with redirect_stdout(io.StringIO()), redirect_stderr(hata):
+            rc = tp.kos(_an(2026, 10, 20), dict(ORTAM), self.kok, indir=self.indir, gonder=self.gonder)
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.gonderilen, [])
+        self.assertEqual(self.kayit()["durum"], "hata")
+        self.assertIn("JSONDecodeError", hata.getvalue())
+        self.assertNotIn("Traceback", hata.getvalue())
+
+    # --- kilit -------------------------------------------------------------
+
+    def _kilit(self):
+        yol = self.kok / "sirket-log" / "tebrik" / ".kilit"
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        yol.write_text("", encoding="utf-8")
+        return yol
+
+    def test_kilit_doluysa_gondermez(self):
+        yol = self._kilit()
+        self.assertEqual(self.kos(), 0)
+        self.assertEqual(self.gonderilen, [])
+        self.assertTrue(yol.exists())  # başkasının kilidine dokunmaz
+
+    def test_bayat_kilit_devralinir_ve_birakilir(self):
+        yol = self._kilit()
+        eski = yol.stat().st_mtime - 31 * 60
+        os.utime(yol, (eski, eski))
+        self.assertEqual(self.kos(), 0)
         self.assertEqual(len(self.gonderilen), 1)
-        self.assertEqual(self.kayit("2026-12-08")["durum"], "bos")
+        self.assertFalse(yol.exists())
 
     # --- özet --------------------------------------------------------------
 

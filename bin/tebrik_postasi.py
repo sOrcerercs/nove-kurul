@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
 import unicodedata
 from datetime import date, datetime, time, timedelta
@@ -30,6 +32,10 @@ KAYIT_KLASORU = KOK / "sirket-log" / "tebrik"
 IST = ZoneInfo("Europe/Istanbul")
 GEC_SAAT = time(9, 15)
 KURU_SAAT = time(8, 55)
+KILIT_ADI = ".kilit"
+KILIT_BAYAT_SN = 30 * 60
+KOSTU_DURUMLARI = ("gonderildi", "bos")  # dün bu durumdaysa kaçan yok; hata/kuru kaçırmış sayılır
+_GUN_KAYDI = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$")
 
 
 def istanbul_gunu(simdi: datetime) -> date:
@@ -41,6 +47,34 @@ def ayin_ilk_is_gunu_mu(gun: date) -> bool:
     if gun.weekday() >= 5:
         return False
     return all(date(gun.year, gun.month, g).weekday() >= 5 for g in range(1, gun.day))
+
+
+def _onceki_kayit_var_mi(klasor: Path, gun: date) -> bool:
+    """`gun`den önceki herhangi bir gün kaydı var mı (ilk koşuda kaçan notu yazılmaz — R11)."""
+    if not klasor.is_dir():
+        return False
+    return any(_GUN_KAYDI.match(y.name) and y.stem < gun.isoformat() for y in klasor.iterdir())
+
+
+def _kilit_al(yol: Path) -> bool:
+    """O_EXCL kilit; 30 dakikadan eski kilit bayat sayılıp devralınır."""
+    yol.parent.mkdir(parents=True, exist_ok=True)
+    for _ in range(2):
+        try:
+            os.close(os.open(str(yol), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+            return True
+        except FileExistsError:
+            try:
+                bayat = datetime.now().timestamp() - yol.stat().st_mtime > KILIT_BAYAT_SN
+            except FileNotFoundError:
+                continue  # bu arada bırakıldı; yeniden dene
+            if not bayat:
+                return False
+            try:
+                yol.unlink()
+            except FileNotFoundError:
+                pass
+    return False
 
 
 def _kayit_oku(yol: Path):
@@ -141,9 +175,50 @@ def _yolla(mesaj, ortam: dict, gonder, kuru: bool, klasor: Path, gun: date) -> N
         gonder(mesaj, ortam)
 
 
+def _hazirla(satirlar, gun, yerel, gec, kok, klasor, gun_klasoru):
+    """(tebrikler, görseller, notlar, eksik sayısı)."""
+    # (4) tebrikler ve görseller
+    kisiler, tablo_eksikleri = tebrik_takvim.dogrula(satirlar)
+    bayramlar = _bayramlar(kok)
+    tebrikler = tebrik_takvim.bugunun_tebrikleri(kisiler, bayramlar, gun)
+    gorseller, bugun_eksikleri = _gorseller(tebrikler, gun, kok, gun_klasoru)
+
+    # (5) notlar
+    notlar = []
+    dun = gun - timedelta(days=1)
+    dun_kaydi = _kayit_oku(klasor / f"{dun.isoformat()}.json") or {}
+    if dun_kaydi.get("durum") not in KOSTU_DURUMLARI and _onceki_kayit_var_mi(klasor, gun):
+        kacan = tebrik_takvim.bugunun_tebrikleri(kisiler, bayramlar, dun)
+        if kacan:
+            notlar.append("Dün kaçan tebrikler: " + ", ".join(_tebrik_adi(t) for t in kacan))
+    ilk_is_gunu = ayin_ilk_is_gunu_mu(gun)
+    if (gun.month == 12 and ilk_is_gunu  # R10: yalnız aralığın ilk iş günü
+            and not any(str(b.get("baslangic", "")).startswith(f"{gun.year + 1}-") for b in bayramlar)):
+        notlar.append("Gelecek yılın bayram tarihleri takvimde yok")
+    notlar.extend(tablo_eksikleri + bugun_eksikleri if ilk_is_gunu else bugun_eksikleri)
+    if gec and (tebrikler or notlar):
+        notlar.insert(0, f"Geç gönderildi ({yerel.strftime('%H:%M')})")
+    return tebrikler, gorseller, notlar, len(tablo_eksikleri) + len(bugun_eksikleri)
+
+
 def kos(simdi: datetime, ortam: dict, kok: Path, kuru=False,
         indir=tebrik_drive.tablo_indir, gonder=tebrik_posta.gonder) -> int:
+    """Aynı anda iki koşuyu kilitle önler; kilit doluysa gönderim yok, rc 0."""
     kok = Path(kok)
+    kilit = kok / "sirket-log" / "tebrik" / KILIT_ADI
+    if not _kilit_al(kilit):
+        print("tebrik: başka bir koşu sürüyor (kilit dolu); bu koşu bir şey yapmadı")
+        return 0
+    try:
+        return _kos(simdi, ortam, kok, kuru, indir, gonder)
+    finally:
+        try:
+            kilit.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _kos(simdi, ortam, kok, kuru, indir, gonder) -> int:
     gun = istanbul_gunu(simdi)
     yerel = simdi.astimezone(IST)
     klasor = kok / "sirket-log" / "tebrik"
@@ -158,7 +233,7 @@ def kos(simdi: datetime, ortam: dict, kok: Path, kuru=False,
     # (2) ANAYASA + alıcı kapısı (kuru koşu bağımsız)
     if not kuru:
         acik, sebep = _kapi_acik_mi(ortam, kok)
-        if not acik:
+        if not acik:  # kapı kapalıyken kayıt yazılmaz: kapı açılınca o gün "dün kaçan" olarak bildirilir (R12)
             print(f"tebrik: gönderim yok — {sebep}", file=sys.stderr)
             return 3
 
@@ -182,26 +257,12 @@ def kos(simdi: datetime, ortam: dict, kok: Path, kuru=False,
             print(f"tebrik: bildirim gönderilemedi — {hata2}", file=sys.stderr)
         return _sonlandir(kayit, kok, kuru, 1)
 
-    # (4) tebrikler ve görseller
-    kisiler, tablo_eksikleri = tebrik_takvim.dogrula(satirlar)
-    bayramlar = _bayramlar(kok)
-    tebrikler = tebrik_takvim.bugunun_tebrikleri(kisiler, bayramlar, gun)
-    gorseller, bugun_eksikleri = _gorseller(tebrikler, gun, kok, gun_klasoru)
-
-    # (5) notlar
-    notlar = []
-    dun = gun - timedelta(days=1)
-    if not (klasor / f"{dun.isoformat()}.json").exists():
-        kacan = tebrik_takvim.bugunun_tebrikleri(kisiler, bayramlar, dun)
-        if kacan:
-            notlar.append("Dün kaçan tebrikler: " + ", ".join(_tebrik_adi(t) for t in kacan))
-    if gun.month == 12 and not any(str(b.get("baslangic", "")).startswith(f"{gun.year + 1}-")
-                                   for b in bayramlar):
-        notlar.append("Gelecek yılın bayram tarihleri takvimde yok")
-    notlar.extend(tablo_eksikleri + bugun_eksikleri if ayin_ilk_is_gunu_mu(gun) else bugun_eksikleri)
-    if gec and (tebrikler or notlar):
-        notlar.insert(0, f"Geç gönderildi ({yerel.strftime('%H:%M')})")
-    eksik_sayisi = len(tablo_eksikleri) + len(bugun_eksikleri)
+    # (4)–(5) beklenmeyen hata: yalnız tür adı yazılır (veri sızmaz), kayıt hata, rc 1 (R13c)
+    try:
+        tebrikler, gorseller, notlar, eksik_sayisi = _hazirla(satirlar, gun, yerel, gec, kok, klasor, gun_klasoru)
+    except Exception as hata:
+        print(f"tebrik: hazırlanamadı — {type(hata).__name__}", file=sys.stderr)
+        return _sonlandir(_kayit(gun, "kuru" if kuru else "hata", simdi, [], 0, gec), kok, kuru, 1)
 
     # (6) gönderilecek bir şey yoksa mail yok
     if not tebrikler and not notlar:

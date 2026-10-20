@@ -90,8 +90,11 @@ def mail_kur(tebrikler: list, gorseller: list, notlar: list, gonderen: str, alic
 
 
 def gonder(mesaj: EmailMessage, ortam: dict, smtp_kur=smtplib.SMTP) -> None:
-    """Tek alıcıya yollar. Alıcıyı burada da doğrular; hata → RuntimeError("SMTP: <tür>")."""
+    """Tek alıcıya yollar. Alıcıyı burada da doğrular; hata → RuntimeError("SMTP: <tür>").
+
+    `send_message` döndükten sonra bağlantı kapanırken çıkan hata yutulur (mail gitmiştir)."""
     alici = alici_dogrula(ortam.get("TEBRIK_ALICI", ""))
+    gitti = False
     try:
         sunucu, port = ortam["TEBRIK_SMTP_SUNUCU"], int(ortam["TEBRIK_SMTP_PORT"])
         baglam = ssl.create_default_context()
@@ -105,5 +108,8 @@ def gonder(mesaj: EmailMessage, ortam: dict, smtp_kur=smtplib.SMTP) -> None:
                 s.starttls(context=baglam)
             s.login(ortam["TEBRIK_SMTP_KULLANICI"], ortam["TEBRIK_SMTP_SIFRE"])
             s.send_message(mesaj, to_addrs=[alici])
+            gitti = True
     except Exception as hata:
+        if gitti:
+            return  # mail gitti; bağlantı kapanırken çıkan hata yeniden gönderim sebebi değil
         raise RuntimeError(f"SMTP: {type(hata).__name__}") from None
