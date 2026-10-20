@@ -541,6 +541,29 @@ class IzinDosyasiTesti(unittest.TestCase):
                 self.assertNotIn("qa_degerlendirme", i)
                 self.assertNotIn("qa_kriter", i)
 
+    def test_anayasa_atfi_birebir_ve_uydurma_cumle_yok(self):
+        def duz(m):
+            return re.sub(r"(?m)^-- ?", "", m).replace("\n", " ")
+
+        def sade(m):
+            return " ".join(m.split())
+
+        dosya = sade(duz(self.YOL.read_text(encoding="utf-8")))
+        anayasa = sade((KOK / "ANAYASA.md").read_text(encoding="utf-8"))
+        claude = sade((KOK / "CLAUDE.md").read_text(encoding="utf-8"))
+        self.assertNotIn("Şema/yetki değişikliğini insan kendi çalıştırır", dosya)
+        alinti = "Prod veritabanına yazma yoktur: `INSERT`/`UPDATE`/`DELETE`, DDL ve migration yasak."
+        self.assertIn(alinti, dosya)
+        self.assertIn(alinti, anayasa)
+        yasak = "Veri kaynaklarına, prod veritabanına yazma; DDL ya da migration"
+        self.assertIn(yasak, dosya)
+        self.assertIn(yasak, claude)
+
+    def test_has_column_privilege_ikinci_kontrol_var(self):
+        metin = self.YOL.read_text(encoding="utf-8")
+        self.assertIn("has_column_privilege('qa_okuyucu'", metin)
+        self.assertIn("coachingSeenAt", metin.split("has_column_privilege", 1)[1])
+
     def test_iki_zorunlu_sutunu_verir(self):
         grant = [i for i in self._ifadeler() if i.startswith("GRANT")][0]
         self.assertIn('"callClassification"', grant)

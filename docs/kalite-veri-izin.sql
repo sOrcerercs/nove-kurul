@@ -10,8 +10,9 @@
 -- DIŞARIDA bırakıldı; transcript · report · reportData · customerName · evidence ·
 -- medicalFlags zaten kapalıdır ve kapalı kalır.
 --
--- KİM KOŞTURUR: Kağan, Supabase SQL editöründe. ANAYASA — "Şema/yetki değişikliğini insan
--- kendi çalıştırır." Ajan bu dosyayı çalıştırmaz.
+-- KİM KOŞTURUR: Kağan, Supabase SQL editöründe. ANAYASA.md §1: "Prod veritabanına yazma yoktur:
+-- `INSERT`/`UPDATE`/`DELETE`, DDL ve migration yasak." CLAUDE.md Yasaklar: "Veri kaynaklarına,
+-- prod veritabanına yazma; DDL ya da migration". Ajan bu dosyayı çalıştırmaz; Kağan çalıştırır.
 --
 -- ===========================================================================
 -- NASIL KOŞTURULUR — ADIMLARI TEK TEK ÇALIŞTIR
@@ -45,3 +46,7 @@ SELECT table_name, column_name, privilege_type
    AND ((table_name = 'Evaluation' AND column_name IN ('callClassification', 'coachingSeenAt'))
         OR table_name = 'WeeklyBestCall')
  ORDER BY table_name, column_name;
+
+-- İkinci kontrol — editör rolünün görünürlüğüne bağlı değildir. Beklenen: sinif = true, gorulme = true
+SELECT has_column_privilege('qa_okuyucu', 'public."Evaluation"', 'callClassification', 'SELECT') AS sinif,
+       has_column_privilege('qa_okuyucu', 'public."Evaluation"', 'coachingSeenAt', 'SELECT') AS gorulme;
