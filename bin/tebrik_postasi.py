@@ -5,6 +5,9 @@ Sıra: bugün gönderildiyse dur → ANAYASA + alıcı kapısı → tablo → te
 gönder, **sonra** kaydı yaz → adsız özet. Kayıtlar `sirket-log/tebrik/` altında (git dışı, ad içerir);
 ekrana ad, adres, anahtar basılmaz.
 
+Ortam anahtarları (yalnız adlar; değerler `.env`'de): TEBRIK_SMTP_SUNUCU, TEBRIK_SMTP_PORT,
+TEBRIK_SMTP_KULLANICI, TEBRIK_SMTP_SIFRE, TEBRIK_ALICI, TEBRIK_DRIVE_DOSYA, TEBRIK_DRIVE_ANAHTAR.
+
 Kullanım: python3 bin/tebrik_postasi.py [--kuru [--gun YYYY-MM-DD]]
 Çıkış: 0 tamam · 1 hata (Drive, SMTP, kayıt) · 2 kullanım · 3 ANAYASA kapısı kapalı ya da alıcı geçersiz
 """

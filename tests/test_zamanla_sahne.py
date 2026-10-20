@@ -27,7 +27,16 @@ class KayitTesti(unittest.TestCase):
         # This is the single place the complete job list is asserted globally.
         # When adding a new job (TETIKLER or SUREKLI), update this list and only this file.
         adlar = [i["ad"] for i in zamanla.TUM_ISLER]
-        self.assertEqual(sorted(adlar), ["aksam", "sabah", "sahne"])
+        self.assertEqual(sorted(adlar), ["aksam", "sabah", "sahne", "tebrik"])
+
+    def test_tebrik_tetigi(self):
+        tetik = {i["ad"]: i for i in zamanla.TETIKLER}["tebrik"]
+        self.assertEqual((tetik["saat"], tetik["dakika"], tetik["betik"]), (8, 55, "tebrik_postasi.py"))
+        icerik = zamanla.plist_icerigi(tetik, kok="/tmp/kok", python="/usr/bin/python3")
+        self.assertEqual(icerik["ProgramArguments"],
+                         ["/usr/bin/python3", "/tmp/kok/bin/tebrik_postasi.py"])
+        self.assertEqual(icerik["StartCalendarInterval"], {"Hour": 8, "Minute": 55})
+        self.assertFalse(icerik["RunAtLoad"])
 
     def test_sahnenin_etiketi_kokten_turer(self):
         self.assertNotEqual(zamanla.etiket("sahne", "/bir/kok"),

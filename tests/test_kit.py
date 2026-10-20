@@ -745,7 +745,7 @@ class ZamanlayiciTesti(unittest.TestCase):
         self.assertTrue(ayar.mesaide_mi(datetime(2026, 9, 11, saatler["aksam"], 0)))
 
     def test_plist_gunluk_py_yi_dogru_bayrakla_cagirir(self):
-        for tetik in zamanla.TETIKLER:
+        for tetik in [t for t in zamanla.TETIKLER if t.get("bayrak")]:
             icerik = zamanla.plist_icerigi(tetik, kok="/tmp/kok", python="/usr/bin/python3")
             self.assertEqual(icerik["ProgramArguments"],
                              ["/usr/bin/python3", "/tmp/kok/bin/gunluk.py", tetik["bayrak"]])

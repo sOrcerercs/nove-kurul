@@ -27,6 +27,10 @@
 | İş Dağıtımcı — yönlendirme, zincir, koşu başlatma | `sirket/IS-DAGITIMCI.md` | `bin/dagitici.py` |
 | Denetçi — birinci onay, ayrı model ailesi | `sirket/DENETCI.md` | `bin/bekci.py` (Stop hook) |
 | CEO Ajanı — ikinci onay, karar kalitesi | `sirket/CEO-KIMLIGI.md` | `bin/ceo.py` (Faz 2) |
+| Tebrik Danışmanı — özel gün tebrikleri (doğum günü, hoş geldin, bayram), LLM'siz; tek iç alıcıya mail | `docs/superpowers/specs/2026-10-20-tebrik-danismani-design.md` | `bin/tebrik_postasi.py` (08:55) |
+
+Tebrik Danışmanı'nın `.env` anahtarları (yalnız adlar): `TEBRIK_SMTP_SUNUCU`, `TEBRIK_SMTP_PORT`, `TEBRIK_SMTP_KULLANICI`,
+`TEBRIK_SMTP_SIFRE`, `TEBRIK_ALICI`, `TEBRIK_DRIVE_DOSYA`, `TEBRIK_DRIVE_ANAHTAR`.
 
 ## Okuma sırası (her danışman, her koşuda)
 1. `ANAYASA.md` — değişmez çerçeve
@@ -42,6 +46,7 @@ ANAYASA.md            beş madde — İNSANIN dosyası, ajan değiştirmez
 bin/                  kos.py · bekci.py · dagitici.py · gunluk.py · ayar.py · agents_uret.py · sahne.py · …
 sirket/               AJAN-KIMLIGI.md · DENETCI.md · CEO-KIMLIGI.md · QA-DANISMANI.md · IS-DAGITIMCI.md · YETENEKLER.md
 takimlar/<danisman>/  takim.md · kurallar.md · defter.md · durum.json · kosu/ · cikti/ · veri/
+tebrik/               Tebrik Danışmanı — bayram günleri, logo, yazı tipleri; kayıtlar sirket-log/tebrik/ (git'e girmez)
 takimlar/_iskelet/    yeni danışmanın dört dosyalık iskeleti (bin/takim-olustur.sh)
 skills/<ad>/SKILL.md  yetenekler
 formlar/              DANISMAN-FORMU.md şablonu · gelen/ (git'e girmez) · onayli/ (insanın; ikisi de git'e girmez)
