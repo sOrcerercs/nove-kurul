@@ -521,5 +521,37 @@ class KoclukTesti(unittest.TestCase):
         self.assertIn("**Hazırlanamadı:**", cikti)
 
 
+class IzinDosyasiTesti(unittest.TestCase):
+    YOL = KOK / "docs" / "kalite-veri-izin.sql"
+
+    def _ifadeler(self):
+        metin = "\n".join(s for s in self.YOL.read_text(encoding="utf-8").splitlines()
+                          if not s.strip().startswith("--"))
+        return [i.strip() for i in metin.split(";") if i.strip()]
+
+    def test_dosya_var_ve_yalniz_grant_select_ya_da_select(self):
+        self.assertTrue(self.YOL.exists())
+        ifadeler = self._ifadeler()
+        self.assertTrue(ifadeler)
+        for i in ifadeler:
+            with self.subTest(ifade=i[:40]):
+                self.assertRegex(i, r"^(GRANT SELECT \(|SELECT\b)")
+                self.assertIsNone(re.search(
+                    r"\b(CREATE|ALTER|DROP|UPDATE|INSERT|DELETE|REVOKE)\b", i, re.I))
+                self.assertNotIn("qa_degerlendirme", i)
+                self.assertNotIn("qa_kriter", i)
+
+    def test_iki_zorunlu_sutunu_verir(self):
+        grant = [i for i in self._ifadeler() if i.startswith("GRANT")][0]
+        self.assertIn('"callClassification"', grant)
+        self.assertIn('"coachingSeenAt"', grant)
+        self.assertIn('public."Evaluation"', grant)
+
+    def test_serbest_metin_sutunlari_verilmez(self):
+        for i in self._ifadeler():
+            if i.startswith("GRANT"):
+                self.assertNotRegex(i, r"\bnote\b|approachNote")
+
+
 if __name__ == "__main__":
     unittest.main()

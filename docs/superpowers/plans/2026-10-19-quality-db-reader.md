@@ -204,3 +204,11 @@ Tür tutarlılığı: `js_yuvarla`, `gun_siniri`, `SAYIM_KOSULU`, `UYE_KOSULU`, 
 ## Ölçüm
 
 (Task 1 Step 6 ve Task 8 sonuçları buraya yazılır.)
+
+### Task 1 — canlı `sema` ölçümü (qa_okuyucu, saat dilimi UTC)
+- Okunabilir `Evaluation`: agentId, agentRead, agentReadAt, callDate, callType, coachingDone, coachingDoneAt, id, score, sectionScores, unassigned, weakCriteria
+- Okunabilir `Team`: id, leaderId, name
+- Okunabilir `User`: id, isActive, name, role, teamId
+- `qa_kriter` görünümü okunabilir (28460 satır)
+- OKUNAMAYAN: `Evaluation."callClassification"` (SAYIM_KOSULU için gerekli), `Evaluation."coachingSeenAt"` (kocluk için gerekli); `sinif_farki` InsufficientPrivilege ile düştü; WeeklyBestCall tablolarına erişim yok
+- Sonuç: Step 7 tetiklendi -> `docs/kalite-veri-izin.sql` (Kağan çalıştırır; ADIM 1 zorunlu, ADIM 2 isteğe bağlı, ADIM 3 doğrulama). İzin verilince `sema` tekrarlanır.
