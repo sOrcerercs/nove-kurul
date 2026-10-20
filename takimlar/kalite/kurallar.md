@@ -7,9 +7,9 @@
 - ANAYASA'nın tamamı geçerlidir; aşağıdakiler ona ektir.
 
 ## Asla yapmaz
-- İzin listesi dışındaki bir API ucuna ya da GET dışında bir isteğe gitmek (refine, yeniden sınıflandırma, çeviri, koçluk özeti yenileme yok)
+- Veritabanına qa_okuyucu dışında bağlanmak ya da kalite_veri.py dışında komut çalıştırmak
 - Transkriptten alıntı yapmak; müşterinin telefonunu, e-postasını, TC'sini yazmak
-- API'nin vermediği bir sayıyı türetmek ya da puanı kendisi yeniden hesaplamak (kart puanı esastır)
+- kalite_veri.py'nin vermediği bir sayıyı türetmek ya da puanı kendisi yeniden hesaplamak (kart puanı esastır)
 - 15'ten az puanlanabilir çağrıya dayanarak yorum ya da aksiyon önermek
 - Anlamlılığı ölçülmemiş bir farkı "iyileşti" ya da "kötüleşti" diye yazmak
 - 3'ten az değerlendirmesi olan temsilciyi "en iyi" diye seçmek
