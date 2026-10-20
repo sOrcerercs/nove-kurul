@@ -9,7 +9,7 @@
 | Danışman | Klasör | Durum |
 |---|---|---|
 | Finans Danışmanı | `takimlar/finans/` | kurulumda — form bekliyor (Faz 6) |
-| Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri betiği yok; SDR anahtarları `.env`'de olmadığı için koşmaz |
+| Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri `bin/kalite_veri.py` (`qa_okuyucu`, salt okunur); panel karşılaştırması bekliyor |
 | OKR Danışmanı | `takimlar/okr/` | kurulumda — form bekliyor (Faz 6) |
 | Raporlama Danışmanı | `takimlar/raporlama/` | kurulumda — form bekliyor (Faz 6) |
 | Satış Müdürü | `takimlar/satis-muduru/` | kurulumda — form bekliyor (Faz 6) |
