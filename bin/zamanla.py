@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Zamanlayıcı kurucusu — macOS launchd. Üç iş kurar, başka hiçbir şey yapmaz.
+"""Zamanlayıcı kurucusu — macOS launchd. Dört iş kurar, başka hiçbir şey yapmaz.
 
 Takvimli (saatinde bir kez koşar, biter):
   sabah  → `bin/gunluk.py --sabah`  · dağıtıcıyı koşturur, sabah raporunu yazar
   akşam  → `bin/gunluk.py --aksam`  · günün koşularını ve bekçi kararlarını denetler
+  tebrik → `bin/tebrik_postasi.py`  · 08:55, özel gün tebrik postası (sabit saat, ayar.py'den türemez)
 
 Sürekli (açılışta başlar, ayakta kalır):
   sahne  → `bin/sahne.py`           · yerel panel, yalnız 127.0.0.1; iki yazma yeri var
@@ -50,6 +51,8 @@ TETIKLER = [
      "ne": "dağıtıcı + sabah raporu"},
     {"ad": "aksam", "saat": ayar.MESAI_BITIS - 1, "dakika": 0, "bayrak": "--aksam",
      "ne": "günün koşuları + bekçi kararları"},
+    {"ad": "tebrik", "saat": 8, "dakika": 55, "betik": "tebrik_postasi.py", "argv": [],
+     "ne": "Tebrik Danışmanı — özel gün postası"},
 ]
 
 # Sürekli işler: takvimi yok, açılışta başlar ve ayakta kalır. Panel yalnız 127.0.0.1'e
