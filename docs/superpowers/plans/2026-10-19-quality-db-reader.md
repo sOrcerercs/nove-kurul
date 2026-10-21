@@ -212,3 +212,13 @@ Tür tutarlılığı: `js_yuvarla`, `gun_siniri`, `SAYIM_KOSULU`, `UYE_KOSULU`, 
 - `qa_kriter` görünümü okunabilir (28460 satır)
 - OKUNAMAYAN: `Evaluation."callClassification"` (SAYIM_KOSULU için gerekli), `Evaluation."coachingSeenAt"` (kocluk için gerekli); `sinif_farki` InsufficientPrivilege ile düştü; WeeklyBestCall tablolarına erişim yok
 - Sonuç: Step 7 tetiklendi -> `docs/kalite-veri-izin.sql` (Kağan çalıştırır; ADIM 1 zorunlu, ADIM 2 isteğe bağlı, ADIM 3 doğrulama). İzin verilince `sema` tekrarlanır.
+
+### Task 8 — tutarlılık ölçümü (22.10.2026)
+- Raporlarım (Kağan, ADMIN görünümü), ölçüm için seçilen ekip, 1–19 Ekim: **127 kayıt** (3 First + 124 Second), **ortalama 77**.
+- Betik (`ekip-ozet`, aynı ekip ve aralık): **122 kayıt**, hepsi Second, **ortalama 81**.
+- Kök neden (salt okunur DB kırılımı): ekipte aralıkta **5 `TRANSCRIPT_UNUSABLE`** kayıt var (3 First, 2 Second, hepsi 0 puan).
+  122 + 5 = 127; (122 kayıt toplamı 9832 + 0) / 127 = 77,4 → 77. Kırılım birebir tutuyor.
+- SDR Analyzer `origin/main` 7d2c64c (PR #71, 19.10.2026 merge): "elenen çağrılar admin ortalamasına da girmesin" —
+  rapor uçları rolden bağımsız `scoringWhere()` kullanıyor (sınıfsız ya da `CONNECTED_QUALIFIED`). Betik bu kuralı uyguluyor.
+  Panelin 77 göstermesi, canlı sürümde PR #71'in henüz yüklü olmadığını gösteriyor (doğrulanmadı; yükleme durumu Kağan'da).
+- Sonuç: betikte düzeltme yok. Canlı sürüm PR #71'i içerince panel 122 / 81 göstermeli; Kağan bir kez daha bakınca Task 8 kapanır.
