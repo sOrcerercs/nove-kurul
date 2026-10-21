@@ -61,6 +61,26 @@ Düzen `kurul-yaniti`: Kısa yanıt · Dayanak · Bilinmeyenler · Not. Örnekle
 Onaylanan rapor `soru_kapisi.ilet` ile **Yanıt defterine** (`yanitlar/<id>.md`) yazılır. Panelde görünmesi Faz 5'te
 (`bin/panel.py`, `GET /api/yanitlar`) gelir. O zamana kadar rapor Yanıt defterinde ve sabah/akşam sistem raporunda görünür.
 
+## Claude'un çağrıları (okuyucu kontrolünden, 22.10.2026)
+
+- **Aralık yapısal alan olarak taşınır.** Soru kaydına `- aralik: YYYY-MM-DD..YYYY-MM-DD` ve
+  `- karsilastir: YYYY-MM-DD..YYYY-MM-DD` satırları eklenir. Danışman komut argümanlarını bu satırlardan alır, düzyazıyı
+  ayrıştırmaz. Mevcut okuyucular (`kos`, `ceo`, `soru_kapisi`) bilmedikleri satırları yok sayar.
+- **Gün hesabı:** "dün" ve "cuma–pazar" İstanbul takvim gününe göre hesaplanır. Veri, betiğin UTC gün sınırıyla okunur;
+  bu Raporlarım'ın kuralıyla aynıdır. Rapordaki rakam, panelde aynı tarihlerle bakılan rakamla tutar.
+- **Komutlar mevcut:** `ekip-ozet` (`--karsilastir-baslangic/--karsilastir-bitis`), `kriterler` ve `kocluk` tarih aralığı
+  alıyor (PR #9). `temsilci-ozet` az örneği `az_ornek=evet` ile işaretliyor. Yeni veri komutu gerekmez.
+- **Tetikler `bin/zamanla.py`'de:**
+  - `rapor`: `StartCalendarInterval` dizisi, Weekday 1–5, 09:30.
+  - `ilerlet`: `StartInterval` 600 sn. Mesai dışında ve hafta sonunda dağıtıcı zaten bir şey başlatmaz
+    (`tetik_karari` mesai kontrolü).
+- **Çakışma:** `kos.py` koşuları `.kos.lock` (`fcntl.flock`) ile sıraya giriyor. İki tur üst üste gelirse ikinci danışman
+  koşusu bekler, aynı anda çift koşu olmaz. Kuyruk maddesi `yapiliyor` iken dağıtıcı onu yeniden başlatmaz.
+- **Başarısızlık:** CEO iki kez reddederse mevcut kural geçerli. Rapor Yanıt defterine "onaylanamadı" etiketi ve CEO
+  gerekçesiyle gider. Ayrı bir uyarı kanalı yok; durum akşam sistem raporunda görünür.
+- **Tekrar:** O günün kaydı varsa rapor yeniden açılmaz. Takılan zincir, mevcut dağıtıcı turlarıyla ilerlemeye devam eder.
+- **Bütçe:** rapor başına mevcut soru bütçesi (8 USD) geçerli. Günlük şirket tavanı (40 USD) içinde kalır.
+
 ## Kağan'ın yanıtlaması gereken sorular (yapılacak işi değiştiriyor)
 
 1. **"Değişim" neye göre?** Önerim: aynı uzunlukta bir önceki dönem. Salı raporunda dün ile bir önceki iş günü karşılaştırılır,
