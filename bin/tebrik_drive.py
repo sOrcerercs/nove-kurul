@@ -29,13 +29,17 @@ def tablo_indir(ortam: dict, hedef: Path, servis_kur=None) -> Path:
     hedef = Path(hedef)
     try:
         servis = (servis_kur or _servis_kur)(anahtar, list(KAPSAMLAR))
-        mime = servis.files().get(fileId=dosya, fields="mimeType").execute().get("mimeType")
+        mime = servis.files().get(fileId=dosya, fields="mimeType", supportsAllDrives=True).execute().get("mimeType")
         if mime == SHEETS_MIME:
-            veri = servis.files().export_media(fileId=dosya, mimeType=XLSX_MIME).execute()
+            veri = servis.files().export_media(fileId=dosya, mimeType=XLSX_MIME, supportsAllDrives=True).execute()
         else:
-            veri = servis.files().get_media(fileId=dosya).execute()
+            veri = servis.files().get_media(fileId=dosya, supportsAllDrives=True).execute()
         hedef.parent.mkdir(parents=True, exist_ok=True)
-        hedef.write_bytes(veri)
+        gecici = hedef.with_name(hedef.name + ".tmp")
+        gecici.write_bytes(veri)
+        gecici.replace(hedef)
     except Exception as hata:
-        raise RuntimeError(f"Drive okunamadı: {type(hata).__name__}") from None
+        durum = getattr(getattr(hata, "resp", None), "status", None)
+        ek = f" {durum}" if durum else ""
+        raise RuntimeError(f"Drive okunamadı: {type(hata).__name__}{ek}") from None
     return hedef

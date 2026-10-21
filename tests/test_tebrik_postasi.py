@@ -2,6 +2,8 @@
 
 Adlar uydurmadır. python3 -m unittest discover -s tests
 """
+from __future__ import annotations
+
 import io
 import json
 import os
@@ -11,6 +13,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 import openpyxl
@@ -264,6 +267,30 @@ class SurucuTestleri(unittest.TestCase):
         self.assertIn("şablon yok: dogum_gunu", govde)
         self.assertIn("Çağla Işıkoğlu", govde)
         self.assertEqual(_ekler(self.gonderilen[0]), [])
+
+    def test_logo_yoksa_not_ve_metinli_tebrik(self):
+        yol = self.kok / "tebrik" / "sablonlar" / "dogum_gunu.json"
+        yerlesim = json.loads(yol.read_text(encoding="utf-8"))
+        yerlesim["logo"] = [10, 10, 100]
+        yol.write_text(json.dumps(yerlesim), encoding="utf-8")
+        self.dun_kosuldu()
+        with mock.patch.object(tp.tebrik_gorsel, "LOGO_DOSYASI", self.kok / "yok.png"):
+            self.assertEqual(self.kos(), 0)
+        govde = _govde(self.gonderilen[0])
+        self.assertIn("logo yok", govde)
+        self.assertNotIn("şablon yok", govde)
+        self.assertIn("Çağla Işıkoğlu", govde)
+        self.assertEqual(_ekler(self.gonderilen[0]), [])
+
+    def test_kayit_yazilamazsa_uyari_satiri(self):
+        self.dun_kosuldu()
+        hata = io.StringIO()
+        with redirect_stdout(io.StringIO()), redirect_stderr(hata), \
+                mock.patch.object(tp, "_yaz_json", side_effect=OSError("disk")):
+            rc = tp.kos(_an(2026, 10, 20), dict(ORTAM), self.kok, indir=self.indir, gonder=self.gonder)
+        self.assertEqual(rc, 1)
+        self.assertEqual(len(self.gonderilen), 1)
+        self.assertIn("gönderildi ama kaydedilmedi — aynı gün yeniden gönderilebilir\n", hata.getvalue())
 
     def test_aralikta_gelecek_yil_bayram_yoksa_hatirlatma(self):
         self.satirlar = [("İpek Yağmur Öztürk", "Şef", "05.03", None)]

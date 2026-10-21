@@ -113,6 +113,15 @@ class GorselTestleri(unittest.TestCase):
             g.gorsel_uret({"tur": "hos_geldin", "ad": "A", "unvan": "", "bayram": None},
                           self.sablonlar, self.tmp / "c.png", YAZI)
 
+    def test_logo_dosyasi_yoksa_dosya_bulunamadi(self):
+        self._sablon("dogum_gunu", [_alan("ad", [90, 300, 900, 120])])
+        tebrik = {"tur": "dogum_gunu", "ad": "Çağla Işıkoğlu", "unvan": "", "bayram": None}
+        with mock.patch.object(g, "LOGO_DOSYASI", self.tmp / "yok.png"):
+            with self.assertRaises(FileNotFoundError) as c:
+                g.gorsel_uret(tebrik, self.sablonlar, self.tmp / "c.png", YAZI)
+        self.assertEqual(str(c.exception), "logo yok")
+        self.assertFalse((self.tmp / "c.png").exists())
+
     def test_yazi_sigdir_tek_satir_kucultur(self):
         yol = YAZI / "Poppins-Bold.ttf"
         satirlar, boyut = g.yazi_sigdir("Çağla Işıkoğlu", yol, 120, 30, 400, 100, 1)

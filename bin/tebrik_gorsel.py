@@ -12,6 +12,7 @@ from typing import Optional
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 SATIR_CARPANI = 1.25
+LOGO_DOSYASI = Path(__file__).resolve().parent.parent / "tebrik" / "logo.png"
 
 
 def _temizle(metin) -> str:
@@ -86,7 +87,8 @@ def _alan_metni(alan, tebrik):
 def gorsel_uret(tebrik, sablon_klasoru, cikis, yazi_klasoru):
     """Şablona yazıyı basar, `cikis` PNG yoluna yazar. Sığmazsa None (dosya yazılmaz).
 
-    Şablon PNG ya da JSON yoksa FileNotFoundError.
+    Şablon PNG/JSON yoksa FileNotFoundError; yerleşimde logo var ama logo dosyası yoksa
+    FileNotFoundError("logo yok").
     """
     sablon_klasoru, cikis, yazi_klasoru = Path(sablon_klasoru), Path(cikis), Path(yazi_klasoru)
     ad = tebrik["bayram"]["sablon"] if tebrik["tur"] == "bayram" else tebrik["tur"]
@@ -117,10 +119,11 @@ def gorsel_uret(tebrik, sablon_klasoru, cikis, yazi_klasoru):
             cizici.text((cx, sy), satir, font=font, fill=_renk(alan["renk"]), anchor="mm")
 
     logo_yol = yerlesim.get("logo")
-    logo_dosya = Path(__file__).resolve().parent.parent / "tebrik" / "logo.png"
-    if logo_yol and logo_dosya.exists():
+    if logo_yol:
+        if not LOGO_DOSYASI.exists():
+            raise FileNotFoundError("logo yok")
         lx, ly, lw = logo_yol
-        logo = Image.open(logo_dosya).convert("RGBA")
+        logo = Image.open(LOGO_DOSYASI).convert("RGBA")
         logo = logo.resize((lw, max(1, round(logo.height * lw / logo.width))), Image.LANCZOS)
         gorsel.paste(logo, (lx, ly), logo)
 

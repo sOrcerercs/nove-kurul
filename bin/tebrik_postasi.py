@@ -136,8 +136,8 @@ def _gorseller(tebrikler: list, gun: date, kok: Path, klasor: Path):
             ad = f"{ad[:-len('.png')]}-{sayac[ad]}.png"
         try:
             yol = tebrik_gorsel.gorsel_uret(t, sablonlar, klasor / ad, yazilar)
-        except FileNotFoundError:
-            not_ = f"şablon yok: {_sablon_adi(t)}"
+        except FileNotFoundError as hata:
+            not_ = "logo yok" if str(hata) == "logo yok" else f"şablon yok: {_sablon_adi(t)}"
             if not_ not in eksik:
                 eksik.append(not_)
             continue
@@ -169,6 +169,8 @@ def _sonlandir(kayit: dict, kok: Path, kuru: bool, rc: int) -> int:
             _yaz_json(klasor / "ozet.json", ozet)
     except OSError as hata:
         print(f"tebrik: kayıt yazılamadı ({type(hata).__name__})", file=sys.stderr)
+        if not kuru and kayit["durum"] == "gonderildi":
+            print("tebrik: gönderildi ama kaydedilmedi — aynı gün yeniden gönderilebilir", file=sys.stderr)
         return 1
     print(f"tebrik: {kayit['gun']} durum={kayit['durum']} tebrik={kayit['tebrik_sayisi']} "
           f"eksik={kayit['eksik_sayisi']}")

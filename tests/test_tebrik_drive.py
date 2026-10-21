@@ -27,20 +27,24 @@ class SahteServis:
     def __init__(self, mime=XLSX, icerik=b"PK-sahte", hata=None):
         self.mime, self.icerik, self.hata = mime, icerik, hata
         self.cagrilar = []
+        self.ortak = []
 
     def files(self):
         return self
 
-    def get(self, fileId, fields):
+    def get(self, fileId, fields, supportsAllDrives=False):
         self.cagrilar.append(("get", fileId))
+        self.ortak.append(("get", supportsAllDrives))
         return _Istek(self.hata or {"mimeType": self.mime})
 
-    def export_media(self, fileId, mimeType):
+    def export_media(self, fileId, mimeType, supportsAllDrives=False):
         self.cagrilar.append(("export_media", mimeType))
+        self.ortak.append(("export_media", supportsAllDrives))
         return _Istek(self.icerik)
 
-    def get_media(self, fileId):
+    def get_media(self, fileId, supportsAllDrives=False):
         self.cagrilar.append(("get_media", fileId))
+        self.ortak.append(("get_media", supportsAllDrives))
         return _Istek(self.icerik)
 
 
@@ -60,6 +64,41 @@ class DriveTest(unittest.TestCase):
                                      servis_kur=lambda a, k: SahteServis())
         self.assertIn("TEBRIK_DRIVE_DOSYA", str(c.exception))
         self.assertNotIn(ANAHTAR, str(c.exception))
+
+    def test_bos_anahtar_ve_yalniz_bosluk(self):
+        for ortam in ({"TEBRIK_DRIVE_DOSYA": KIMLIK},
+                      {"TEBRIK_DRIVE_DOSYA": KIMLIK, "TEBRIK_DRIVE_ANAHTAR": "   "}):
+            with self.assertRaises(RuntimeError) as c:
+                tebrik_drive.tablo_indir(ortam, self.hedef, servis_kur=lambda a, k: SahteServis())
+            self.assertIn("TEBRIK_DRIVE_ANAHTAR", str(c.exception))
+            self.assertNotIn(ANAHTAR, str(c.exception))
+
+    def test_ortak_drive_bayragi_gider(self):
+        for mime, cagri in ((XLSX, "get_media"), (SHEETS, "export_media")):
+            s = SahteServis(mime=mime)
+            tebrik_drive.tablo_indir(_ortam(), self.hedef, servis_kur=lambda a, k: s)
+            self.assertEqual(sorted(s.ortak), sorted([("get", True), (cagri, True)]))
+
+    def test_http_durumu_mesajda(self):
+        class HttpHata(Exception):
+            resp = type("R", (), {"status": 404})()
+        s = SahteServis(hata=HttpHata(f"{KIMLIK} {ANAHTAR}"))
+        with self.assertRaises(RuntimeError) as c:
+            tebrik_drive.tablo_indir(_ortam(), self.hedef, servis_kur=lambda a, k: s)
+        self.assertEqual(str(c.exception), "Drive okunamadı: HttpHata 404")
+
+    def test_yazim_atomik_eski_dosya_bozulmaz(self):
+        self.hedef.parent.mkdir(parents=True)
+        self.hedef.write_bytes(b"ESKI")
+        s = SahteServis(icerik=b"YENI")
+        from unittest import mock
+        with mock.patch.object(Path, "replace", side_effect=OSError("disk")):
+            with self.assertRaises(RuntimeError):
+                tebrik_drive.tablo_indir(_ortam(), self.hedef, servis_kur=lambda a, k: s)
+        self.assertEqual(self.hedef.read_bytes(), b"ESKI")
+        tebrik_drive.tablo_indir(_ortam(), self.hedef, servis_kur=lambda a, k: s)
+        self.assertEqual(self.hedef.read_bytes(), b"YENI")
+        self.assertEqual([y.name for y in self.hedef.parent.iterdir()], ["tablo.xlsx"])
 
     def test_sahte_servisle_indirir(self):
         s = SahteServis(icerik=b"PK-tablo-baytlari")
