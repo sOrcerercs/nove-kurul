@@ -136,7 +136,8 @@ class SurucuTestleri(unittest.TestCase):
 
     def test_kuru_kaydi_gonderimi_engellemez(self):
         self.assertEqual(self.kos(kuru=True), 0)
-        self.assertEqual(self.kayit()["durum"], "kuru")
+        self.assertEqual(self.kayit("2026-10-20.kuru")["durum"], "kuru")
+        self.assertFalse((self.kok / "sirket-log" / "tebrik" / "2026-10-20.json").exists())
         self.assertEqual(self.kos(), 0)
         self.assertEqual(len(self.gonderilen), 1)
 
@@ -162,7 +163,26 @@ class SurucuTestleri(unittest.TestCase):
         eml = list(klasor.glob("*.eml"))
         self.assertEqual(len(eml), 1)
         self.assertIn("Çağla Işıkoğlu", self._eml_metni(eml[0]))
-        self.assertEqual(self.kayit()["durum"], "kuru")
+        self.assertEqual(self.kayit("2026-10-20.kuru")["durum"], "kuru")
+
+    def test_kuru_gercek_kaydi_ezmez(self):
+        self.dun_kosuldu("2026-10-20", durum="hata")
+        self.assertEqual(self.kos(kuru=True), 0)
+        self.assertEqual(self.kayit()["durum"], "hata")
+        self.assertFalse((self.kok / "sirket-log" / "tebrik" / "ozet.json").exists())
+
+    def test_kuru_kaydi_onceki_kayit_sayilmaz(self):
+        # Yalnız kuru koşulmuş geçmiş → gerçek ilk koşu (R11): kaçan notu yok.
+        self.assertEqual(self.kos(_an(2026, 10, 18), kuru=True), 0)
+        self.assertEqual(self.kos(_an(2026, 10, 19), kuru=True), 0)
+        self.assertEqual(self.kos(), 0)
+        self.assertNotIn("Dün kaçan", _govde(self.gonderilen[0]))
+
+    def test_dunun_kuru_kaydi_dunu_kosulmus_saymaz(self):
+        self.dun_kosuldu("2026-10-18")
+        self.assertEqual(self.kos(_an(2026, 10, 19), kuru=True), 0)
+        self.kos()
+        self.assertIn("Dün kaçan tebrikler: Ömer Şükrü Güneş", _govde(self.gonderilen[0]))
 
     def _eml_metni(self, yol):
         from email import policy
@@ -271,10 +291,37 @@ class SurucuTestleri(unittest.TestCase):
         with redirect_stdout(io.StringIO()), redirect_stderr(hata):
             rc = tp.kos(_an(2026, 10, 20), dict(ORTAM), self.kok, indir=self.indir, gonder=self.gonder)
         self.assertEqual(rc, 1)
-        self.assertEqual(self.gonderilen, [])
+        self.assertEqual(len(self.gonderilen), 1)  # hiçbir tebrik sessizce kaybolmaz
+        self.assertIn("Tebrikler hazırlanamadı (JSONDecodeError)", _govde(self.gonderilen[0]))
+        self.assertEqual(_ekler(self.gonderilen[0]), [])
         self.assertEqual(self.kayit()["durum"], "hata")
         self.assertIn("JSONDecodeError", hata.getvalue())
         self.assertNotIn("Traceback", hata.getvalue())
+
+    def test_bayram_alani_eksik_bildirim(self):
+        (self.kok / "tebrik" / "bayramlar.json").write_text(json.dumps([
+            {"ad": "Cumhuriyet Bayramı", "baslangic": "2026-10-20"}]), encoding="utf-8")
+        self.assertEqual(self.kos(), 1)
+        self.assertEqual(len(self.gonderilen), 1)
+        self.assertIn("Tebrikler hazırlanamadı (KeyError)", _govde(self.gonderilen[0]))
+        self.assertEqual(self.kayit()["durum"], "hata")
+
+    def test_bozuk_bayramlar_kuru_mail_yok(self):
+        (self.kok / "tebrik" / "bayramlar.json").write_text("[{bozuk", encoding="utf-8")
+        self.assertEqual(self.kos(kuru=True), 1)
+        self.assertEqual(self.gonderilen, [])
+        self.assertEqual(list((self.kok / "sirket-log" / "tebrik").glob("**/*.eml")), [])
+
+    # --- aynı ad ------------------------------------------------------------
+
+    def test_ayni_adli_iki_kisi_iki_ek(self):
+        self.satirlar = [("Çağla Işıkoğlu", "Uzman", "20.10", None),
+                         ("Çağla Işıkoğlu", "Şef", "20.10", date(2020, 3, 2))]  # farklı kişi
+        self.dun_kosuldu()
+        self.assertEqual(self.kos(), 0)
+        self.assertEqual(_ekler(self.gonderilen[0]), ["2026-10-20-dogum-gunu-cagla-isikoglu.png",
+                                                      "2026-10-20-dogum-gunu-cagla-isikoglu-2.png"])
+        self.assertEqual(self.kayit()["tebrik_sayisi"], 2)
 
     # --- kilit -------------------------------------------------------------
 
@@ -320,6 +367,24 @@ class SurucuTestleri(unittest.TestCase):
         self.assertIn("okunamadı", _govde(self.gonderilen[0]))
         self.assertEqual(_ekler(self.gonderilen[0]), [])
         self.assertEqual(self.kayit()["durum"], "hata")
+
+    def test_eksik_sutun_mesaji_gosterilir(self):
+        def eksik(ortam, hedef):
+            wb = openpyxl.Workbook()
+            wb.active.append(("Ad Soyad", "Doğum günü", "İşe giriş tarihi"))
+            hedef.parent.mkdir(parents=True, exist_ok=True)
+            wb.save(hedef)
+            return hedef
+        self.assertEqual(self.kos(indir=eksik), 1)
+        self.assertIn("eksik sütun: Ünvan", _govde(self.gonderilen[0]))
+
+    def test_diger_hata_yalniz_tur_adi(self):
+        def bozuk(ortam, hedef):
+            raise ValueError("gizli ayrıntı")
+        self.assertEqual(self.kos(indir=bozuk), 1)
+        govde = _govde(self.gonderilen[0])
+        self.assertIn("(ValueError)", govde)
+        self.assertNotIn("gizli", govde)
 
     # --- komut satırı -------------------------------------------------------
 

@@ -3,7 +3,8 @@
 Yapay zekâ yok; kurallı betik. Her gün 08:55 Europe/Istanbul (launchd, uyanınca geç de koşabilir).
 Sıra: bugün gönderildiyse dur → ANAYASA + alıcı kapısı → tablo → tebrikler ve görseller → notlar →
 gönder, **sonra** kaydı yaz → adsız özet. Kayıtlar `sirket-log/tebrik/` altında (git dışı, ad içerir);
-ekrana ad, adres, anahtar basılmaz.
+ekrana ad, adres, anahtar basılmaz. Kuru koşunun kaydı `<gun>.kuru.json`'dır; gerçek koşunun kararları
+(bugün gönderildi mi, dün kaçan, ilk koşu) yalnız `<gun>.json`'a bakar.
 
 Ortam anahtarları (yalnız adlar; değerler `.env`'de): TEBRIK_SMTP_SUNUCU, TEBRIK_SMTP_PORT,
 TEBRIK_SMTP_KULLANICI, TEBRIK_SMTP_SIFRE, TEBRIK_ALICI, TEBRIK_DRIVE_DOSYA, TEBRIK_DRIVE_ANAHTAR.
@@ -38,7 +39,7 @@ KURU_SAAT = time(8, 55)
 KILIT_ADI = ".kilit"
 KILIT_BAYAT_SN = 30 * 60
 KOSTU_DURUMLARI = ("gonderildi", "bos")  # dün bu durumdaysa kaçan yok; hata/kuru kaçırmış sayılır
-_GUN_KAYDI = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$")
+_GUN_KAYDI = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$")  # *.kuru.json eşleşmez
 
 
 def istanbul_gunu(simdi: datetime) -> date:
@@ -126,11 +127,15 @@ def _sablon_adi(t: dict) -> str:
 
 def _gorseller(tebrikler: list, gun: date, kok: Path, klasor: Path):
     """(görsel yolları, bugünü etkileyen eksikler) — R1, R2, R3."""
-    yollar, eksik = [], []
+    yollar, eksik, sayac = [], [], {}
     sablonlar, yazilar = kok / "tebrik" / "sablonlar", kok / "tebrik" / "yazi-tipleri"
     for t in tebrikler:
+        ad = tebrik_posta.ek_adi(gun, t)
+        sayac[ad] = sayac.get(ad, 0) + 1
+        if sayac[ad] > 1:  # aynı gün aynı ad (ya da aynı ASCII kısaltması): -2, -3 eki
+            ad = f"{ad[:-len('.png')]}-{sayac[ad]}.png"
         try:
-            yol = tebrik_gorsel.gorsel_uret(t, sablonlar, klasor / tebrik_posta.ek_adi(gun, t), yazilar)
+            yol = tebrik_gorsel.gorsel_uret(t, sablonlar, klasor / ad, yazilar)
         except FileNotFoundError:
             not_ = f"şablon yok: {_sablon_adi(t)}"
             if not_ not in eksik:
@@ -155,7 +160,7 @@ def _sonlandir(kayit: dict, kok: Path, kuru: bool, rc: int) -> int:
     """Günün kaydını, kuru değilse adsız özeti yazar. Kayıt yazılamazsa rc 1."""
     klasor = kok / "sirket-log" / "tebrik"
     try:
-        _yaz_json(klasor / f"{kayit['gun']}.json", kayit)
+        _yaz_json(klasor / f"{kayit['gun']}{'.kuru' if kuru else ''}.json", kayit)
         if not kuru:
             onceki = _kayit_oku(klasor / "ozet.json") or {}
             ozet = {k: v for k, v in kayit.items() if k != "adlar"}
@@ -249,7 +254,9 @@ def _kos(simdi, ortam, kok, kuru, indir, gonder) -> int:
         tablo = indir(ortam, klasor / "tablo.xlsx")
         satirlar = tebrik_takvim.xlsx_oku(tablo)
     except Exception as hata:
-        sebep = str(hata) if isinstance(hata, RuntimeError) else type(hata).__name__
+        # RuntimeError (Drive) ve eksik sütun mesajı veri taşımaz; diğerlerinde yalnız tür adı
+        sebep = (str(hata) if isinstance(hata, (RuntimeError, tebrik_takvim.EksikSutun))
+                 else type(hata).__name__)
         print(f"tebrik: tablo okunamadı — {sebep}", file=sys.stderr)
         kayit = _kayit(gun, "kuru" if kuru else "hata", simdi, [], 0, gec)
         mesaj = tebrik_posta.mail_kur([], [], [f"Tebrik tablosu okunamadı ({sebep}); bugünün tebrikleri "
@@ -264,7 +271,15 @@ def _kos(simdi, ortam, kok, kuru, indir, gonder) -> int:
     try:
         tebrikler, gorseller, notlar, eksik_sayisi = _hazirla(satirlar, gun, yerel, gec, kok, klasor, gun_klasoru)
     except Exception as hata:
-        print(f"tebrik: hazırlanamadı — {type(hata).__name__}", file=sys.stderr)
+        tur = type(hata).__name__
+        print(f"tebrik: hazırlanamadı — {tur}", file=sys.stderr)
+        if not kuru:  # hiçbir tebrik sessizce kaybolmaz: alıcıya bildirim (ek yok)
+            mesaj = tebrik_posta.mail_kur([], [], [f"Tebrikler hazırlanamadı ({tur}); bugünün tebrikleri "
+                                                   "gönderilemedi."], gonderen, alici, gun)
+            try:
+                gonder(mesaj, ortam)
+            except Exception as hata2:
+                print(f"tebrik: bildirim gönderilemedi — {hata2}", file=sys.stderr)
         return _sonlandir(_kayit(gun, "kuru" if kuru else "hata", simdi, [], 0, gec), kok, kuru, 1)
 
     # (6) gönderilecek bir şey yoksa mail yok

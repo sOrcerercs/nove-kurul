@@ -81,7 +81,7 @@ google-auth + google-api-python-client (yalnız Drive okuyucuda, tembel import),
 - [ ] Bayram listesi ve her bayramın TR/EN metni
 - [ ] `GEMINI_API_KEY` `.env`'e
 - [ ] BT: ayrı gönderen Nove adresi, SMTP sunucusu/portu, uygulama şifresi → `.env`
-- [ ] Bahadır Bey: Drive'da dört sütunlu Excel; servis hesabının e-postasıyla **görüntüleyen** olarak paylaşım
+- [ ] Alıcı: Drive'da dört sütunlu Excel; servis hesabının e-postasıyla **görüntüleyen** olarak paylaşım
 
 ### Task 1: Takvim — tablo, doğrulama, bugünün tebrikleri
 
@@ -218,7 +218,7 @@ listesi gelince her bayram için bir çift)
 
 ### Task 8: Canlı (Kağan onayıyla, Task 0 bitince)
 
-- [ ] `python3 bin/tebrik_postasi.py --kuru` gerçek tabloyla → eksikler listesi Bahadır Bey'e iletilmek üzere Kağan'a
+- [ ] `python3 bin/tebrik_postasi.py --kuru` gerçek tabloyla → eksikler listesi alıcıya iletilmek üzere Kağan'a
 - [ ] ANAYASA istisnası yürürlükte → `python3 bin/zamanla.py --kur`; ilk gerçek gönderimi Kağan ve alıcı birlikte kontrol eder
 
 ## Self-Review

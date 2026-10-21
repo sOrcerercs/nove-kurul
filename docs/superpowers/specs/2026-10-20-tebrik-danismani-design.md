@@ -5,7 +5,7 @@
 
 ## Amaç
 
-Çalışanların özel günlerinde tebrik görselini ve yazısını hazır hâlde tek bir iç alıcıya (Bahadır Bey) mail
+Çalışanların özel günlerinde tebrik görselini ve yazısını hazır hâlde tek bir iç alıcıya mail
 olarak ulaştırmak. Alıcı tebriği şirket grubuna kendisi paylaşır. **Paylaşım kararı ve düğmesi alıcıda kalır**;
 amaç onun işini kolaylaştırmak (Kağan, 20.10.2026).
 
@@ -59,7 +59,7 @@ amaç onun işini kolaylaştırmak (Kağan, 20.10.2026).
 
 ```
 Google Drive'daki Excel  →  bin/tebrik_postasi.py (her gün 08:55)
-   (Bahadır Bey günceller)      1. tabloyu oku, satırları doğrula
+   (alıcı günceller)            1. tabloyu oku, satırları doğrula
                                 2. bugünün günlerini bul (doğum günü · işe giriş · bayram takvimi)
                                 3. şablon + ad → PNG (Pillow, sabit yazı tipi ve konum)
                                 4. tek mail: görseller ek, sabit metinler gövdede
@@ -69,7 +69,7 @@ Google Drive'daki Excel  →  bin/tebrik_postasi.py (her gün 08:55)
 
 ### 1 · Çalışan tablosu
 
-- Başlangıçta Google Drive'da bir Excel dosyası; **Bahadır Bey günceller** (Kağan). Sonra sunucudaki PostgreSQL'de
+- Başlangıçta Google Drive'da bir Excel dosyası; **alıcı günceller** (Kağan). Sonra sunucudaki PostgreSQL'de
   bir tabloya taşınır; okuma katmanı tek fonksiyonda tutulur ki kaynak değişince yalnız o değişsin.
 - Sütunlar: `Ad Soyad` · `Ünvan` · `Doğum günü` (gün.ay) · `İşe giriş tarihi` (gün.ay.yıl).
 - Drive erişimi: dosya bir Google servis hesabıyla **yalnız görüntüleme** paylaşılır; betik Drive API'siyle indirir
@@ -120,7 +120,8 @@ Google Drive'daki Excel  →  bin/tebrik_postasi.py (her gün 08:55)
   "geç gönderildi" notu düşer. Ertesi güne kalan tebrik **gönderilmez**: önceki gün için kayıt yoksa, o günün
   tebrikleri yeniden hesaplanır ve bugünün mailinde "dün kaçan tebrikler: <adlar>" notu olarak yalnız alıcıya
   bildirilir; görselleri eklenmez (Claude'un çağrısı).
-- `--kuru`: mail atmadan görselleri ve mail metnini klasöre yazar; Kağan ve alıcı önizler.
+- `--kuru`: mail atmadan görselleri ve mail metnini klasöre yazar; Kağan ve alıcı önizler. Kaydı ayrı dosyaya
+  (`<gun>.kuru.json`) yazar; gerçek koşunun kararlarını etkilemez.
 
 ### 5 · Zamanlama ve panel
 
@@ -135,7 +136,7 @@ Google Drive'daki Excel  →  bin/tebrik_postasi.py (her gün 08:55)
 | ANAYASA §1 istisnası | Kağan | metin onaylı, eklenmedi |
 | Bayram listesi ve metinleri | Kağan | bekliyor |
 | Ayrı gönderen Nove adresi + uygulama şifresi | BT / yazılımcı | bekliyor |
-| Excel dosyası (dört sütun) ve Drive paylaşımı | Bahadır Bey | bekliyor |
+| Excel dosyası (dört sütun) ve Drive paylaşımı | alıcı | bekliyor |
 | Gemini anahtarı (yalnız şablon üretimi için, bir kez) | Kağan | bekliyor |
 | Şablon onayları | Kağan | şablonlar üretilince |
 

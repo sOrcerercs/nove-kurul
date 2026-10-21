@@ -66,6 +66,34 @@ class TakvimTesti(unittest.TestCase):
         self.assertEqual(len(kisiler), 1)
         self.assertTrue(any("tekrarlı satır" in e for e in eksik))
 
+    def test_sayi_hucre_okunamaz(self):
+        # 20.10 sayı olarak gelirse str() "20.1" verir → yanlış gün; okunamaz sayılmalı.
+        for d in (20.10, 1.10, 15, 20.1):
+            self.assertIsNone(tk.gun_ay(d), d)
+            self.assertIsNone(tk.tam_tarih(d), d)
+        kisiler, eksik = tk.dogrula([
+            {"Ad Soyad": "Çağla Işıkoğlu", "Ünvan": "Uzman", "Doğum günü": 20.10, "İşe giriş tarihi": None},
+        ])
+        self.assertIsNone(kisiler[0]["dogum"])
+        self.assertEqual(eksik, ["Çağla Işıkoğlu — doğum günü okunamadı: '20.1'"])
+
+    def test_ad_nfc(self):
+        import unicodedata
+        ayrik = unicodedata.normalize("NFD", "İpek Şahin")
+        self.assertNotEqual(ayrik, "İpek Şahin")
+        self.assertEqual(tk.ad_temizle(ayrik), "İpek Şahin")
+
+    def test_ayni_ad_farkli_tarih_ikisi_de_kalir(self):
+        s = {"Ad Soyad": "Ömer Şükrü Güneş", "Ünvan": "Müdür", "Doğum günü": "01.01", "İşe giriş tarihi": None}
+        kisiler, eksik = tk.dogrula([s, dict(s, **{"Doğum günü": "02.02"})])
+        self.assertEqual([k["dogum"] for k in kisiler], [(1, 1), (2, 2)])
+        self.assertEqual(eksik, ["Ömer Şükrü Güneş — aynı adlı birden fazla satır"])
+
+    def test_eksik_sutun_turu(self):
+        yol = _xlsx(["Ad Soyad", "Doğum günü", "İşe giriş tarihi"], [["Ece Çınar", "15.10", None]])
+        with self.assertRaises(tk.EksikSutun):
+            tk.xlsx_oku(yol)
+
     def test_29_subat(self):
         k = [{"ad": "Ece Çınar", "unvan": "", "dogum": (29, 2), "giris": None}]
         self.assertEqual(len(tk.bugunun_tebrikleri(k, [], date(2027, 2, 28))), 1)

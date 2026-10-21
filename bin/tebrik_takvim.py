@@ -7,6 +7,7 @@ from __future__ import annotations
 import calendar
 import re
 import sys
+import unicodedata
 from datetime import date, datetime
 from pathlib import Path
 
@@ -17,6 +18,10 @@ SUTUNLAR = ("Ad Soyad", "Ünvan", "Doğum günü", "İşe giriş tarihi")
 
 _GG_AA = re.compile(r"^(\d{1,2})[./](\d{1,2})$")
 _GG_AA_YYYY = re.compile(r"^(\d{1,2})[./](\d{1,2})[./](\d{4})$")
+
+
+class EksikSutun(ValueError):
+    """Tabloda zorunlu sütun yok. Mesaj yalnız sütun adını taşır (alıcıya gösterilebilir)."""
 
 
 def _bos(deger) -> bool:
@@ -36,7 +41,7 @@ def xlsx_oku(yol: Path) -> list:
     for sutun in SUTUNLAR:
         anahtar = _tr_kucuk(sutun)
         if anahtar not in basliklar:
-            raise ValueError(f"eksik sütun: {sutun}")
+            raise EksikSutun(f"eksik sütun: {sutun}")
         sira[sutun] = basliklar.index(anahtar)
     sonuc = []
     for s in satirlar[1:]:
@@ -45,13 +50,19 @@ def xlsx_oku(yol: Path) -> list:
 
 
 def ad_temizle(ad) -> str:
-    return " ".join(str(ad or "").split())
+    """Tablodan ayrık (NFD) gelen İ/ş gibi harfler NFC'ye birleştirilir; harf dönüşümü yok."""
+    return " ".join(unicodedata.normalize("NFC", str(ad or "")).split())
+
+
+def _sayi(deger) -> bool:
+    """Sayı hücresi (bool değil) tarih sayılmaz: 20.10 → "20.1" yanlış güne çözülürdü."""
+    return isinstance(deger, (int, float)) and not isinstance(deger, bool)
 
 
 def gun_ay(deger):
     if isinstance(deger, (datetime, date)):
         return (deger.day, deger.month)
-    if _bos(deger):
+    if _bos(deger) or _sayi(deger):
         return None
     metin = str(deger).strip()
     m = _GG_AA.match(metin) or _GG_AA_YYYY.match(metin)
@@ -70,7 +81,7 @@ def tam_tarih(deger):
         return deger.date()
     if isinstance(deger, date):
         return deger
-    if _bos(deger):
+    if _bos(deger) or _sayi(deger):
         return None
     m = _GG_AA_YYYY.match(str(deger).strip())
     if not m:
@@ -82,8 +93,10 @@ def tam_tarih(deger):
 
 
 def dogrula(satirlar: list):
-    """(kişiler, eksikler). Eksik metni ad + sorun; boş satır sessizce atlanır."""
-    kisiler, eksik, gorulen = [], [], set()
+    """(kişiler, eksikler). Eksik metni ad + sorun; boş satır sessizce atlanır.
+
+    Aynı ad + aynı tarihler → tekrarlı satır, tek kişi. Aynı ad, farklı tarih → ikisi de kalır, not düşülür."""
+    kisiler, eksik, gorulen, adlar = [], [], set(), set()
     for no, satir in enumerate(satirlar, start=2):  # 1. satır başlık
         if all(_bos(satir.get(s)) for s in SUTUNLAR):
             continue
@@ -91,13 +104,19 @@ def dogrula(satirlar: list):
         if not ad:
             eksik.append(f"{no}. satır — ad yok")
             continue
-        anahtar = _tr_kucuk(ad)
+        dogum_ham, giris_ham = satir.get("Doğum günü"), satir.get("İşe giriş tarihi")
+        dogum, giris = gun_ay(dogum_ham), tam_tarih(giris_ham)
+        ad_anahtari = _tr_kucuk(ad)
+        anahtar = (ad_anahtari, dogum, giris)
         if anahtar in gorulen:
             eksik.append(f"{ad} — tekrarlı satır")
             continue
+        if ad_anahtari in adlar:
+            not_ = f"{ad} — aynı adlı birden fazla satır"
+            if not_ not in eksik:
+                eksik.append(not_)
         gorulen.add(anahtar)
-        dogum_ham, giris_ham = satir.get("Doğum günü"), satir.get("İşe giriş tarihi")
-        dogum, giris = gun_ay(dogum_ham), tam_tarih(giris_ham)
+        adlar.add(ad_anahtari)
         if _bos(dogum_ham):
             eksik.append(f"{ad} — doğum günü yok")
         elif dogum is None:
