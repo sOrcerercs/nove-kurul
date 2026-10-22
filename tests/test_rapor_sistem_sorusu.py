@@ -56,6 +56,15 @@ class TakvimTesti(unittest.TestCase):
         self.assertEqual(rt.tatiller_oku(kok), {d("2026-10-29")})
         self.assertIn(d("2027-05-19"), rt.tatiller_oku(KOK))   # depodaki gerçek liste
 
+    def test_bozuk_tatiller_hata(self):
+        kok = Path(tempfile.mkdtemp())
+        (kok / "takimlar" / "kalite").mkdir(parents=True)
+        yol = kok / "takimlar" / "kalite" / "tatiller.json"
+        for icerik in ("{bozuk", '[{"tarih": "yarın"}]', '[{"ad": "x"}]'):
+            yol.write_text(icerik, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "tatiller.json okunamadı"):
+                rt.tatiller_oku(kok)
+
 
 class SistemSorusuTesti(unittest.TestCase):
     def setUp(self):
@@ -113,6 +122,34 @@ class SistemSorusuTesti(unittest.TestCase):
         sonuc = self.ac()
         self.assertEqual(sonuc["sonuc"], "reddedildi")
         self.assertFalse(sk.yol("rapor-kalite-20261026", self.kok).exists())
+
+    def test_kayit_var_kuyruk_eksik_yeniden_yazilir(self):
+        self.ac()
+        ayar.durum_guncelle("kalite", {"kuyruk": []}, self.kok)
+        sonuc = self.ac()
+        self.assertEqual(sonuc["sonuc"], "var")
+        self.assertIn("yeniden kuyruğa", sonuc["sebep"])
+        self.assertEqual([o["id"] for o in ayar.durum_oku("kalite", self.kok)["kuyruk"]],
+                         ["s-rapor-kalite-20261026"])
+
+    def test_kuyruga_yaz_false_gorunur_hata(self):
+        with mock.patch.object(dagitici, "kuyruga_yaz", return_value=False):
+            sonuc = self.ac()
+        self.assertEqual(sonuc["sonuc"], "reddedildi")
+        self.assertIn("kuyruğuna yazılamadı", sonuc["sebep"])
+        self.assertTrue(sk.yol("rapor-kalite-20261026", self.kok).exists())   # kayıt kalır
+        self.assertEqual(self.ac()["sonuc"], "var")                           # sonraki çağrı kuyruğa yazar
+        self.assertEqual(len(ayar.durum_oku("kalite", self.kok)["kuyruk"]), 1)
+
+    def test_es_zamanli_yaris_x_modu(self):
+        yol = sk.yol("rapor-kalite-20261026", self.kok)
+        gercek = Path.exists
+        with mock.patch.object(Path, "exists", lambda self_: False if self_ == yol else gercek(self_)):
+            self.ac()                      # exists() "yok" der, ama dosya yazıldı
+            once = self.metin()
+            self.assertEqual(self.ac()["sonuc"], "var")   # "x" FileExistsError -> var yolu
+        self.assertEqual(self.metin(), once)
+        self.assertEqual(len(ayar.durum_oku("kalite", self.kok)["kuyruk"]), 1)
 
     def test_kuru_yazmaz(self):
         self.assertEqual(self.ac(kuru=True)["sonuc"], "acildi")

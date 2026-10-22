@@ -39,9 +39,12 @@ def rapor_araligi(gun, tatiller):
 
 
 def tatiller_oku(kok):
-    """`takimlar/kalite/tatiller.json` → tarih kümesi. Dosya yoksa ya da bozuksa boş küme."""
-    try:
-        ham = json.loads((Path(kok) / "takimlar" / "kalite" / "tatiller.json").read_text(encoding="utf-8"))
-        return {date.fromisoformat(str(o["tarih"])) for o in ham}
-    except (OSError, ValueError, KeyError, TypeError):
+    """`takimlar/kalite/tatiller.json` → tarih kümesi. Dosya yoksa boş küme; bozuksa ValueError
+    (sessizce boş sayılsa tatil günü rapor açılırdı)."""
+    yol = Path(kok) / "takimlar" / "kalite" / "tatiller.json"
+    if not yol.exists():
         return set()
+    try:
+        return {date.fromisoformat(str(o["tarih"])) for o in json.loads(yol.read_text(encoding="utf-8"))}
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"tatiller.json okunamadı: {exc}") from exc

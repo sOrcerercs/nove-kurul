@@ -171,13 +171,24 @@ def sistem_sorusu(kok, danisman, soru, soru_id, aralik, karsilastir, simdi, kuru
     İş Dağıtımcı onu yeniden yönlendirmez (`## Dağıtım` var → Haiku çağrılmaz). Danışmanın `durum.json`'u yoksa
     kuyruğa yazılamaz; yarım açık kayıt kalmasın diye hiçbir şey yazılmadan `reddedildi` döner.
     Aynı id'li kayıt varsa `var`. `simdi` zaman dilimli olmalı; kayıttaki zaman İstanbul saatidir."""
+    import dagitici   # dagitici bu modülü içe aktarır; döngü olmasın diye burada
     yol = soru_kaydi.yol(soru_id, kok)
+    kuyruk_id = f"s-{soru_id}"
+
+    def var():
+        """Kayıt zaten var: kuyruk maddesi eksikse (yazım yarıda kalmış) yeniden kuyruğa yazar."""
+        kuyruk = ayar.durum_oku(danisman, kok).get("kuyruk") or []
+        if any(isinstance(o, dict) and o.get("id") == kuyruk_id for o in kuyruk):
+            return {"sonuc": "var", "soru_id": soru_id, "sebep": "bu gün için rapor zaten açıldı"}
+        if not kuru and not dagitici.kuyruga_yaz(kok, danisman, kuyruk_id, soru):
+            return _reddet(f"{danisman} kuyruğuna yazılamadı — kayıt duruyor, sonraki çağrı yeniden dener")
+        return {"sonuc": "var", "soru_id": soru_id, "sebep": "kayıt vardı ama kuyrukta yoktu — yeniden kuyruğa yazıldı"}
+
     if yol.exists():
-        return {"sonuc": "var", "soru_id": soru_id, "sebep": "bu gün için rapor zaten açıldı"}
+        return var()
     if not ayar.durum_oku(danisman, kok):
         return _reddet(f"{danisman} kuyruğu yok (durum.json) — rapor açılmadı")
     if not kuru:
-        import dagitici   # dagitici bu modülü içe aktarır; döngü olmasın diye burada
         zaman = simdi.astimezone(ZoneInfo("Europe/Istanbul"))
         gun = lambda r: f"{r[0]:%Y-%m-%d}..{r[1]:%Y-%m-%d}"  # noqa: E731
         satirlar = [f"# Soru {soru_id}", "- soran: Zamanlayıcı (kalite günlük raporu)",
@@ -186,10 +197,16 @@ def sistem_sorusu(kok, danisman, soru, soru_id, aralik, karsilastir, simdi, kuru
                     f"- aralik: {gun(aralik)}", f"- karsilastir: {gun(karsilastir)}",
                     "- gorunurluk: kurul", "- durum: danışmanda"]
         yol.parent.mkdir(parents=True, exist_ok=True)
-        yol.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+        try:
+            with open(yol, "x", encoding="utf-8") as f:   # "x": aynı anda iki koşu ikisi de yazamaz
+                f.write("\n".join(satirlar) + "\n")
+        except FileExistsError:
+            return var()
         soru_kaydi.bolum_ekle(yol, dagitici._dagitim_bolumu(
             {"danisman": danisman, "yontem": "sistem sorusu", "gerekce": "zamanlı rapor"}))
-        dagitici.kuyruga_yaz(kok, danisman, f"s-{soru_id}", soru)
+        if not dagitici.kuyruga_yaz(kok, danisman, kuyruk_id, soru):
+            # Kayıt silinmez: sonraki çağrı `var()` yolundan yeniden kuyruğa yazar; yarım iş görünür kalır.
+            return _reddet(f"{danisman} kuyruğuna yazılamadı — kayıt duruyor, sonraki çağrı yeniden dener")
     return {"sonuc": "acildi", "soru_id": soru_id, "sebep": ""}
 
 
