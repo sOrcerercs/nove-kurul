@@ -44,7 +44,9 @@ ZAMANLI = []
 ZAMANLI_RAPORLAR = [{"danisman": "kalite"}]
 RAPOR_SORUSU = ("{tarih} ({gun}) günlük kalite raporu: ekip bazında ortalama ve önceki dönemle farkı, "
                 "en sık kaçırılan 5 kriter, koçluk takibi. kalite_veri.py komutlarında yalnız kayıttaki "
-                '"aralik" ve "karsilastir" tarihlerini kullan.')
+                '"aralik" ve "karsilastir" tarihlerini kullan. '
+                "Aralık: {aralik} · Karşılaştırma: {karsilastir}.")
+TATIL_EKSIK = "tatil listesi {yil} için eksik; resmî tatiller iş günü sayıldı"
 
 HAFTALIK = ZAMANLI          # eski ad — geriye dönük uyum
 KOSU_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})\.md$")
@@ -262,18 +264,26 @@ def rapor(kok, simdi=None, kuru=False):
 
     Gün İstanbul günüdür (makine UTC olsa da). Hafta sonu/tatilde hiçbir şey açılmaz ve dağıtıcı koşmaz.
     Bozuk `tatiller.json` ValueError ile yükselir — sessizce iş günü sayılmaz.
-    Dönüş: {"simdi", "gun", "acilan": [{danisman, soru_id, sonuc, sebep}], "atlandi": sebep | None, "dagitim"}"""
+    Tatil listesinde bu yıl yoksa rapor yine açılır; `not` doldurulur ve soru metnine eklenir (spec §2).
+    Dönüş: {"simdi", "gun", "acilan": [{danisman, soru_id, sonuc, sebep}], "atlandi": sebep | None, "dagitim",
+            "not": tatil listesi eksik notu | None}"""
     simdi = (simdi or datetime.now().astimezone()).astimezone(ZoneInfo("Europe/Istanbul"))
     gun = simdi.date()
-    sonuc = {"simdi": simdi, "gun": gun, "acilan": [], "atlandi": None, "dagitim": None}
+    sonuc = {"simdi": simdi, "gun": gun, "acilan": [], "atlandi": None, "dagitim": None, "not": None}
     tatiller = rapor_takvimi.tatiller_oku(kok)
     aralik = rapor_takvimi.rapor_araligi(gun, tatiller)
     if aralik is None:
         sonuc["atlandi"] = ("hafta sonu" if gun.weekday() >= 5 else "resmi tatil") + " — rapor açılmadı"
         return sonuc
+    if not tatiller or max(t.year for t in tatiller) < gun.year:
+        sonuc["not"] = TATIL_EKSIK.format(yil=gun.year)
+    tr = lambda r: f"{r[0]:%d.%m.%Y}–{r[1]:%d.%m.%Y}"  # noqa: E731
     for madde in ZAMANLI_RAPORLAR:
         danisman = madde["danisman"]
-        soru = RAPOR_SORUSU.format(tarih=f"{gun:%d.%m.%Y}", gun=GUNLER[gun.weekday()])
+        soru = RAPOR_SORUSU.format(tarih=f"{gun:%d.%m.%Y}", gun=GUNLER[gun.weekday()],
+                                   aralik=tr(aralik[0]), karsilastir=tr(aralik[1]))
+        if sonuc["not"]:
+            soru += f" Not: {sonuc['not']}."
         acilan = soru_kapisi.sistem_sorusu(kok, danisman, soru, f"rapor-{danisman}-{gun:%Y%m%d}",
                                            aralik[0], aralik[1], simdi, kuru=kuru)
         sonuc["acilan"].append({"danisman": danisman, **acilan})
@@ -285,6 +295,8 @@ def rapor_metni(sonuc):
     satirlar = [_baslik("Zamanlı rapor", sonuc["simdi"])]
     if sonuc["atlandi"]:
         return satirlar[0] + f"\n- {sonuc['atlandi']}\n"
+    if sonuc.get("not"):
+        satirlar.append(f"\n- not: {sonuc['not']}\n")
     satirlar.append("\n## Açılan sorular\n")
     for a in sonuc["acilan"]:
         ek = f" — {a['sebep']}" if a.get("sebep") else ""
@@ -316,6 +328,8 @@ def main(argv):
         if sonuc["atlandi"]:
             print(sonuc["atlandi"])
             return 0
+        if sonuc.get("not"):
+            print(f"not: {sonuc['not']}", file=sys.stderr)
         if kuru:
             print(metin)
             print("(kuru koşu: kayıt açılmadı, rapor dosyaya yazılmadı)")

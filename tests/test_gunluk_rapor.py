@@ -41,6 +41,34 @@ class RaporTesti(unittest.TestCase):
         self.assertEqual(sk.alan(metin, "karsilastir"), "2026-10-16..2026-10-16")
         self.assertIn("20.10.2026 (Salı) günlük kalite raporu:", sk.alan(metin, "soru"))
 
+    def tatil_yaz(self, *tarihler):
+        (self.kok / "takimlar" / "kalite" / "tatiller.json").write_text(
+            json.dumps([{"tarih": t, "ad": "x"} for t in tarihler]), encoding="utf-8")
+
+    def test_soru_metni_tarih_araliklarini_tasir(self):
+        self.tatil_yaz("2026-10-29")
+        with mock.patch.object(gunluk.dagitici, "dagit", return_value=SAHTE_DAGIT):
+            sonuc = gunluk.rapor(self.kok, SALI)
+        self.assertIsNone(sonuc["not"])
+        self.assertEqual(sk.alan(self.kayit("rapor-kalite-20261020").read_text(encoding="utf-8"), "soru"),
+                         "20.10.2026 (Salı) günlük kalite raporu: ekip bazında ortalama ve önceki dönemle farkı, "
+                         "en sık kaçırılan 5 kriter, koçluk takibi. kalite_veri.py komutlarında yalnız kayıttaki "
+                         '"aralik" ve "karsilastir" tarihlerini kullan. '
+                         "Aralık: 19.10.2026–19.10.2026 · Karşılaştırma: 16.10.2026–16.10.2026.")
+
+    def test_tatil_listesi_yili_eksikse_not(self):
+        self.tatil_yaz("2026-10-29")
+        pazartesi = datetime(2027, 1, 4, 9, 30, tzinfo=TR)
+        with mock.patch.object(gunluk.dagitici, "dagit", return_value=SAHTE_DAGIT):
+            sonuc = gunluk.rapor(self.kok, pazartesi)
+        self.assertEqual(sonuc["acilan"][0]["sonuc"], "acildi")   # rapor yine açılır
+        self.assertEqual(sonuc["not"], "tatil listesi 2027 için eksik; resmî tatiller iş günü sayıldı")
+        soru = sk.alan(self.kayit("rapor-kalite-20270104").read_text(encoding="utf-8"), "soru")
+        self.assertTrue(soru.endswith(
+            "Aralık: 01.01.2027–03.01.2027 · Karşılaştırma: 25.12.2026–27.12.2026. "
+            "Not: tatil listesi 2027 için eksik; resmî tatiller iş günü sayıldı."), soru)
+        self.assertIn("- not: tatil listesi 2027 için eksik", gunluk.rapor_metni(sonuc))
+
     def test_utc_gecesi_istanbul_gunu(self):
         utc = datetime(2026, 10, 19, 21, 30, tzinfo=timezone.utc)   # İstanbul: salı 20.10 00:30
         with mock.patch.object(gunluk.dagitici, "dagit", return_value=SAHTE_DAGIT):
@@ -119,6 +147,17 @@ class RaporTesti(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(len(err.strip().splitlines()), 1)
         self.assertIn("kalite kuyruğu yok", err)
+
+    def test_cli_tatil_listesi_eksik_stderr_ve_dosya(self):
+        notu = "tatil listesi 2027 için eksik; resmî tatiller iş günü sayıldı"
+        pzt = datetime(2027, 1, 4, 9, 30, tzinfo=TR)
+        sonuc = {"simdi": pzt, "gun": pzt.date(), "atlandi": None, "dagitim": SAHTE_DAGIT, "not": notu,
+                 "acilan": [{"danisman": "kalite", "sonuc": "acildi", "soru_id": "rapor-kalite-20270104", "sebep": ""}]}
+        rc, out, err = self.cli(["--rapor"], sonuc)
+        self.assertEqual(rc, 0)
+        self.assertEqual(err.strip().splitlines(), [f"not: {notu}"])
+        metin = (self.kok / "sirket-log" / "rapor" / "2027-01-04-rapor.md").read_text(encoding="utf-8")
+        self.assertIn(f"- not: {notu}", metin)
 
     def test_cli_ikinci_cagri_sabah_raporunu_ezmez(self):
         ilk = {"simdi": SALI, "gun": SALI.date(), "atlandi": None, "dagitim": SAHTE_DAGIT,
