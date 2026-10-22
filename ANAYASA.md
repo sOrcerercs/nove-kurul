@@ -60,3 +60,8 @@ ajan kural önerisini deftere yazar, uygulamaz.
 yazar; küçük sonucu büyütmez, çelişkiyi çözemiyorsa ⚠ ile bırakır.
 Danışmanlar birbirine yazmaz, birbirinin klasörüne yazmaz. Zinciri İş Dağıtımcı kurar (`bin/dagitici.py`).
 Başka bir danışmanı ilgilendiren nokta, koşu kaydına "öneri: `<danışman>`" satırı olarak bırakılır.
+
+**İstisna — tebrik postası (revize 22.10.2026):** Tebrik danışmanının hazırladığı görsel ve yazıyı
+  `bin/tebrik_postasi.py` yalnız `.env`'deki tek bir iç alıcıya mail olarak gönderir. Alıcıyı ajan seçemez,
+  değiştiremez. Çalışanlara, gruplara ya da dışarıya gönderim yoktur; paylaşım kararı alıcıdadır. Mail bir yanıta,
+  talimata ya da yayına dönüşmez: yalnız hazır tebrik iletilir.
