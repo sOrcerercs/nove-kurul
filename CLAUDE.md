@@ -9,7 +9,7 @@
 | Danışman | Klasör | Durum |
 |---|---|---|
 | Finans Danışmanı | `takimlar/finans/` | kurulumda — form bekliyor (Faz 6) |
-| Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri `bin/kalite_veri.py` (`qa_okuyucu`, salt okunur); günlük rapor 11:00 (iş günü); panel karşılaştırması bekliyor |
+| Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri `bin/kalite_veri.py` (`qa_okuyucu`, salt okunur); günlük rapor 11:00 (iş günü); tutarlılık DB'de uzlaştırıldı (22.10.2026) |
 | OKR Danışmanı | `takimlar/okr/` | kurulumda — form bekliyor (Faz 6) |
 | Raporlama Danışmanı | `takimlar/raporlama/` | kurulumda — form bekliyor (Faz 6) |
 | Satış Müdürü | `takimlar/satis-muduru/` | kurulumda — form bekliyor (Faz 6) |
