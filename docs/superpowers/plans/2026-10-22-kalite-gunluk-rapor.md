@@ -1,9 +1,9 @@
 ---
-durum: taslak
+durum: yazildi
 guncelleme: 2026-10-22
 dal: feature/kalite-gunluk-rapor (feature/quality-db-reader üstünde)
 pr: -
-bekleyen: spec onayı ve 4 soru (Kağan); PR #9 merge
+bekleyen: PR #9 merge; tatil listesi onayı (Kağan)
 ---
 
 # Kalite günlük raporu — Implementation Plan (TASLAK)

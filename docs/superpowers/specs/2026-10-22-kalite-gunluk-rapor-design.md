@@ -1,6 +1,6 @@
 # Kalite günlük raporu — tasarım
 
-> Durum: taslak — 4 soru yanıtlandı (Kağan, 22.10.2026); belge onayı bekliyor · 22.10.2026
+> Durum: **onaylı** — Kağan, 22.10.2026 (4 karar aşağıda)
 > Dayanak: `takimlar/kalite/takim.md` "Tempo" (Kağan, 19.10.2026) · bağımlılık: PR #9 (Kalite veri okuyucusu) merge edilmeli.
 > Herkese açık depo: bu belgede çalışan adı yok.
 
