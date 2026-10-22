@@ -1,6 +1,6 @@
 # Kalite günlük raporu — tasarım
 
-> Durum: **taslak — Kağan'ın okumasını ve 4 soruyu yanıtlamasını bekliyor** · 22.10.2026 (gece, Kağan uyurken yazıldı)
+> Durum: taslak — 4 soru yanıtlandı (Kağan, 22.10.2026); belge onayı bekliyor · 22.10.2026
 > Dayanak: `takimlar/kalite/takim.md` "Tempo" (Kağan, 19.10.2026) · bağımlılık: PR #9 (Kalite veri okuyucusu) merge edilmeli.
 > Herkese açık depo: bu belgede çalışan adı yok.
 
@@ -46,6 +46,13 @@ olduğu gibi kullanılır; yeni bir onay yolu yazılmaz.
 - 11:00'de hâlâ iletilmemişse rapor iletilmez ama **kaybolmaz**: soru kaydı yerinde kalır, zincir bitince iletilir.
   Kayda `- gecikti: <saat>` düşülür.
 - Hafta sonu tetik çalışmaz; launchd'de hafta günü alanıyla kurulur (`Weekday` 1–5).
+- **Resmî tatilde rapor gitmez** (Kağan, 22.10.2026). Tatiller `takimlar/kalite/tatiller.json`'da yıllık elle tutulur
+  (`[{"tarih": "YYYY-MM-DD", "ad": "..."}]`); Claude hazırlar, Kağan onaylar. Takvimde gelecek yıl yoksa aralığın ilk iş
+  günü raporuna "tatil listesi eksik" notu düşer.
+- **Rapor aralığı:** bir önceki iş gününden (dahil) dünkü güne kadar. Salı → pazartesi; pazartesi → cuma..pazar;
+  29 Ekim perşembe tatilse 30 Ekim cuma → 28..29 Ekim.
+- **Karşılaştırma aralığı** (Kağan: önceki eşit dönem): aralık tek günse bir önceki iş günü (salı raporu: pazartesi ↔ cuma);
+  birden çok günse aynı takvim aralığı 7 gün geriye (pazartesi raporu: cuma..pazar ↔ bir önceki cuma..pazar).
 
 ### 3 · Rapor içeriği
 
@@ -81,16 +88,13 @@ Onaylanan rapor `soru_kapisi.ilet` ile **Yanıt defterine** (`yanitlar/<id>.md`)
 - **Tekrar:** O günün kaydı varsa rapor yeniden açılmaz. Takılan zincir, mevcut dağıtıcı turlarıyla ilerlemeye devam eder.
 - **Bütçe:** rapor başına mevcut soru bütçesi (8 USD) geçerli. Günlük şirket tavanı (40 USD) içinde kalır.
 
-## Kağan'ın yanıtlaması gereken sorular (yapılacak işi değiştiriyor)
+## Kağan'ın kararları (22.10.2026)
 
-1. **"Değişim" neye göre?** Önerim: aynı uzunlukta bir önceki dönem. Salı raporunda dün ile bir önceki iş günü karşılaştırılır,
-   pazartesi raporunda geçen cuma–pazar ile bir önceki cuma–pazar. Alternatif: son 4 haftanın ortalamasına göre.
-2. **Kurulda raporu kim görecek?** Yanıt defterinde soru sahibine göre süzme var, sistem sorusunun sahibi yok. Önerim:
-   kurulun hepsi.
-3. **Resmî tatiller** (iş günü olmayan hafta içi): rapor yine gitsin mi? Önerim: gitsin, kayıt yoksa "kayıt yok" desin.
-   Tatil takvimi tutulmaz.
-4. **Maliyet:** her rapor en fazla 8 USD'lik soru bütçesinden harcar (danışman 2 + CEO 1,50 + Denetçi). Ayda yaklaşık
-   22 rapor, 40–90 USD. Uygun mu?
+1. **Değişim:** önceki eşit dönem (yukarıdaki karşılaştırma aralığı).
+2. **Görünürlük:** kurulun hepsi. Sistem sorusu Yanıt defterinde `- gorunurluk: kurul` satırı taşır; panel (Faz 5) bu
+   satırı okuyup herkese gösterir.
+3. **Tatil:** rapor gitmez; tatilden sonraki ilk iş günü raporu tatil günlerini kapsar.
+4. **Maliyet:** uygun (rapor başına tavan 8 USD, beklenen ayda 40–90 USD).
 
 ## Hedef olmayanlar
 
