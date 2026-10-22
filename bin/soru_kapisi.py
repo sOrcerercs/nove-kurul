@@ -25,6 +25,7 @@ import string
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
@@ -162,6 +163,34 @@ def yeni(kok, soru, soran, simdi=None, kuru=False):
                                      "zaman": simdi.isoformat(timespec="seconds")}, ensure_ascii=False) + "\n",
                          encoding="utf-8")
     return {"sonuc": "acildi", "soru_id": soru_id, "sebep": notu or "", "kayit": "\n".join(satirlar)}
+
+
+def sistem_sorusu(kok, danisman, soru, soru_id, aralik, karsilastir, simdi, kuru=False):
+    """Zamanlı rapor için sistem sorusu açar: kayıt + `## Dağıtım` (danışman belli) + danışman kuyruğu.
+
+    İş Dağıtımcı onu yeniden yönlendirmez (`## Dağıtım` var → Haiku çağrılmaz). Danışmanın `durum.json`'u yoksa
+    kuyruğa yazılamaz; yarım açık kayıt kalmasın diye hiçbir şey yazılmadan `reddedildi` döner.
+    Aynı id'li kayıt varsa `var`. `simdi` zaman dilimli olmalı; kayıttaki zaman İstanbul saatidir."""
+    yol = soru_kaydi.yol(soru_id, kok)
+    if yol.exists():
+        return {"sonuc": "var", "soru_id": soru_id, "sebep": "bu gün için rapor zaten açıldı"}
+    if not ayar.durum_oku(danisman, kok):
+        return _reddet(f"{danisman} kuyruğu yok (durum.json) — rapor açılmadı")
+    if not kuru:
+        import dagitici   # dagitici bu modülü içe aktarır; döngü olmasın diye burada
+        zaman = simdi.astimezone(ZoneInfo("Europe/Istanbul"))
+        gun = lambda r: f"{r[0]:%Y-%m-%d}..{r[1]:%Y-%m-%d}"  # noqa: E731
+        satirlar = [f"# Soru {soru_id}", "- soran: Zamanlayıcı (kalite günlük raporu)",
+                    f"- zaman: {zaman.isoformat(timespec='seconds')}", f"- soru: {soru}",
+                    f"- bütçe: {ayar.SORU_BUTCESI_USD:.2f} USD".replace(".", ","),
+                    f"- aralik: {gun(aralik)}", f"- karsilastir: {gun(karsilastir)}",
+                    "- gorunurluk: kurul", "- durum: danışmanda"]
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        yol.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+        soru_kaydi.bolum_ekle(yol, dagitici._dagitim_bolumu(
+            {"danisman": danisman, "yontem": "sistem sorusu", "gerekce": "zamanlı rapor"}))
+        dagitici.kuyruga_yaz(kok, danisman, f"s-{soru_id}", soru)
+    return {"sonuc": "acildi", "soru_id": soru_id, "sebep": ""}
 
 
 # --- çıkış -----------------------------------------------------------------
