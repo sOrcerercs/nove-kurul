@@ -480,7 +480,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [x] Kalite formunu kendin doldur; bu form diğer yöneticiler için örnek olur — 19.10.2026 (veri: SDR Analyzer API, ayrı MANAGER kullanıcı, yalnız GET; tempo pzt–cuma 11:00)
 - [x] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py` — 19.10.2026
 - [x] Kalite veri okuyucusu: `bin/kalite_veri.py` — SDR Analyzer veritabanından `qa_okuyucu` rolüyle salt okunur (`QA_READONLY_URL`); alt komutlar ekipler, ekip-ozet, temsilci-ozet, kriterler, kocluk; ek sütun izni `docs/kalite-veri-izin.sql` (Kağan çalıştırdı, 20.10.2026). Haftanın çağrısı izni verilmedi.
-- [ ] Tutarlılık ölçümü: Raporlarım'da ölçüm için seçilen ekip, 1–19 Ekim — betik 81 / 122 kayıt; Kağan kontrol edecek (20.10.2026'da ertelendi)
+- [x] Tutarlılık ölçümü: Raporlarım (127 / 77) ile betik (122 / 81) farkı veritabanında kayıt kayıt uzlaştırıldı — 5 `TRANSCRIPT_UNUSABLE` (0 puan) kayıt; betik SDR Analyzer PR #71 kuralını uyguluyor (22.10.2026). Kağan merge'ü buna dayandırdı; SDR Analyzer güncellemesinden (Cuma) sonra panelde 122 / 81 bir kez görülecek
 - [ ] Günlük rapor zamanlayıcısı: pzt–cuma, 11:00'de kurula ulaşacak şekilde (`gunluk.ZAMANLI`); pazartesi = cuma–pazar
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
   - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
