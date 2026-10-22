@@ -43,7 +43,7 @@ bekleyen: PR #9 merge; tatil listesi onayı (Kağan)
 1. Pazartesi aralığı cuma..pazar, karşılaştırma bir önceki cuma..pazar; ayın ve yılın sınırında (1 Ocak pazartesi) doğru — Task 1 testi.
 2. `--rapor` aynı gün iki kez (launchd + elle) → ikinci kez kayıt açmaz — Task 1 testi.
 3. Makine UTC'de 23:30 (İstanbul'da ertesi gün 02:30) → id ve aralık İstanbul gününe göre — Task 1 testi.
-4. `ilerlet` mesai dışında ve hafta sonunda koşu başlatmaz (mevcut `tetik_karari`) — Task 3 testi.
+4. `ilerlet` mesai dışında koşu başlatmaz (mevcut `tetik_karari`); mesai her gün 08–20, hafta sonunda kuyrukta bekleyen işi ilerletir (boş kuyrukta maliyet yok). Mac 09:30'u uykuda geçirip ertesi gün uyanırsa o günün raporu geriye dönük açılmaz (aynı gün elle `python3 bin/gunluk.py --rapor`) — Task 3 testi.
 5. `yonlendir` sistem sorusunu yeniden yönlendirmez (`## Dağıtım` zaten var) ve Haiku çağrılmaz — Task 1 testi.
 
 ## Dosya haritası

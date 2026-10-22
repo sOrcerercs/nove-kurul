@@ -119,8 +119,8 @@ def plist_icerigi(is_, kok=None, python=None):
     """Bir işin plist sözlüğü.
 
     Aralıklı iş (`aralik_sn`): `StartInterval` taşır; hafta içi işi (`gunler`) Weekday'li
-`StartCalendarInterval` dizisi taşır.
-Takvimli iş (sabah/akşam): `StartCalendarInterval` taşır, `RunAtLoad` yoktur —
+    `StartCalendarInterval` dizisi taşır.
+    Takvimli iş (sabah/akşam): `StartCalendarInterval` taşır, `RunAtLoad` yoktur —
     kurulum anında koşu başlatmaz, saatini bekler.
     Sürekli iş (sahne): açılışta başlar (`RunAtLoad`), düşerse launchd kaldırır
     (`KeepAlive`); takvimi yoktur.

@@ -79,8 +79,11 @@ Onaylanan rapor `soru_kapisi.ilet` ile **Yanıt defterine** (`yanitlar/<id>.md`)
   alıyor (PR #9). `temsilci-ozet` az örneği `az_ornek=evet` ile işaretliyor. Yeni veri komutu gerekmez.
 - **Tetikler `bin/zamanla.py`'de:**
   - `rapor`: `StartCalendarInterval` dizisi, Weekday 1–5, 09:30.
-  - `ilerlet`: `StartInterval` 600 sn. Mesai dışında ve hafta sonunda dağıtıcı zaten bir şey başlatmaz
-    (`tetik_karari` mesai kontrolü).
+  - `ilerlet`: `StartInterval` 600 sn. Mesai dışında dağıtıcı bir şey başlatmaz (`tetik_karari` mesai kontrolü).
+    Mesai (`ayar.mesaide_mi`) haftanın her günü 08–20'dir: hafta sonunda `ilerlet` kuyrukta bekleyen işi (ör. kurul
+    sorusu) ilerletir; kuyruk boşsa maliyeti yoktur.
+  - Mac 09:30'u uykuda geçirip ertesi gün uyanırsa o günün raporu geriye dönük açılmaz; aynı gün elle
+    `python3 bin/gunluk.py --rapor` ile açılır.
 - **Çakışma:** `kos.py` koşuları `.kos.lock` (`fcntl.flock`) ile sıraya giriyor. İki tur üst üste gelirse ikinci danışman
   koşusu bekler, aynı anda çift koşu olmaz. Kuyruk maddesi `yapiliyor` iken dağıtıcı onu yeniden başlatmaz.
 - **Başarısızlık:** CEO iki kez reddederse mevcut kural geçerli. Rapor Yanıt defterine "onaylanamadı" etiketi ve CEO
