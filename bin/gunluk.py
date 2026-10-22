@@ -4,6 +4,7 @@
 Kullanım:
   python3 bin/gunluk.py --sabah        # dağıtıcıyı koştur + sabah raporu yaz
   python3 bin/gunluk.py --aksam        # denetim raporu yaz (hiçbir şey koşturmaz)
+  python3 bin/gunluk.py --rapor        # bugünün zamanlı Kalite raporunu sistem sorusu olarak aç + dağıt
   python3 bin/gunluk.py --sabah --kuru # hiçbir takımı başlatma, raporu ekrana bas
 
 Rapor `sirket-log/rapor/YYYY-MM-DD-{sabah,aksam}.md` dosyasına yazılır. Dışarı hiçbir şey gitmez —
@@ -17,10 +18,13 @@ import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
 import dagitici  # noqa: E402
+import rapor_takvimi  # noqa: E402
+import soru_kapisi  # noqa: E402
 
 KOK = ayar.KOK
 RAPOR_DIZINI = "sirket-log/rapor"
@@ -34,6 +38,12 @@ GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", 
 ZAMANLI = []
 # Nove Kurul Ofisi soru odaklıdır; zamanlı iş yalnız bir danışman formunda "Tempo" (§6) istenirse eklenir.
 # Örnek: {"takim": "finans", "gun": 0, "id": "butce-{hafta}", "not": "haftalık bütçe sapması"}
+
+# Zamanlı sistem soruları (iş günü 09:30, `--rapor`): danışman başına bir günlük rapor sorusu.
+ZAMANLI_RAPORLAR = [{"danisman": "kalite"}]
+RAPOR_SORUSU = ("{tarih} ({gun}) günlük kalite raporu: ekip bazında ortalama ve önceki dönemle farkı, "
+                "en sık kaçırılan 5 kriter, koçluk takibi. kalite_veri.py komutlarında yalnız kayıttaki "
+                '"aralik" ve "karsilastir" tarihlerini kullan.')
 
 HAFTALIK = ZAMANLI          # eski ad — geriye dönük uyum
 KOSU_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})\.md$")
@@ -246,6 +256,44 @@ def sabah(kok, simdi=None, kuru=False):
     return sabah_raporu(kok, simdi, dagitim, haftalik), simdi
 
 
+def rapor(kok, simdi=None, kuru=False):
+    """Bugünün zamanlı raporlarını sistem sorusu olarak açar, sonra dağıtıcıyı bir kez koşturur.
+
+    Gün İstanbul günüdür (makine UTC olsa da). Hafta sonu/tatilde hiçbir şey açılmaz ve dağıtıcı koşmaz.
+    Bozuk `tatiller.json` ValueError ile yükselir — sessizce iş günü sayılmaz.
+    Dönüş: {"simdi", "gun", "acilan": [{danisman, soru_id, sonuc, sebep}], "atlandi": sebep | None, "dagitim"}"""
+    simdi = (simdi or datetime.now().astimezone()).astimezone(ZoneInfo("Europe/Istanbul"))
+    gun = simdi.date()
+    sonuc = {"simdi": simdi, "gun": gun, "acilan": [], "atlandi": None, "dagitim": None}
+    tatiller = rapor_takvimi.tatiller_oku(kok)
+    aralik = rapor_takvimi.rapor_araligi(gun, tatiller)
+    if aralik is None:
+        sonuc["atlandi"] = ("hafta sonu" if gun.weekday() >= 5 else "resmi tatil") + " — rapor açılmadı"
+        return sonuc
+    for madde in ZAMANLI_RAPORLAR:
+        danisman = madde["danisman"]
+        soru = RAPOR_SORUSU.format(tarih=f"{gun:%d.%m.%Y}", gun=GUNLER[gun.weekday()])
+        acilan = soru_kapisi.sistem_sorusu(kok, danisman, soru, f"rapor-{danisman}-{gun:%Y%m%d}",
+                                           aralik[0], aralik[1], simdi, kuru=kuru)
+        sonuc["acilan"].append({"danisman": danisman, **acilan})
+    sonuc["dagitim"] = dagitici.dagit(kok, simdi, kuru=kuru)
+    return sonuc
+
+
+def rapor_metni(sonuc):
+    satirlar = [_baslik("Zamanlı rapor", sonuc["simdi"])]
+    if sonuc["atlandi"]:
+        return satirlar[0] + f"\n- {sonuc['atlandi']}\n"
+    satirlar.append("\n## Açılan sorular\n")
+    for a in sonuc["acilan"]:
+        ek = f" — {a['sebep']}" if a.get("sebep") else ""
+        satirlar.append(f"- `{a['danisman']}` `{a.get('soru_id', '-')}`: {a['sonuc']}{ek}\n")
+    satirlar.append("\n" + _tablo(["Takım", "Karar", "Sebep"],
+                                  [[k["takim"], dagitici.ETIKET[k["sonuc"]].strip(), k["sebep"]]
+                                   for k in (sonuc["dagitim"] or {}).get("kararlar") or []]))
+    return "".join(satirlar)
+
+
 def aksam(kok, simdi=None):
     simdi = simdi or datetime.now().astimezone()
     return aksam_raporu(kok, simdi), simdi
@@ -253,6 +301,22 @@ def aksam(kok, simdi=None):
 
 def main(argv):
     kuru = "--kuru" in argv
+    if "--rapor" in argv:
+        try:
+            sonuc = rapor(KOK, kuru=kuru)
+        except ValueError as exc:
+            print(f"rapor açılamadı: {exc}", file=sys.stderr)
+            return 1
+        metin = rapor_metni(sonuc)
+        if sonuc["atlandi"]:
+            print(sonuc["atlandi"])
+            return 0
+        if kuru:
+            print(metin)
+            print("(kuru koşu: kayıt açılmadı, rapor dosyaya yazılmadı)")
+            return 0
+        print(f"rapor: {yaz(KOK, 'rapor', metin, sonuc['simdi']).relative_to(KOK)}")
+        return 0
     if "--sabah" in argv:
         tur, (metin, simdi) = "sabah", sabah(KOK, kuru=kuru)
     elif "--aksam" in argv:
