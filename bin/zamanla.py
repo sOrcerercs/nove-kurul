@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Zamanlayıcı kurucusu — macOS launchd. Üç iş kurar, başka hiçbir şey yapmaz.
+"""Zamanlayıcı kurucusu — macOS launchd. Beş iş kurar, başka hiçbir şey yapmaz.
 
 Takvimli (saatinde bir kez koşar, biter):
   sabah  → `bin/gunluk.py --sabah`  · dağıtıcıyı koşturur, sabah raporunu yazar
   akşam  → `bin/gunluk.py --aksam`  · günün koşularını ve bekçi kararlarını denetler
+
+  rapor  → `bin/gunluk.py --rapor`  · hafta içi 09:30, Kalite günlük raporu sorusunu açar
+  ilerlet → `bin/gunluk.py --ilerlet` · her 10 dk dağıtıcıyı bir adım ilerletir (aralıklı iş)
 
 Sürekli (açılışta başlar, ayakta kalır):
   sahne  → `bin/sahne.py`           · yerel panel, yalnız 127.0.0.1; iki yazma yeri var
@@ -52,6 +55,16 @@ TETIKLER = [
      "ne": "günün koşuları + bekçi kararları"},
 ]
 
+# Kalite günlük raporu işleri: gunluk.py'ye bayrak verir; sabah/akşam gibi "her gün saat" kalıbında değildir.
+RAPOR_ISLERI = [
+    # hafta içi 09:30'da sistem sorusu açılır; tatil kararı gunluk.py'de.
+    {"ad": "rapor", "gunler": [1, 2, 3, 4, 5], "saat": 9, "dakika": 30, "bayrak": "--rapor",
+     "ne": "Kalite günlük raporu sorusunu aç"},
+    # Gün içinde soru zincirini ilerletir (yalnız dağıtıcı; mesai dışında koşu başlatmaz).
+    {"ad": "ilerlet", "aralik_sn": 600, "bayrak": "--ilerlet",
+     "ne": "soru zincirini ilerlet (dağıtıcı)"},
+]
+
 # Sürekli işler: takvimi yok, açılışta başlar ve ayakta kalır. Panel yalnız 127.0.0.1'e
 # bağlanır, dışarıya açılmaz; yazdığı iki yer (kuyruk notu, karar kapatma) için bkz. bin/sahne.py.
 SUREKLI = [
@@ -59,7 +72,7 @@ SUREKLI = [
      "ne": f"yerel panel · http://127.0.0.1:{SAHNE_PORTU}"},
 ]
 
-TUM_ISLER = TETIKLER + SUREKLI
+TUM_ISLER = TETIKLER + RAPOR_ISLERI + SUREKLI
 
 
 def _yol_degeri():
@@ -105,6 +118,8 @@ def _plist_programi(yol):
 def plist_icerigi(is_, kok=None, python=None):
     """Bir işin plist sözlüğü.
 
+    Aralıklı iş (`aralik_sn`): `StartInterval` taşır; hafta içi işi (`gunler`) Weekday'li
+    `StartCalendarInterval` dizisi taşır.
     Takvimli iş (sabah/akşam): `StartCalendarInterval` taşır, `RunAtLoad` yoktur —
     kurulum anında koşu başlatmaz, saatini bekler.
     Sürekli iş (sahne): açılışta başlar (`RunAtLoad`), düşerse launchd kaldırır
@@ -126,6 +141,12 @@ def plist_icerigi(is_, kok=None, python=None):
     }
     if surekli:
         icerik["KeepAlive"] = True
+    elif is_.get("aralik_sn"):
+        icerik["StartInterval"] = is_["aralik_sn"]
+    elif is_.get("gunler"):
+        # launchd Weekday: 0/7 pazar, 1 pazartesi
+        icerik["StartCalendarInterval"] = [{"Weekday": g, "Hour": is_["saat"], "Minute": is_["dakika"]}
+                                           for g in is_["gunler"]]
     else:
         icerik["StartCalendarInterval"] = {"Hour": is_["saat"], "Minute": is_["dakika"]}
     return icerik
@@ -135,6 +156,10 @@ def _ne_zaman(is_):
     """İnsan için tek kelime: takvimli işin saati, sürekli işin 'açılışta'."""
     if is_.get("surekli"):
         return "açılışta · sürekli"
+    if is_.get("aralik_sn"):
+        return f"her {is_['aralik_sn'] // 60} dk"
+    if is_.get("gunler"):
+        return f"hafta içi {is_['saat']:02d}:{is_['dakika']:02d}"
     return f"her gün {is_['saat']:02d}:{is_['dakika']:02d}"
 
 
@@ -219,12 +244,12 @@ def main(argv):
         return 0
     if "--kur" in argv:
         for s in kur():
-            print(f"{s['ad']:<6} {s['mesaj']} — {s['yol']}")
+            print(f"{s['ad']:<7} {s['mesaj']} — {s['yol']}")
         _eski_etiket_uyarisi()
         return 0
     if "--kaldir" in argv:
         for s in kaldir():
-            print(f"{s['ad']:<6} {s['mesaj']}")
+            print(f"{s['ad']:<7} {s['mesaj']}")
         _eski_etiket_uyarisi()
         return 0
     if "--durum" in argv:
@@ -236,10 +261,10 @@ def main(argv):
                 isaret = "✓ yüklü"
             else:
                 isaret = "· plist var, yüklü değil" if s["plist"] else "· kurulu değil"
-            print(f"{s['ad']:<6} {_ne_zaman(s):<16} {isaret:<40} {s['ne']}")
+            print(f"{s['ad']:<7} {_ne_zaman(s):<22} {isaret:<40} {s['ne']}")
             if s["eski_yuklu"]:
                 nere = f" (→ {s['eski_kok']})" if s["eski_kok"] else ""
-                print(f"       ⚠ eski etiket {s['eski_etiket']} yüklü{nere} — "
+                print(f"        ⚠ eski etiket {s['eski_etiket']} yüklü{nere} — "
                       f"`python3 bin/zamanla.py --kur` ile yenile")
         return 0
     print(__doc__)

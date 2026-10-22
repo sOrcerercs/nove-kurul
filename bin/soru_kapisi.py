@@ -25,6 +25,7 @@ import string
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
@@ -34,6 +35,8 @@ import yanit_defteri  # noqa: E402
 
 KOK = ayar.KOK
 SORABILEN_ROLLER = ("kurul", "yonetici")
+ISTANBUL = ZoneInfo("Europe/Istanbul")
+RAPOR_SON_SAAT = 11   # zamanlı rapor kurula bu saatte (İstanbul) ulaşmış olmalı; sonrası `- gecikti:` (spec §2)
 
 
 class IletHatasi(Exception):
@@ -164,6 +167,51 @@ def yeni(kok, soru, soran, simdi=None, kuru=False):
     return {"sonuc": "acildi", "soru_id": soru_id, "sebep": notu or "", "kayit": "\n".join(satirlar)}
 
 
+def sistem_sorusu(kok, danisman, soru, soru_id, aralik, karsilastir, simdi, kuru=False):
+    """Zamanlı rapor için sistem sorusu açar: kayıt + `## Dağıtım` (danışman belli) + danışman kuyruğu.
+
+    İş Dağıtımcı onu yeniden yönlendirmez (`## Dağıtım` var → Haiku çağrılmaz). Danışmanın `durum.json`'u yoksa
+    kuyruğa yazılamaz; yarım açık kayıt kalmasın diye hiçbir şey yazılmadan `reddedildi` döner.
+    Aynı id'li kayıt varsa `var`. `simdi` zaman dilimli olmalı; kayıttaki zaman İstanbul saatidir."""
+    import dagitici   # dagitici bu modülü içe aktarır; döngü olmasın diye burada
+    yol = soru_kaydi.yol(soru_id, kok)
+    kuyruk_id = f"s-{soru_id}"
+
+    def var():
+        """Kayıt zaten var: kuyruk maddesi eksikse (yazım yarıda kalmış) yeniden kuyruğa yazar."""
+        kuyruk = ayar.durum_oku(danisman, kok).get("kuyruk") or []
+        if any(isinstance(o, dict) and o.get("id") == kuyruk_id for o in kuyruk):
+            return {"sonuc": "var", "soru_id": soru_id, "sebep": "bu gün için rapor zaten açıldı"}
+        if not kuru and not dagitici.kuyruga_yaz(kok, danisman, kuyruk_id, soru):
+            return _reddet(f"{danisman} kuyruğuna yazılamadı — kayıt duruyor, sonraki çağrı yeniden dener")
+        return {"sonuc": "var", "soru_id": soru_id, "sebep": "kayıt vardı ama kuyrukta yoktu — yeniden kuyruğa yazıldı"}
+
+    if yol.exists():
+        return var()
+    if not ayar.durum_oku(danisman, kok):
+        return _reddet(f"{danisman} kuyruğu yok (durum.json) — rapor açılmadı")
+    if not kuru:
+        zaman = simdi.astimezone(ZoneInfo("Europe/Istanbul"))
+        gun = lambda r: f"{r[0]:%Y-%m-%d}..{r[1]:%Y-%m-%d}"  # noqa: E731
+        satirlar = [f"# Soru {soru_id}", "- soran: Zamanlayıcı (kalite günlük raporu)",
+                    f"- zaman: {zaman.isoformat(timespec='seconds')}", f"- soru: {soru}",
+                    f"- bütçe: {ayar.SORU_BUTCESI_USD:.2f} USD".replace(".", ","),
+                    f"- aralik: {gun(aralik)}", f"- karsilastir: {gun(karsilastir)}",
+                    "- gorunurluk: kurul", "- durum: danışmanda"]
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(yol, "x", encoding="utf-8") as f:   # "x": aynı anda iki koşu ikisi de yazamaz
+                f.write("\n".join(satirlar) + "\n")
+        except FileExistsError:
+            return var()
+        soru_kaydi.bolum_ekle(yol, dagitici._dagitim_bolumu(
+            {"danisman": danisman, "yontem": "sistem sorusu", "gerekce": "zamanlı rapor"}))
+        if not dagitici.kuyruga_yaz(kok, danisman, kuyruk_id, soru):
+            # Kayıt silinmez: sonraki çağrı `var()` yolundan yeniden kuyruğa yazar; yarım iş görünür kalır.
+            return _reddet(f"{danisman} kuyruğuna yazılamadı — kayıt duruyor, sonraki çağrı yeniden dener")
+    return {"sonuc": "acildi", "soru_id": soru_id, "sebep": ""}
+
+
 # --- çıkış -----------------------------------------------------------------
 
 def _imza(metin):
@@ -174,6 +222,19 @@ def _imza(metin):
     if son_iki == [("denetci", "kabul"), ("ceo", "yapilmadi")]:
         return "CEO kontrolü yapılmadı"
     return None
+
+
+def _gecikme(metin, simdi):
+    """Sistem raporu kendi gününün 11:00'inden (İstanbul) sonra iletiliyorsa iletim saati (`HH:MM`; ertesi gün ve
+    sonrası `gg.aa.yyyy HH:MM`), zamanında ise None. Gün, kayıttaki `- zaman:` satırının İstanbul günüdür."""
+    try:
+        acilis = datetime.fromisoformat(soru_kaydi.alan(metin, "zaman") or "").astimezone(ISTANBUL)
+    except ValueError:
+        return None
+    an = simdi.astimezone(ISTANBUL)
+    if an <= acilis.replace(hour=RAPOR_SON_SAAT, minute=0, second=0, microsecond=0):
+        return None
+    return f"{an:%H:%M}" if an.date() == acilis.date() else f"{an:%d.%m.%Y %H:%M}"
 
 
 def ilet(kok, soru_id, simdi=None, onaylanamadi=None):
@@ -199,15 +260,21 @@ def ilet(kok, soru_id, simdi=None, onaylanamadi=None):
         not_ = soru_kaydi.bolum_alani(metin, "## CEO — karar: onay", "kurula not") or "-"
         govde = (f"## Kurula not\n{not_}\n\n" if not_ != "-" else "") + f"## Yanıt\n{taslak.read_text(encoding='utf-8')}"
     imzalar = {"onaylı": "✔ · CEO: ✔", "CEO kontrolü yapılmadı": "✔ · CEO: —", "onaylanamadı": "— · CEO: —"}[etiket]
+    # Sistem sorusu (zamanlı rapor) `- gorunurluk:` taşır; insan sorusunda bu satırlar yok, defter kaydı aynı kalır.
+    gorunurluk = soru_kaydi.alan(metin, "gorunurluk")
+    gecikti = _gecikme(metin, simdi) if gorunurluk else None
+    sistem = (f"- gorunurluk: {gorunurluk}\n" if gorunurluk else "") + (f"- gecikti: {gecikti}\n" if gecikti else "")
     kayit = (f"# Yanıt — {soru_id}\n- soru: {soru_kaydi.alan(metin, 'soru')}\n- soran: {_soran_eposta(metin)}\n"
              f"- tarih: {soru_kaydi.alan(metin, 'zaman')}\n- danışman: {danisman}\n- etiket: {etiket}\n"
-             f"- Denetçi: {imzalar}\n- iletildi: {simdi.isoformat(timespec='seconds')}\n\n{govde}")
+             f"- Denetçi: {imzalar}\n{sistem}- iletildi: {simdi.isoformat(timespec='seconds')}\n\n{govde}")
     try:
         yanit_defteri.yaz(kok, soru_id, kayit)
     except FileExistsError:
         raise IletHatasi(f"{soru_id} Yanıt defterinde zaten var — defter değiştirilmez") from None
     durum = "onaylanamadı" if onaylanamadi else "iletildi"
     soru_kaydi.durum_yaz(yol, durum)
+    if gecikti:
+        soru_kaydi.alan_ekle(yol, "gecikti", gecikti)
     soru_kaydi.bolum_ekle(yol, f"## İletim\n- etiket: {etiket}\n- zaman: {simdi.isoformat(timespec='seconds')}\n")
     return {"soru_id": soru_id, "etiket": etiket, "durum": durum}
 

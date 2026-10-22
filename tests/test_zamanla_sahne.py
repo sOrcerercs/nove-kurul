@@ -6,8 +6,10 @@ sürekli iştir: açılışta başlar ve ayakta kalır. İkisi aynı kurucudan �
 
 python3 -m unittest discover -s tests
 """
+import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parents[1]
@@ -27,7 +29,7 @@ class KayitTesti(unittest.TestCase):
         # This is the single place the complete job list is asserted globally.
         # When adding a new job (TETIKLER or SUREKLI), update this list and only this file.
         adlar = [i["ad"] for i in zamanla.TUM_ISLER]
-        self.assertEqual(sorted(adlar), ["aksam", "sabah", "sahne"])
+        self.assertEqual(sorted(adlar), ["aksam", "ilerlet", "rapor", "sabah", "sahne"])
 
     def test_sahnenin_etiketi_kokten_turer(self):
         self.assertNotEqual(zamanla.etiket("sahne", "/bir/kok"),
@@ -77,6 +79,46 @@ class TakvimliBozulmadiTesti(unittest.TestCase):
         argv = self.icerik["ProgramArguments"]
         self.assertTrue(argv[1].endswith("bin/gunluk.py"), argv[1])
         self.assertIn("--sabah", argv)
+
+
+def _is(ad):
+    return {i["ad"]: i for i in zamanla.TUM_ISLER}[ad]
+
+
+class RaporIlerletTesti(unittest.TestCase):
+    def test_rapor_isi_hafta_ici(self):
+        icerik = zamanla.plist_icerigi(_is("rapor"), kok="/tmp/kok", python="/usr/bin/python3")
+        self.assertEqual(icerik["StartCalendarInterval"],
+                         [{"Weekday": g, "Hour": 9, "Minute": 30} for g in range(1, 6)])
+        self.assertIn("--rapor", icerik["ProgramArguments"])
+        self.assertTrue(icerik["ProgramArguments"][1].endswith("bin/gunluk.py"))
+        self.assertFalse(icerik["RunAtLoad"])
+        self.assertNotIn("KeepAlive", icerik)
+        self.assertNotIn("StartInterval", icerik)
+
+    def test_ilerlet_isi_aralikli(self):
+        icerik = zamanla.plist_icerigi(_is("ilerlet"), kok="/tmp/kok", python="/usr/bin/python3")
+        self.assertEqual(icerik["StartInterval"], 600)
+        self.assertNotIn("StartCalendarInterval", icerik)
+        self.assertFalse(icerik["RunAtLoad"])
+        self.assertNotIn("KeepAlive", icerik)
+        self.assertIn("--ilerlet", icerik["ProgramArguments"])
+        self.assertTrue(icerik["ProgramArguments"][1].endswith("bin/gunluk.py"))
+
+    def test_ne_zaman_metinleri(self):
+        self.assertEqual(zamanla._ne_zaman(_is("rapor")), "hafta içi 09:30")
+        self.assertEqual(zamanla._ne_zaman(_is("ilerlet")), "her 10 dk")
+        self.assertEqual(zamanla._ne_zaman(zamanla.TETIKLER[0]),
+                         f"her gün {zamanla.TETIKLER[0]['saat']:02d}:00")
+
+    def test_kuru_metni_yeni_isleri_basar(self):
+        cikti = io.StringIO()
+        with redirect_stdout(cikti):
+            self.assertEqual(zamanla.main(["--kuru"]), 0)
+        metin = cikti.getvalue()
+        self.assertIn("rapor · hafta içi 09:30", metin)
+        self.assertIn("ilerlet · her 10 dk", metin)
+        self.assertIn("<key>StartInterval</key>", metin)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,14 @@ def durum_yaz(dosya, durum):
     Path(dosya).write_text(yeni + metin[len(baslik):], encoding="utf-8")
 
 
+def alan_ekle(dosya, ad, deger):
+    """Başlığın sonuna `- <ad>: <deger>` satırı ekler (bölümlere dokunmaz). Sistem sorusunun `gecikti` satırı için."""
+    metin = Path(dosya).read_text(encoding="utf-8")
+    baslik = _baslik(metin)
+    govde = baslik.rstrip("\n")
+    Path(dosya).write_text(f"{govde}\n- {ad}: {deger}{baslik[len(govde):]}" + metin[len(baslik):], encoding="utf-8")
+
+
 def bolum_ekle(dosya, bolum):
     """Kaydın sonuna bir bölüm ekler; öncesinde boş satır, sonunda satır sonu."""
     with open(dosya, "a", encoding="utf-8") as f:

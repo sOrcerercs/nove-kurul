@@ -481,7 +481,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [x] `bin/formdan_takim.py kalite` → dört dosya → `agents_uret.py` — 19.10.2026
 - [x] Kalite veri okuyucusu: `bin/kalite_veri.py` — SDR Analyzer veritabanından `qa_okuyucu` rolüyle salt okunur (`QA_READONLY_URL`); alt komutlar ekipler, ekip-ozet, temsilci-ozet, kriterler, kocluk; ek sütun izni `docs/kalite-veri-izin.sql` (Kağan çalıştırdı, 20.10.2026). Haftanın çağrısı izni verilmedi.
 - [x] Tutarlılık ölçümü: Raporlarım (127 / 77) ile betik (122 / 81) farkı veritabanında kayıt kayıt uzlaştırıldı — 5 `TRANSCRIPT_UNUSABLE` (0 puan) kayıt; betik SDR Analyzer PR #71 kuralını uyguluyor (22.10.2026). Kağan merge'ü buna dayandırdı; SDR Analyzer güncellemesinden (Cuma) sonra panelde 122 / 81 bir kez görülecek
-- [ ] Günlük rapor zamanlayıcısı: pzt–cuma, 11:00'de kurula ulaşacak şekilde (`gunluk.ZAMANLI`); pazartesi = cuma–pazar
+- [x] Günlük rapor zamanlayıcısı: pzt–cuma, 11:00'de kurula ulaşacak şekilde; pazartesi = cuma–pazar. Nasıl: `zamanla.py` iki iş kurar — `rapor` hafta içi 09:30'da `gunluk.py --rapor` (sistem sorusu `rapor-kalite-YYYYMMDD` açar; hafta sonu ve `takimlar/kalite/tatiller.json`'daki gün açmaz), `ilerlet` her 10 dk `gunluk.py --ilerlet` (yalnız dağıtıcı; zincir gün içinde ilerler, mesai dışında koşu başlatmaz). İlk gerçek rapor Kağan onayıyla
 - [ ] Beş gerçek soruyla uçtan uca gerçek koşu yapılır. Maliyet ve Denetçi/CEO kararları kayda bakılarak gözden geçirilir
   - Aynı adımda `python3 bin/bekci_karsilastir.py` (8 fikstür): Denetçi istemi 19.10.2026'da iki kez değişti
     (K7 personel adı, N30 ad soyadı); `hasta-ad-soyadi` `kabul` almalı. Kağan, 19.10.2026: ölçüm buraya ertelendi
