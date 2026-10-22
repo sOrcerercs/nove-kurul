@@ -315,7 +315,18 @@ def main(argv):
             print(metin)
             print("(kuru koşu: kayıt açılmadı, rapor dosyaya yazılmadı)")
             return 0
-        print(f"rapor: {yaz(KOK, 'rapor', metin, sonuc['simdi']).relative_to(KOK)}")
+        yol = rapor_yolu(KOK, "rapor", sonuc["simdi"])
+        if yol.exists():
+            # Aynı gün ikinci koşu (launchd + elle): sabahın "açıldı" kaydı ezilmesin, yeni bölüm eklenir.
+            yol.write_text(yol.read_text(encoding="utf-8") + "\n" + metin, encoding="utf-8")
+        else:
+            yaz(KOK, "rapor", metin, sonuc["simdi"])
+        print(f"rapor: {yol.relative_to(KOK)}")
+        reddedilen = [a for a in sonuc["acilan"] if a["sonuc"] == "reddedildi"]
+        if reddedilen:
+            print("rapor açılamadı: " + "; ".join(f"{a['danisman']}: {a.get('sebep', '')}" for a in reddedilen),
+                  file=sys.stderr)
+            return 1
         return 0
     if "--sabah" in argv:
         tur, (metin, simdi) = "sabah", sabah(KOK, kuru=kuru)

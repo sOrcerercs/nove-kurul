@@ -112,6 +112,27 @@ class RaporTesti(unittest.TestCase):
         self.assertEqual(len(err.strip().splitlines()), 1)
         self.assertIn("tatiller.json okunamadı", err)
 
+    def test_cli_reddedilen_rapor_rc1(self):
+        sonuc = {"simdi": SALI, "gun": SALI.date(), "atlandi": None, "dagitim": SAHTE_DAGIT,
+                 "acilan": [{"danisman": "kalite", "sonuc": "reddedildi", "sebep": "kalite kuyruğu yok"}]}
+        rc, out, err = self.cli(["--rapor"], sonuc)
+        self.assertEqual(rc, 1)
+        self.assertEqual(len(err.strip().splitlines()), 1)
+        self.assertIn("kalite kuyruğu yok", err)
+
+    def test_cli_ikinci_cagri_sabah_raporunu_ezmez(self):
+        ilk = {"simdi": SALI, "gun": SALI.date(), "atlandi": None, "dagitim": SAHTE_DAGIT,
+               "acilan": [{"danisman": "kalite", "sonuc": "acildi", "soru_id": "rapor-kalite-20261020", "sebep": ""}]}
+        ikinci = {**ilk, "simdi": SALI + timedelta(hours=3),
+                  "acilan": [{"danisman": "kalite", "sonuc": "var", "soru_id": "rapor-kalite-20261020",
+                              "sebep": "bu gün için rapor zaten açıldı"}]}
+        self.cli(["--rapor"], ilk)
+        self.cli(["--rapor"], ikinci)
+        metin = (self.kok / "sirket-log" / "rapor" / "2026-10-20-rapor.md").read_text(encoding="utf-8")
+        self.assertIn("kalite` `rapor-kalite-20261020`: acildi", metin)
+        self.assertIn("12:30", metin)
+        self.assertIn(": var", metin)
+
 
 if __name__ == "__main__":
     unittest.main()
