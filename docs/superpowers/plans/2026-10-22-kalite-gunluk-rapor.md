@@ -34,7 +34,8 @@ bekleyen: PR #9 merge; tatil listesi onayı (Kağan)
   aynı aralık 7 gün geri.
 - Sistem sorusu kaydında `- gorunurluk: kurul`.
 - Rapor sorusu metni (sabit şablon): `<gg.aa.yyyy> (<gün>) günlük kalite raporu: ekip bazında ortalama ve önceki dönemle farkı,
-  en sık kaçırılan 5 kriter, koçluk takibi. kalite_veri.py komutlarında yalnız kayıttaki "aralik" ve "karsilastir" tarihlerini kullan.`
+  en sık kaçırılan 5 kriter, koçluk takibi. kalite_veri.py komutlarında yalnız kayıttaki "aralik" ve "karsilastir" tarihlerini kullan.
+  Aralık: <gg.aa.yyyy>–<gg.aa.yyyy> · Karşılaştırma: <gg.aa.yyyy>–<gg.aa.yyyy>.` (son inceleme: aralıklar metinde de; tatil listesi eksikse sonuna not)
 - Hafta sonu ve tatil günü `--rapor` hiçbir şey açmaz (rc 0, sebep yazılır).
 - ANAYASA §1: dışarıya hiçbir şey gönderilmez; ulaşım Yanıt defteri.
 

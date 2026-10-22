@@ -31,7 +31,8 @@ olduğu gibi kullanılır; yeni bir onay yolu yazılmaz.
   çünkü soran bir insan değil. `- soran: Zamanlayıcı (kalite günlük raporu)` yazılır. `## Dağıtım` doğrudan `kalite` olarak
   yazılır, Haiku yönlendirmesi atlanır. `s-<id>` kuyruğa düşer.
 - Soru metni sabit şablondan üretilir, tarih aralığı içinde yazılı. Örnek: "21.10.2026 (salı) günlük kalite raporu: ekip bazında
-  ortalama ve önceki dönemle farkı, en sık kaçırılan 5 kriter, koçluk takibi." Aralığı ajan değil, zamanlayıcı hesaplar.
+  ortalama ve önceki dönemle farkı, en sık kaçırılan 5 kriter, koçluk takibi. … Aralık: 20.10.2026–20.10.2026 ·
+  Karşılaştırma: 19.10.2026–19.10.2026." Aralığı ajan değil, zamanlayıcı hesaplar; Denetçi ve CEO aralığı metinde görür.
 - Aynı gün ikinci kez açılmaz: id gün taşır (`rapor-kalite-YYYYMMDD`). Kayıt varsa atlanır.
 
 ### 2 · Zamanlama
