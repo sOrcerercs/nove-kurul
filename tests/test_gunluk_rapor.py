@@ -134,5 +134,18 @@ class RaporTesti(unittest.TestCase):
         self.assertIn(": var", metin)
 
 
+class IlerletTesti(unittest.TestCase):
+    def test_yalniz_dagitici_calisir(self):
+        with mock.patch.object(gunluk.dagitici, "dagit", return_value={"kararlar": []}) as dagit, \
+                mock.patch.object(gunluk, "rapor") as rapor, mock.patch.object(gunluk, "yaz") as yaz, \
+                mock.patch.object(gunluk, "sabah") as sabah:
+            rc = gunluk.main(["--ilerlet"])
+        self.assertEqual(rc, 0)
+        dagit.assert_called_once_with(gunluk.KOK)
+        rapor.assert_not_called()
+        yaz.assert_not_called()
+        sabah.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

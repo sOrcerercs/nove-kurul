@@ -5,6 +5,7 @@ Kullanım:
   python3 bin/gunluk.py --sabah        # dağıtıcıyı koştur + sabah raporu yaz
   python3 bin/gunluk.py --aksam        # denetim raporu yaz (hiçbir şey koşturmaz)
   python3 bin/gunluk.py --rapor        # bugünün zamanlı Kalite raporunu sistem sorusu olarak aç + dağıt
+  python3 bin/gunluk.py --ilerlet      # yalnız dağıtıcıyı ilerlet (10 dk'da bir; rapor yazmaz)
   python3 bin/gunluk.py --sabah --kuru # hiçbir takımı başlatma, raporu ekrana bas
 
 Rapor `sirket-log/rapor/YYYY-MM-DD-{sabah,aksam}.md` dosyasına yazılır. Dışarı hiçbir şey gitmez —
@@ -301,6 +302,10 @@ def aksam(kok, simdi=None):
 
 def main(argv):
     kuru = "--kuru" in argv
+    if "--ilerlet" in argv:
+        # Gün içi ilerletme: yalnız dağıtıcı (mesai/tatil kararı onun); rapor açmaz, dosya yazmaz.
+        dagitici.dagit(KOK, **({"kuru": True} if kuru else {}))
+        return 0
     if "--rapor" in argv:
         try:
             sonuc = rapor(KOK, kuru=kuru)
