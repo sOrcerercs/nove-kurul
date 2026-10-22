@@ -341,10 +341,29 @@ def saglayici_ortami(fm, temel):
             "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1"}, model
 
 
+YAZMA_ARACLARI = ("Write", "Edit", "MultiEdit", "NotebookEdit")
+
+
+def yazma_kapsami(araclar, takim):
+    """Yazma araçları — çıplak ya da başka yola açılmış — tek bir `Edit(./takimlar/<takim>/**)` kuralına iner.
+
+    Çıplak `Write` ile danışman `bin/`'deki izinli betiği değiştirip çalıştırabiliyordu (son inceleme, Kritik 1).
+    Yol kuralı yalnız `Edit(…)` olarak işler ve Write dahil her yazma aracını kapsar; tek başına `Write(…)` her yazmayı
+    reddeder (20.10.2026 canlı deneme). `kurallar.md` klasörün içinde ama `.claude/settings.json` deny'ı önce gelir."""
+    kural = f"Edit(./takimlar/{takim}/**)"
+    sonuc = []
+    for arac in araclar:
+        arac = kural if arac.split("(", 1)[0] in YAZMA_ARACLARI else arac
+        if arac not in sonuc:
+            sonuc.append(arac)
+    return sonuc
+
+
 def claude_komutu(metin, araclar, butce_usd, model="sonnet"):
+    # dontAsk: izin listesinde olmayan araç sorulmadan reddedilir. acceptEdits her yazmayı kabul ediyordu.
     return ["claude", "-p", metin, "--output-format", "json", "--model", model,
             "--max-budget-usd", str(butce_usd), "--allowedTools", ",".join(araclar),
-            "--permission-mode", "acceptEdits"]
+            "--permission-mode", "dontAsk"]
 
 
 def sonucu_cozumle(stdout):
@@ -406,7 +425,7 @@ def _claude_kos(metin, fm, takim, kosu, taslak=None):
     ortam = {**ortam, "SIRKET_TAKIM": takim, "SIRKET_KOSU": str(kosu)}
     if taslak:
         ortam["SIRKET_TASLAK"] = str(taslak)
-    araclar = fm.get("tools") or ["Read", "Write", "Glob", "Grep"]
+    araclar = yazma_kapsami(fm.get("tools") or ["Read", "Write", "Glob", "Grep"], takim)
     komut = claude_komutu(metin, araclar, fm.get("butce_usd", ayar.KOSU_BUTCESI_USD), model)
     try:
         sonuc = subprocess.run(komut, cwd=str(KOK), capture_output=True, text=True,
@@ -442,7 +461,7 @@ def _kuru_bas(takim, fm, kosu, zaman, metin):
     print(f"kuru koşu — {takim} — {zaman}")
     print(f"  sağlayıcı: {fm.get('saglayici', 'anthropic')} · model: {fm.get('model', 'sonnet')} · bütçe: {fm.get('butce_usd', ayar.KOSU_BUTCESI_USD)} USD "
           f"· süre: {ayar.KOSU_SURESI_SN // 60} dk")
-    print(f"  araçlar: {', '.join(fm.get('tools') or ['Read', 'Write', 'Glob', 'Grep'])}")
+    print(f"  araçlar: {', '.join(yazma_kapsami(fm.get('tools') or ['Read', 'Write', 'Glob', 'Grep'], takim))}")
     print(f"  koşu kaydı yazılacak dosya: {kosu.relative_to(KOK)}")
     print(f"  gerekli anahtarlar: {', '.join(fm.get('gerekli_anahtarlar') or []) or '(yok)'}")
     if str(fm.get("saglayici") or "anthropic").lower() == "nim":

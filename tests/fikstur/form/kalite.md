@@ -50,4 +50,5 @@
 - Model (boşsa sonnet):
 - Ek yetenekler (virgülle; kurul-yaniti kendiliğinden eklenir):
 - Gerekli anahtarlar (virgülle, ör. QA_READONLY_URL): QA_READONLY_URL
+- İzinli komut (yalnız Kağan; boşsa yok):
 - Personel adı (boşsa evet; kapatmak için hayır):

@@ -143,6 +143,49 @@ class _GeciciKok(unittest.TestCase):
         return (self.kok / yol).read_text(encoding="utf-8")
 
 
+KOMUT_SATIRI = "- İzinli komut (yalnız Kağan; boşsa yok):"
+
+
+def _komutlu(komut):
+    return FORM.replace(KOMUT_SATIRI, f"{KOMUT_SATIRI} {komut}".rstrip())
+
+
+class IzinliKomutTesti(_GeciciKok):
+    def uret(self, komut):
+        self.form(_komutlu(komut))
+        self.assertEqual(ft.uret(self.kok, "kalite")["sebepler"], [])
+        return ayar.frontmatter(self.oku("takimlar/kalite/takim.md"))
+
+    def test_izinli_komut_tools_a_eklenir(self):
+        fm, _ = self.uret("python3 bin/kalite_veri.py")
+        self.assertEqual(fm["tools"][-1], "Bash(python3 bin/kalite_veri.py:*)")
+        self.assertEqual(len(fm["tools"]), 5)
+
+    def test_izinli_komut_yoksa_tools_degismez(self):
+        fm, _ = self.uret("")
+        self.assertEqual(fm["tools"], ["Read", "Write", "Glob", "Grep"])
+
+    def test_izinli_komut_yalniz_bin_altinda(self):
+        for kotu in ("rm -rf /", "python3 ../x.py", "curl http://x.example", "python3 bin/a.py; rm x"):
+            with self.subTest(kotu=kotu):
+                self.assertIn("§7 İzinli komut yalnız 'python3 bin/<ad>.py' olabilir",
+                              ft.deger_sorunlari(ft.oku(_komutlu(kotu))))
+        self.assertEqual(ft.deger_sorunlari(ft.oku(_komutlu("python3 bin/kalite_veri.py"))), [])
+
+    def test_kosu_adimi_komutu_soyler(self):
+        _, govde = self.uret("python3 bin/kalite_veri.py")
+        self.assertIn("python3 bin/kalite_veri.py", govde)
+        self.assertIn("Hazırlanamadı", govde)
+        self.assertIn("## kapsam", govde)
+
+    def test_sablon_yeni_alani_bilir_ve_zorunlu_degil(self):
+        sablon = (KOK / "formlar/DANISMAN-FORMU.md").read_text(encoding="utf-8")
+        self.assertEqual(len(ft.eksikler(ft.oku(sablon))), 5)
+        self.assertEqual(ft.bilinmeyen_alanlar(sablon), [])
+        self.assertIn("İzinli komut", ft.BILINEN[7])
+        self.assertEqual(ft.oku(sablon)["izinli_komut"], "")
+
+
 class UretimTesti(_GeciciKok):
     def test_tam_form_kurulu_danisman_uretir(self):
         """Test 1 + bağlantı: üretilen danışmanı sürücü, dağıtıcı ve ajan üretici kurulu sayar."""
