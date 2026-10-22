@@ -216,6 +216,59 @@ class IletTesti(Kurulum):
         with self.assertRaises(qa.IletHatasi):
             qa.ilet(self.kok, self.soru_id)
 
+    def test_insan_sorusu_defter_kaydi_bayt_bayt_ayni(self):
+        """Sistem sorusu alanları (görünürlük, gecikme) insan sorusunun defter kaydını değiştirmez — 11:00 sonrası da."""
+        self.ekle(self.DENETCI_KABUL, self.CEO_ONAY)
+        gec = datetime(2026, 10, 12, 11, 20, tzinfo=TR)
+        qa.ilet(self.kok, self.soru_id, simdi=gec)
+        beklenen = (f"# Yanıt — {self.soru_id}\n- soru: {SORU}\n- soran: {UYE}\n"
+                    "- tarih: 2026-10-12T12:00:00+03:00\n- danışman: Finans\n- etiket: onaylı\n"
+                    "- Denetçi: ✔ · CEO: ✔\n- iletildi: 2026-10-12T11:20:00+03:00\n\n"
+                    "## Kurula not\nVeri 30 Eylül'e kadar.\n\n## Yanıt\nSapmanın %70'i pazarlamadan (n=2.140).\n")
+        self.assertEqual(self.defter(), beklenen)
+        self.assertIsNone(sk.alan(self.kayit(self.soru_id), "gecikti"))
+
+
+class SistemSorusuIletTesti(Kurulum):
+    """Zamanlı rapor (sistem sorusu): defterde `- gorunurluk:`; 11:00'den (İstanbul) sonra iletilirse `- gecikti:`."""
+    SID = "rapor-kalite-20261026"
+
+    def setUp(self):
+        super().setUp()
+        dizin = self.kok / "takimlar" / "kalite"
+        (dizin / "cikti").mkdir(parents=True)
+        (dizin / "durum.json").write_text(json.dumps({"takim": "kalite", "kuyruk": []}), encoding="utf-8")
+        (dizin / "cikti" / f"{self.SID}-taslak.md").write_text("Ekip ortalaması 81.\n", encoding="utf-8")
+        from datetime import date
+        qa.sistem_sorusu(self.kok, "kalite", "26.10.2026 (Pazartesi) günlük kalite raporu: ...", self.SID,
+                         (date(2026, 10, 23), date(2026, 10, 25)), (date(2026, 10, 16), date(2026, 10, 18)),
+                         datetime(2026, 10, 26, 9, 30, tzinfo=TR))
+        self.yol = sk.yol(self.SID, self.kok)
+        sk.bolum_ekle(self.yol, IletTesti.DENETCI_KABUL)
+        sk.bolum_ekle(self.yol, IletTesti.CEO_ONAY)
+
+    def defter(self):
+        return (self.kok / "yanitlar" / f"{self.SID}.md").read_text(encoding="utf-8")
+
+    def test_gorunurluk_deftere_gecer(self):
+        qa.ilet(self.kok, self.SID, simdi=datetime(2026, 10, 26, 10, 40, tzinfo=TR))
+        self.assertIn("\n- gorunurluk: kurul\n", self.defter())
+
+    def test_zamaninda_gecikti_yok(self):
+        qa.ilet(self.kok, self.SID, simdi=datetime(2026, 10, 26, 10, 40, tzinfo=TR))
+        self.assertNotIn("gecikti", self.defter())
+        self.assertIsNone(sk.alan(self.kayit(self.SID), "gecikti"))
+
+    def test_11den_sonra_gecikti_kayda_ve_deftere(self):
+        utc = datetime(2026, 10, 26, 8, 20, tzinfo=timezone.utc)   # İstanbul 11:20
+        qa.ilet(self.kok, self.SID, simdi=utc)
+        self.assertEqual(sk.alan(self.kayit(self.SID), "gecikti"), "11:20")
+        self.assertIn("\n- gecikti: 11:20\n", self.defter())
+
+    def test_ertesi_gun_gecikti_tarihli(self):
+        qa.ilet(self.kok, self.SID, simdi=datetime(2026, 10, 27, 8, 10, tzinfo=TR))
+        self.assertEqual(sk.alan(self.kayit(self.SID), "gecikti"), "27.10.2026 08:10")
+
 
 class MainTesti(Kurulum):
     def test_kullanim_hatasi_2(self):

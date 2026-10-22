@@ -35,6 +35,8 @@ import yanit_defteri  # noqa: E402
 
 KOK = ayar.KOK
 SORABILEN_ROLLER = ("kurul", "yonetici")
+ISTANBUL = ZoneInfo("Europe/Istanbul")
+RAPOR_SON_SAAT = 11   # zamanlı rapor kurula bu saatte (İstanbul) ulaşmış olmalı; sonrası `- gecikti:` (spec §2)
 
 
 class IletHatasi(Exception):
@@ -222,6 +224,19 @@ def _imza(metin):
     return None
 
 
+def _gecikme(metin, simdi):
+    """Sistem raporu kendi gününün 11:00'inden (İstanbul) sonra iletiliyorsa iletim saati (`HH:MM`; ertesi gün ve
+    sonrası `gg.aa.yyyy HH:MM`), zamanında ise None. Gün, kayıttaki `- zaman:` satırının İstanbul günüdür."""
+    try:
+        acilis = datetime.fromisoformat(soru_kaydi.alan(metin, "zaman") or "").astimezone(ISTANBUL)
+    except ValueError:
+        return None
+    an = simdi.astimezone(ISTANBUL)
+    if an <= acilis.replace(hour=RAPOR_SON_SAAT, minute=0, second=0, microsecond=0):
+        return None
+    return f"{an:%H:%M}" if an.date() == acilis.date() else f"{an:%d.%m.%Y %H:%M}"
+
+
 def ilet(kok, soru_id, simdi=None, onaylanamadi=None):
     """Yanıtı Yanıt defterine iletir. `onaylanamadi` verilirse (dağıtıcı) yanıt metni gitmez, gerekçe gider."""
     simdi = simdi or datetime.now().astimezone()
@@ -245,15 +260,21 @@ def ilet(kok, soru_id, simdi=None, onaylanamadi=None):
         not_ = soru_kaydi.bolum_alani(metin, "## CEO — karar: onay", "kurula not") or "-"
         govde = (f"## Kurula not\n{not_}\n\n" if not_ != "-" else "") + f"## Yanıt\n{taslak.read_text(encoding='utf-8')}"
     imzalar = {"onaylı": "✔ · CEO: ✔", "CEO kontrolü yapılmadı": "✔ · CEO: —", "onaylanamadı": "— · CEO: —"}[etiket]
+    # Sistem sorusu (zamanlı rapor) `- gorunurluk:` taşır; insan sorusunda bu satırlar yok, defter kaydı aynı kalır.
+    gorunurluk = soru_kaydi.alan(metin, "gorunurluk")
+    gecikti = _gecikme(metin, simdi) if gorunurluk else None
+    sistem = (f"- gorunurluk: {gorunurluk}\n" if gorunurluk else "") + (f"- gecikti: {gecikti}\n" if gecikti else "")
     kayit = (f"# Yanıt — {soru_id}\n- soru: {soru_kaydi.alan(metin, 'soru')}\n- soran: {_soran_eposta(metin)}\n"
              f"- tarih: {soru_kaydi.alan(metin, 'zaman')}\n- danışman: {danisman}\n- etiket: {etiket}\n"
-             f"- Denetçi: {imzalar}\n- iletildi: {simdi.isoformat(timespec='seconds')}\n\n{govde}")
+             f"- Denetçi: {imzalar}\n{sistem}- iletildi: {simdi.isoformat(timespec='seconds')}\n\n{govde}")
     try:
         yanit_defteri.yaz(kok, soru_id, kayit)
     except FileExistsError:
         raise IletHatasi(f"{soru_id} Yanıt defterinde zaten var — defter değiştirilmez") from None
     durum = "onaylanamadı" if onaylanamadi else "iletildi"
     soru_kaydi.durum_yaz(yol, durum)
+    if gecikti:
+        soru_kaydi.alan_ekle(yol, "gecikti", gecikti)
     soru_kaydi.bolum_ekle(yol, f"## İletim\n- etiket: {etiket}\n- zaman: {simdi.isoformat(timespec='seconds')}\n")
     return {"soru_id": soru_id, "etiket": etiket, "durum": durum}
 
