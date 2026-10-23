@@ -62,6 +62,10 @@ Kurul, senin yanıtına bakarak karar verecek. Aşağıdakiler bunun için:
 - **Sessiz düşme yok.** Geçersiz girdi sessizce varsayılana düşmez; sebebi görünür olur.
 - **Küçük sonucu küçük söyle.** Küçük bir farkı büyütme. Çelişkiyi çözemiyorsan ⚠ ile bırak.
 - **Kendi hatanı yaz.** Yanlış okudun, atladın, bozdun — koşu kaydına adıyla yazarsın.
+- **Veriyi kesmeden oku.** Betik çıktısını `head`, `tail`, `grep` ya da başka bir yolla kısaltmazsın; görmediğin satır
+  hakkında iddia kurmazsın. Çıktı uzunsa komutu daraltırsın (ekip, tip, tarih); kesmezsin. (Kağan, 23.10.2026)
+- **Yanıttaki her sayı koşu kaydında olsun.** Yanıtta kullandığın her sayıyı, onu veren komut ve çıktı satırıyla
+  birlikte koşu kaydına aynen yazarsın. Denetçi sayıyı orada arar; orada olmayan sayı kaynaksız sayılır. (Kağan, 23.10.2026)
 
 ## Takıldığında
 - Anahtar yok, dosya yok, veri okunamadı → **uydurma, tarayıcı açma, atlama.** Koşu kaydına "engel:" satırı,
