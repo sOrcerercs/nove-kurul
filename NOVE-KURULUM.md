@@ -45,7 +45,7 @@
 | N24 | **ANAYASA §2: etiket iddiaya konur, cümleye değil;** kaynak dış dünya sayısında, `n` örneklemden türeyen sayıda zorunludur (N19 ile aynı sınır, 13.10.2026) |
 | N25 | **ANAYASA §4 rakam taşımaz:** tavanların ilkesi anayasada, rakamları yalnız `bin/ayar.py`'de ve §9'da (13.10.2026) |
 | N26 | **ANAYASA §1: danışman yalnız kendi klasörüne yazar** — `cikti/`, `kosu/`, `defter.md` (13.10.2026) |
-| N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) |
+| N27 | **Soru bütçesi 6 USD:** en kötü yol (iki danışman koşusu + iki CEO kontrolü) 5 USD tuttuğu için Denetçi'ye ve paya 1 USD kalır (13.10.2026) — **N31 ile 8 USD'ye çıkarıldı (19.10.2026)** |
 | N28 | **Yanıt süresi ölçütü:** düzeltme turu geçirmeyen soruda 30 dk; düzeltmedeki soruya süre sözü verilmez (13.10.2026) |
 | N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
 | N30 | **ANAYASA §2: hasta ve müşterinin ad soyadı yazılabilir;** telefon, e-posta, TC kimlik no yasak kalır; ad soyad taşıyabilen dosya (defter, onaylı form) herkese açık depoya girmez. Yapay zekâ sağlayıcılarına aktarım Kağan'ın teyidiyle uygun (19.10.2026) |
@@ -293,8 +293,10 @@ kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N
                                               │ yazar: gelen/<soru-id>.json
                                               ▼
             systemd: nove-dinleyici.service   bin/soru_kapisi.py --dinle → dagitici.py → kos.py
-            systemd: nove-sabah.timer 09:00   bin/gunluk.py --sabah
-            systemd: nove-aksam.timer 22:00   bin/gunluk.py --aksam
+            systemd: nove-sabah.timer 08:00   bin/gunluk.py --sabah     (mesai açılışı, N29)
+            systemd: nove-rapor.timer pzt–cuma 09:30   bin/gunluk.py --rapor   (Kalite günlük raporu)
+            systemd: nove-ilerlet.timer her 10 dk   bin/gunluk.py --ilerlet   (soru zinciri)
+            systemd: nove-aksam.timer 19:00   bin/gunluk.py --aksam     (mesai kapanışından 1 saat önce)
                                               │
                                    claude -p (Sonnet: danışman · Opus: CEO)
                                    Stop hook → bekci.py (NIM → OpenAI → Haiku)
@@ -471,7 +473,8 @@ python3 bin/dagitici.py --kuru
 ```
 
 ### Faz 4 · İlk danışman: **Kalite**
-> **Durum (09.10.2026):** başlamadı — önce S7 (bütçe onayı). `takimlar/kalite/takim.md` boş duruyor.
+> **Durum (22.10.2026):** sürüyor — Kalite kuruldu; veri okuyucusu ve günlük rapor ana dalda (PR #9, #11). Bekleyen:
+> beş gerçek soruyla uçtan uca koşu ve zamanlayıcının canlıda (sunucuda) kurulması.
 
 Veri ve kurallar senin elinde olduğu için ilk danışman Kalite olur. `qa-hatti` örnek alınır: `QA_READONLY_URL`, `qa_ozet.py`
 ve `qa-koclugu-kurgusu` taşınır.
