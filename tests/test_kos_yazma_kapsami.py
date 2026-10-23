@@ -44,6 +44,14 @@ class KomutTesti(unittest.TestCase):
         self.assertEqual(komut[komut.index("--permission-mode") + 1], "dontAsk")
         self.assertNotIn("acceptEdits", komut)
 
+    def test_cikti_kesen_komutlar_yasak(self):
+        """23.10.2026 uçtan uca deneme: danışman betik çıktısını `| head -14` ile kesip görmediği satır hakkında
+        iddia kurdu (AJAN-KIMLIGI "Veriyi kesmeden oku"). Canlı deneme: --disallowedTools ile `| head` reddedildi."""
+        komut = kos.claude_komutu("istem", ["Read"], 2)
+        yasak = komut[komut.index("--disallowedTools") + 1].split(",")
+        for arac in ("Bash(head:*)", "Bash(tail:*)", "Bash(grep:*)", "Bash(cut:*)", "Bash(sed:*)", "Bash(awk:*)"):
+            self.assertIn(arac, yasak)
+
     def test_alt_surece_daraltilmis_araclar_gider(self):
         fm = {"model": "sonnet", "tools": ["Read", "Write", "Bash(python3 bin/kalite_veri.py:*)"]}
         sahte = mock.Mock(stdout=json.dumps({"is_error": False, "result": "ok"}), stderr="", returncode=0)

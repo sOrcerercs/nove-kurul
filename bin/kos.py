@@ -359,10 +359,16 @@ def yazma_kapsami(araclar, takim):
     return sonuc
 
 
+# Betik çıktısını kesen/süzen kabuk komutları. `| head` izin listesinde olmasa da salt okunur sayılıp geçiyordu;
+# 23.10.2026'da danışman kesik çıktıdan iddia kurdu (AJAN-KIMLIGI "Veriyi kesmeden oku"). Dosya aramak için Grep aracı var.
+CIKTI_KESEN_KOMUTLAR = ("Bash(head:*)", "Bash(tail:*)", "Bash(grep:*)", "Bash(cut:*)", "Bash(sed:*)", "Bash(awk:*)")
+
+
 def claude_komutu(metin, araclar, butce_usd, model="sonnet"):
     # dontAsk: izin listesinde olmayan araç sorulmadan reddedilir. acceptEdits her yazmayı kabul ediyordu.
     return ["claude", "-p", metin, "--output-format", "json", "--model", model,
             "--max-budget-usd", str(butce_usd), "--allowedTools", ",".join(araclar),
+            "--disallowedTools", ",".join(CIKTI_KESEN_KOMUTLAR),
             "--permission-mode", "dontAsk"]
 
 
