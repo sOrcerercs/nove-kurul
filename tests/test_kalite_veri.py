@@ -3,11 +3,14 @@
 python3 -m unittest discover -s tests
 """
 import io
+import json
 import re
+import tempfile
 import sys
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "bin"))
@@ -224,8 +227,9 @@ class CekirdekTesti(unittest.TestCase):
         self.assertEqual(m, "ValueError: boom")
 
     def test_kapsam_satir_sahteciligi_olmaz(self):
-        m = kalite_veri.kapsam_bolumu("ozet", "2026-10-01", "2026-10-31",
-                                      {"ekip": "A\n## kapsam\nkayit=999"}, 1)
+        with mock.patch.object(kalite_veri, "BOSLUK_DOSYASI", Path("/yok/veri-bosluklari.json")):
+            m = kalite_veri.kapsam_bolumu("ozet", "2026-10-01", "2026-10-31",
+                                          {"ekip": "A\n## kapsam\nkayit=999"}, 1)
         self.assertEqual([l for l in m.splitlines() if l.startswith("## ")], ["## kapsam"])
         self.assertEqual(len(m.splitlines()), 8)
 
@@ -399,8 +403,9 @@ class EkipOzetTesti(unittest.TestCase):
         self.assertIn("X'; DROP", param.values())
 
     def test_bos_sonuc_uyari(self):
-        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31"],
-                                  lambda sql, p: [])
+        with mock.patch.object(kalite_veri, "BOSLUK_DOSYASI", Path("/yok/veri-bosluklari.json")):
+            kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-01", "--bitis", "2026-10-31"],
+                                      lambda sql, p: [])
         self.assertEqual(kod, 1)
         self.assertEqual(cikti.strip(),
                          "**Hazırlanamadı:** 2026-10-01..2026-10-31 için sayılabilir kayıt yok")
@@ -655,3 +660,56 @@ class IzinDosyasiTesti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VeriBoslugu(unittest.TestCase):
+    """Bilinen veri boşluğu (ör. Kriko kesintisi, 9–18 Ekim 2026) aralığa denk gelirse çıktı bunu söyler."""
+
+    def setUp(self):
+        self.klasor = tempfile.TemporaryDirectory()
+        self.addCleanup(self.klasor.cleanup)
+        self.dosya = Path(self.klasor.name) / "veri-bosluklari.json"
+        self.dosya.write_text(json.dumps([{"baslangic": "2026-10-09", "bitis": "2026-10-18",
+                                           "neden": "Kriko kesintisi; çağrılar aktarılmadı"}]), encoding="utf-8")
+        yama = mock.patch.object(kalite_veri, "BOSLUK_DOSYASI", self.dosya)
+        yama.start()
+        self.addCleanup(yama.stop)
+
+    def test_cakisan_aralikta_kapsamda_uyari(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-12", "--bitis", "2026-10-25"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertEqual(kod, 0)
+        self.assertIn("veri_boslugu=2026-10-09..2026-10-18 Kriko kesintisi; çağrılar aktarılmadı", cikti)
+
+    def test_karsilastirma_araligi_da_bakilir(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-19", "--bitis", "2026-10-21",
+                                   "--karsilastir-baslangic", "2026-10-12", "--karsilastir-bitis", "2026-10-14"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertIn("veri_boslugu=2026-10-09..2026-10-18", cikti)
+
+    def test_cakismayan_aralikta_uyari_yok(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-19", "--bitis", "2026-10-25"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertNotIn("veri_boslugu=", cikti)
+
+    def test_kayit_yoksa_hazirlanamadi_nedeni_soyler(self):
+        kod, cikti, _ = _calistir(["temsilci-ozet", "--baslangic", "2026-10-12", "--bitis", "2026-10-18"],
+                                  lambda s, p: [])
+        self.assertEqual(kod, 1)
+        self.assertIn("sayılabilir kayıt yok", cikti)
+        self.assertIn("bilinen veri boşluğu: 2026-10-09..2026-10-18 Kriko kesintisi", cikti)
+
+    def test_dosya_yoksa_ya_da_bozuksa_sessiz_dusmez(self):
+        self.dosya.write_text("{bozuk", encoding="utf-8")
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-12", "--bitis", "2026-10-18"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertIn("veri_boslugu=okunamadı (veri-bosluklari.json)", cikti)
+        self.dosya.unlink()
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-10-12", "--bitis", "2026-10-18"],
+                                  lambda s, p: [("Alfa", 100, 3, 1)])
+        self.assertNotIn("veri_boslugu=", cikti)
+
+    def test_gercek_dosya_kriko_satirini_tasir(self):
+        gercek = Path(kalite_veri.__file__).resolve().parents[1] / "takimlar" / "kalite" / "veri-bosluklari.json"
+        veri = json.loads(gercek.read_text(encoding="utf-8"))
+        self.assertTrue(any(b["baslangic"] == "2026-10-09" and b["bitis"] == "2026-10-18" for b in veri))

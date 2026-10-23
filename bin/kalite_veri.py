@@ -15,6 +15,7 @@ Kullanım:
 Çıkış: 0 tamam · 1 durdu (`**Hazırlanamadı:** <sebep>`) · 2 kullanım hatası
 """
 import argparse
+import json
 import math
 import re
 import sys
@@ -35,6 +36,7 @@ UYE_KOSULU = "u.\"role\" IN ('AGENT', 'TEAM_LEADER') AND u.\"isActive\" = true"
 SAYIM_KOSULU = ("(e.\"callClassification\" IS NULL OR e.\"callClassification\" = 'CONNECTED_QUALIFIED')"
                 " AND " + UYE_KOSULU)
 SAAT_DILIMI = "UTC gün sınırı (TR 03:00)"      # DB timezone UTC; panel (Vercel) de UTC günleri kullanır
+BOSLUK_DOSYASI = Path(__file__).resolve().parents[1] / "takimlar" / "kalite" / "veri-bosluklari.json"
 PUANLAMA_DEGISIM_TARIHI = datetime(2026, 9, 1)  # öncesinde puanlama farklı; karşılaştırma geçersiz
 
 
@@ -70,6 +72,11 @@ def kapsam_bolumu(komut, baslangic, bitis, filtre, kayit):
                 "kural=AGENT/TEAM_LEADER, aktif, callClassification NULL ya da CONNECTED_QUALIFIED"]
     for anahtar, deger in (filtre or {}).items():
         satirlar.append("%s=%s" % (_tek_satir(anahtar), _tek_satir(deger)))
+    araliklar = [(baslangic, bitis)]
+    if (filtre or {}).get("karsilastirma"):
+        araliklar.append(tuple(str(filtre["karsilastirma"]).split("..", 1)))
+    for bosluk in bilinen_bosluklar(araliklar):
+        satirlar.append("veri_boslugu=%s" % _tek_satir(bosluk))
     satirlar.append("kayit=%d" % kayit)
     return "\n".join(satirlar)
 
@@ -103,9 +110,34 @@ def guvenli_hata(hata, url):
     return "%s: %s" % (type(hata).__name__, mesaj)
 
 
+def bilinen_bosluklar(araliklar):
+    """`takimlar/kalite/veri-bosluklari.json`'daki boşluklardan verilen aralıklarla çakışanlar.
+
+    Kayıt yokluğu gerçek bir düşüş sanılmasın diye (ör. Kriko kesintisi, 9–18 Ekim 2026). Dosya yoksa boş liste;
+    bozuksa sessiz düşmez, "okunamadı" satırı döner. Tarihler YYYY-MM-DD dizgisi olarak karşılaştırılır."""
+    if not BOSLUK_DOSYASI.exists():
+        return []
+    try:
+        kayitlar = [(str(b["baslangic"]), str(b["bitis"]), str(b.get("neden") or ""))
+                    for b in json.loads(BOSLUK_DOSYASI.read_text(encoding="utf-8"))]
+    except (OSError, ValueError, KeyError, TypeError):
+        return ["okunamadı (%s)" % BOSLUK_DOSYASI.name]
+    return ["%s..%s %s" % (bas, bit, neden) for bas, bit, neden in kayitlar
+            if any(str(a) <= bit and str(b) >= bas for a, b in araliklar)]
+
+
 def hazirlanamadi(sebep):
     """Durma satırı. Sessiz düşme yok (ANAYASA §2)."""
     return "**Hazırlanamadı:** %s" % sebep
+
+
+def kayit_yok(baslangic, bitis):
+    """Boş sonuç: bilinen veri boşluğu varsa nedeni de söylenir."""
+    sebep = "%s..%s için sayılabilir kayıt yok" % (baslangic, bitis)
+    bosluklar = bilinen_bosluklar([(baslangic, bitis)])
+    if bosluklar:
+        sebep += " — bilinen veri boşluğu: " + "; ".join(bosluklar)
+    return hazirlanamadi(sebep)
 
 
 def sema_sorgulari():
@@ -379,7 +411,7 @@ def ekip_ozet_bas(baglanti, args):
             return 1
     tablo = ekip_tablosu(_sorgula(baglanti, ekip_ozet_sorgusu(bas, bit, args.tip, args.ekip)))
     if not tablo:
-        print(hazirlanamadi("%s için sayılabilir kayıt yok" % aralik))
+        print(kayit_yok(args.baslangic, args.bitis))
         return 1
     filtre = {}
     if args.tip:
@@ -443,7 +475,7 @@ def temsilci_ozet_bas(baglanti, args):
         return 1
     tablo = temsilci_tablosu(_sorgula(baglanti, temsilci_ozet_sorgusu(sinir[0], sinir[1], args.tip, args.ekip)))
     if not tablo:
-        print(hazirlanamadi("%s için sayılabilir kayıt yok" % ("%s..%s" % (args.baslangic, args.bitis))))
+        print(kayit_yok(args.baslangic, args.bitis))
         return 1
     print(kapsam_bolumu("temsilci-ozet", args.baslangic, args.bitis, _filtre_ozeti(args),
                         sum(t["kayit"] for t in tablo)))
@@ -460,7 +492,7 @@ def kocluk_bas(baglanti, args):
         return 1
     tablo = kocluk_tablosu(_sorgula(baglanti, kocluk_sorgusu(sinir[0], sinir[1], args.tip, args.ekip)))
     if not tablo:
-        print(hazirlanamadi("%s için sayılabilir kayıt yok" % ("%s..%s" % (args.baslangic, args.bitis))))
+        print(kayit_yok(args.baslangic, args.bitis))
         return 1
     filtre = _filtre_ozeti(args)
     filtre["kocluk_sonrasi_gelisme"] = "— (ölçütü tanımlı değil; teyit: Quality Supervisor)"
@@ -479,7 +511,7 @@ def kriterler_bas(baglanti, args):
     bas, bit = sinir
     ekipler = ekip_tablosu(_sorgula(baglanti, ekip_ozet_sorgusu(bas, bit, args.tip, args.ekip)))
     if not ekipler:
-        print(hazirlanamadi("%s için sayılabilir kayıt yok" % ("%s..%s" % (args.baslangic, args.bitis))))
+        print(kayit_yok(args.baslangic, args.bitis))
         return 1
     tablo, disi = kriter_tablosu(_sorgula(baglanti, kriter_sorgusu(bas, bit, args.tip, args.ekip)),
                                  [e["ekip"] for e in ekipler])
