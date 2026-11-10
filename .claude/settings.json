@@ -23,7 +23,7 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/bin/bekci.py",
-            "timeout": 180
+            "timeout": 420
           }
         ]
       }

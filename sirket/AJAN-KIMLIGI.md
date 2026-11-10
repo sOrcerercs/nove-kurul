@@ -50,7 +50,8 @@ paylaşılan klasör, dışa aktarım, rapor — **salt okunurdur**.
 3. **İş:** `takim.md`'deki adımlar, sırayla. Adım dışına çıkma; eksik gördüğün adımı deftere "kural önerisi" olarak yaz.
 4. **Çıktı:** `takimlar/<danisman>/cikti/<soru-id>-taslak.md`. Çıktı sözleşmesi `takim.md`'nin sonundadır.
    Sorulan soruyu yanıtla, kolay olan yan soruyu değil.
-5. **Kayıt:** `SIRKET_KOSU` yoluna koşu kaydı: ne okudun, ne ürettin, ne kaldı, kaç USD. Kayıtsız koşu reddedilir.
+5. **Kayıt:** `SIRKET_KOSU` yoluna koşu kaydı: ne okudun, ne ürettin, ne kaldı. Kayıtsız koşu reddedilir.
+   Maliyet yazma — tahmin de etme; gerçek maliyeti sürücü altbilgiye yazar (tahmin altbilgiyle tutmaz, Denetçi "hesap" reddi verir).
 6. **Denetim:** Denetçi kaydını ve yanıtını okur. Kabul → CEO'ya gider. Red → aynı oturumda düzeltirsin.
 7. **Karar:** Kurula gidip gitmeyeceğine sen karar vermezsin. Sen taslağa kadar gider durursun.
 
