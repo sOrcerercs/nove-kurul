@@ -35,15 +35,17 @@ KOK = ayar.KOK
 MAKS_RED = 2
 ZAMAN_ASIMI_SN = 60
 # NIM istemi ANAYASA + kurallar + koşu kaydını birlikte taşıyor ve modeller önce
-# "düşünüyor"; 60 sn ölçümde yetmedi (nim ulaşılamadı: timeout).
-NIM_ZAMAN_ASIMI_SN = 180
+# "düşünüyor"; 60 sn ölçümde yetmedi (nim ulaşılamadı: timeout). 180 sn de 23.10.2026 uçtan uca
+# denemede gerçek sorularda yetmedi → 300. Stop hook süresi bundan + Haiku yedeğinden uzun olmalı.
+NIM_ZAMAN_ASIMI_SN = 300
 OPENAI_MODEL = "gpt-5-mini"
 # NIM bekçi modeli. 2026-09-15 ölçümü: gerçek ANAYASA ve kurallarla üç fikstürde 3/3 doğru
 # (nvidia/nemotron-3-super-120b-a12b 1/3 + iki HTTP hatası). `.env`'deki NIM_BEKCI_MODEL ezer.
 NIM_BEKCI_MODEL = "openai/gpt-oss-20b"
 # Reasoning modelleri düşünmeye harcadıkları bütçe yüzünden `content`'i BOŞ bırakıyor;
-# 400 token ile içerik hiç gelmedi, 3000 ile geldi. Ölçülmüş alt sınır.
-NIM_MAKS_TOKEN = 3000
+# 400 token ile içerik hiç gelmedi, 3000 ile fikstürlerde geldi; 23.10.2026 gerçek sorularda yine
+# boş kaldı ("reasoning'e harcadı") → 8000.
+NIM_MAKS_TOKEN = 8000
 AYNI_AILE_UYARISI = "bekçi aynı aileden — uyarı"
 # Bu gerekçelerle gelen "atlandi" kararı koşuyu denetimsiz bırakır → Haiku yedeğine düşülür.
 YEDEGE_DUSUREN = re.compile(r"^openai (401|403|ulaşılamadı)")
