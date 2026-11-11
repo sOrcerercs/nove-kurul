@@ -42,6 +42,10 @@ OPENAI_MODEL = "gpt-5-mini"
 # NIM bekçi modeli. 2026-09-15 ölçümü: gerçek ANAYASA ve kurallarla üç fikstürde 3/3 doğru
 # (nvidia/nemotron-3-super-120b-a12b 1/3 + iki HTTP hatası). `.env`'deki NIM_BEKCI_MODEL ezer.
 NIM_BEKCI_MODEL = "openai/gpt-oss-20b"
+# GEÇİCİ KAPALI (11.11.2026): NVIDIA hesabından sohbet istekleri hiç yanıt dönmüyor — gpt-oss-20b dahil dört
+# model iki kelimelik istekte bile zaman aşımı, stream'de ilk bayt yok; /models çalışıyor. Her denetim 300 sn
+# boşa bekliyordu. Kağan hesaba bakıyor; düzelince True yap. Kapalıyken düşüş gerekçede yazılır.
+NIM_ACIK = False
 # Reasoning modelleri düşünmeye harcadıkları bütçe yüzünden `content`'i BOŞ bırakıyor;
 # 400 token ile içerik hiç gelmedi, 3000 ile fikstürlerde geldi; 23.10.2026 gerçek sorularda yine
 # boş kaldı ("reasoning'e harcadı") → 8000.
@@ -240,7 +244,7 @@ def haiku_sor(istem):
 
 
 def llm_karari(ortam, istem):
-    """Denetim katmanı — sıra: NIM → OpenAI → Haiku (ANAYASA §3).
+    """Denetim katmanı — sıra: NIM → OpenAI → Haiku (ANAYASA §3). `NIM_ACIK` False iken NIM atlanır.
 
     Her yol, bir öncekinin anahtarı yok ya da yanıtı kullanılamaz olduğunda devreye girer.
     Hiçbir düşüş sessiz değildir: gerekçe hangi yoldan geçildiğini söyler."""
@@ -248,6 +252,9 @@ def llm_karari(ortam, istem):
     for anahtar_adi, cagir in (("NVIDIA_API_KEY", nim_sor), ("OPENAI_API_KEY", openai_sor)):
         anahtar = str(ortam.get(anahtar_adi) or "").strip()
         if not anahtar:
+            continue
+        if cagir is nim_sor and not NIM_ACIK:
+            onceki += "nim kapalı (geçici) → openai yolu · "
             continue
         karar = cagir(anahtar, istem)
         if karar["karar"] != "atlandi":
