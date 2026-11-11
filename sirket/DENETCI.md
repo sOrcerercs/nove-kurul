@@ -115,6 +115,8 @@ yalnız ikinci kapıya taşır. Panelde **Denetçi ✔** yanar.
 ## Hangi modelle çalışırsın
 
 Sıra: **NIM** (`openai/gpt-oss-20b`) → **OpenAI** → **Haiku**.
+> **11.11.2026 — NIM geçici kapalı** (`bin/bekci.py` `NIM_ACIK = False`): NVIDIA hesabından sohbet istekleri yanıt
+> dönmüyor. Bu sürede denetim Haiku yedeğinde ve "aynı aile" uyarısıyla yapılır; gerekçe "nim kapalı" der. Hesap düzelince açılır.
 
 - NIM ve OpenAI ayrı ailedir. İkisine de ulaşılamazsa Haiku'ya düşülür ve gerekçenin başına
   **"denetçi aynı aileden — uyarı"** eklenir. Bu uyarı panelde ve raporda görünür.

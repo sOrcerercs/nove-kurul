@@ -89,7 +89,13 @@ class NimSorTesti(unittest.TestCase):
 
 
 class UcYolluSiraTesti(unittest.TestCase):
+    """Sıra mantığı NIM açıkken sınanır; geçici kapatma ayrı sınıfta (NimKapaliTesti)."""
     TEMIZ = {"karar": "kabul", "gerekce": "temiz", "ihlal_edilen_kural": None}
+
+    def setUp(self):
+        yama = mock.patch.object(bekci, "NIM_ACIK", True)
+        yama.start()
+        self.addCleanup(yama.stop)
 
     def test_nim_anahtari_varsa_openai_cagrilmaz(self):
         with mock.patch.object(bekci, "nim_sor", return_value=self.TEMIZ) as n, \
@@ -139,6 +145,22 @@ class UcYolluSiraTesti(unittest.TestCase):
                                return_value={"karar": "red", "gerekce": "boş", "ihlal_edilen_kural": "x"}):
             karar = bekci.llm_karari({"NVIDIA_API_KEY": "n", "OPENAI_API_KEY": "s"}, "istem")
         self.assertEqual(karar["karar"], "red")
+        self.assertIn("haiku yedeği", karar["gerekce"])
+
+
+class NimKapaliTesti(unittest.TestCase):
+    """11.11.2026: NVIDIA hesabındaki sohbet istekleri yanıt dönmüyor; her denetim 300 sn boşa bekliyordu.
+    NIM geçici kapalıyken çağrılmaz, ama düşüş sessiz değildir: gerekçe 'nim kapalı' der."""
+
+    def test_nim_kapaliyken_cagrilmaz_ve_gerekce_soyler(self):
+        yedek = {"karar": "kabul", "gerekce": "[bekçi aynı aileden — uyarı] temiz", "ihlal_edilen_kural": None}
+        with mock.patch.object(bekci, "NIM_ACIK", False), \
+             mock.patch.object(bekci, "nim_sor") as n, \
+             mock.patch.object(bekci, "haiku_sor", return_value=yedek) as h:
+            karar = bekci.llm_karari({"NVIDIA_API_KEY": "nvapi-x"}, "istem")
+        n.assert_not_called()
+        h.assert_called_once()
+        self.assertIn("nim kapalı", karar["gerekce"])
         self.assertIn("haiku yedeği", karar["gerekce"])
 
 
