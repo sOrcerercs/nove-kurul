@@ -1,6 +1,6 @@
 ---
-durum: acik
-guncelleme: 2026-10-19
+durum: tamamlandi
+guncelleme: 2026-11-11
 dal: feature/patient-name-policy
 pr: 6
 bekleyen: -
@@ -56,3 +56,10 @@ ad ve unvana kadar bilgi vermesini istedi; hasta ve müşteri adı için de "yaz
 - Telefon, e-posta, TC kimlik no yasak kalıyor mu (Kağan yalnız adı sordu)?
 - Ad nerede durur: yalnız `cikti/` taslağında ve Yanıt defterinde mi, yoksa koşu kaydı, defter ve `sirket-log/`'da da mı?
   Saklama süresi?
+
+## Sonuç (plan-sync, 2026-11-11)
+
+PR #6 19.10.2026'da merge edildi: ANAYASA §2 yeni metni (Kağan kaydetti), Denetçi istemi, `formdan_takim.HER_ZAMAN_YASAK`,
+`CLAUDE.md`, `sirket/AJAN-KIMLIGI.md`, form uyarısı ve `hasta-ad-soyadi` fikstürü. Hasta/müşteri ad soyadı yazılabilir;
+telefon, e-posta ve TC kimlik numarası yasak kaldı. Defterler ve onaylı formlar git dışında (PR #5). "Henüz karar yok"
+listesi 1–6 numaralı kararlarla cevaplanmıştı. Bugün `main` 594 test OK.

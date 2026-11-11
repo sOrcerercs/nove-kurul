@@ -1,9 +1,9 @@
 ---
-durum: yazildi
-guncelleme: 2026-10-19
+durum: beklemede
+guncelleme: 2026-11-11
 dal: feature/quality-db-reader
-pr: -
-bekleyen: -
+pr: 9
+bekleyen: Kağan — Raporlarım'da 122 / 81 kontrolü (Task 8)
 ---
 
 # Kalite ajanının veri okuyucusu — Implementation Plan
@@ -222,3 +222,12 @@ Tür tutarlılığı: `js_yuvarla`, `gun_siniri`, `SAYIM_KOSULU`, `UYE_KOSULU`, 
   rapor uçları rolden bağımsız `scoringWhere()` kullanıyor (sınıfsız ya da `CONNECTED_QUALIFIED`). Betik bu kuralı uyguluyor.
   Panelin 77 göstermesi, canlı sürümde PR #71'in henüz yüklü olmadığını gösteriyor (doğrulanmadı; yükleme durumu Kağan'da).
 - Sonuç: betikte düzeltme yok. Canlı sürüm PR #71'i içerince panel 122 / 81 göstermeli; Kağan bir kez daha bakınca Task 8 kapanır.
+
+## Durum (plan-sync, 2026-11-11)
+
+PR #9 22.10.2026'da merge edildi: `bin/kalite_veri.py` (`qa_okuyucu`, salt okunur), `docs/kalite-veri-izin.sql`,
+danışman yazma kapsamı (`kos.yazma_kapsami`, `test_kos_yazma_kapsami.py` — plan dışı, Kritik 1 kararıyla eklendi).
+Bitirme bugün `main`'de: 594 test OK, `agents_uret --check` OK, `dagitici --cakisma` 0, `kos.py kalite --kuru` →
+`gerekli anahtarlar: QA_READONLY_URL`, adres sızıntısı 0 dosya. Kalite 23.10 ve 11.11'de gerçek sorularla koştu.
+**Açık tek adım:** Task 8 — panel canlıda PR #71'i içerince Raporlarım'da 122 / 81 görülmeli (Kağan). Görülünce `tamamlandi`.
+Görev kutuları uygulama sırasında işaretlenmedi; tamamlanma PR'ın merge'ü ve Bitirme komutlarının bugün `main`'de yeniden koşulmasıyla doğrulandı.

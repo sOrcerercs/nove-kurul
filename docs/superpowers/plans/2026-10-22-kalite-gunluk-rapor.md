@@ -1,9 +1,9 @@
 ---
-durum: yazildi
-guncelleme: 2026-10-22
+durum: beklemede
+guncelleme: 2026-11-11
 dal: feature/kalite-gunluk-rapor (feature/quality-db-reader üstünde)
-pr: -
-bekleyen: PR #9 merge; tatil listesi onayı (Kağan)
+pr: 11
+bekleyen: Kağan — ilk gerçek rapor; zamanlayıcı sunucuda
 ---
 
 # Kalite günlük raporu — Implementation Plan (TASLAK)
@@ -96,3 +96,12 @@ listesi için bugünün sistem sorusunu açar, sonra `dagitici.dagit(kok)`; saba
 - [ ] `python3 bin/gunluk.py --rapor --kuru` (salı tarihinde) → açılacak kayıt ve aralık basılır, dosya yazılmaz
 - [ ] `python3 bin/zamanla.py --kuru` → `rapor` hafta içi 09:30, `ilerlet` 10 dk
 - [ ] Kağan onayıyla ilk gerçek rapor: bir salı 09:30, Yanıt defterinde 11:00'den önce
+
+## Durum (plan-sync, 2026-11-11)
+
+PR #11 22.10.2026'da merge edildi: `gunluk.py --rapor`, `bin/rapor_takvimi.py`, sistem sorusu (`soru_kapisi`,
+`soru_kaydi`), `zamanla.py` işleri, `takimlar/kalite/tatiller.json` (Kağan onayladı). Testler planın adıyla değil
+`test_rapor_sistem_sorusu.py` ve `test_soru_kapisi.py` olarak geldi. Bitirme bugün: 594 test OK; `--rapor --kuru`
+ve `zamanla.py --kuru` (`rapor` hafta içi 09:30) doğru basıyor. **Açık:** launchd Masaüstüne erişemediği için
+zamanlayıcı şirket sunucusunda kurulacak (22.10, Kağan); ilk gerçek rapor ondan sonra, Kağan onayıyla.
+Dağıtıcı yığılma hatası (PR #17, 11.11) zamanlayıcıdan önce düzeltildi. Görev kutuları uygulama sırasında işaretlenmedi; tamamlanma PR'ın merge'ü ve Bitirme komutlarının bugün `main`'de yeniden koşulmasıyla doğrulandı.

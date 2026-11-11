@@ -1,6 +1,6 @@
 ---
-durum: acik
-guncelleme: 2026-10-19
+durum: tamamlandi
+guncelleme: 2026-11-11
 dal: feature/advisor-form-pipeline
 pr: 5
 bekleyen: -
@@ -1330,3 +1330,12 @@ alanları · 7 `SIRKET_KOSU` → `kos.py`'nin verdiği ortam değişkeni (`agent
   → `[]` (gerçek kökte hiçbir danışman kurulmadı) · `git status --short takimlar/` → boş
 - [ ] **Kağan (isteğe bağlı, anahtar ve küçük ücret ister):** `python3 bin/bekci_karsilastir.py` — Denetçi istemi
   değişti; NIM'in 3/3 ölçümü (`bin/bekci.py:41-42`) eski isteme aitti.
+
+## Sonuç (plan-sync, 2026-11-11)
+
+PR #5 19.10.2026'da merge edildi: `bin/formdan_takim.py`, `skills/kurul-yaniti/`, `formlar/DANISMAN-FORMU.md`, yetki
+kilitleri (`.claude/settings.json` deny) ve `CLAUDECODE` ortamında yazma reddi. Test 414 tabandan merge'de 453'e çıktı
+(plan 441 öngörmüştü; son inceleme düzeltmeleri ekledi); bugün `main` 594 OK. Bitirme: `agents_uret --check` OK, `ayar.py`
+rc 0, `dagitici --cakisma` 0. Hat sonradan Kalite'yi kurdu (PR #8) ve Faz 6'nın beş formu bununla doldurulacak.
+Yapılmayan: `bekci_karsilastir.py` ölçümü (isteğe bağlıydı; Faz 4'e ertelendi, NIM 11.11.2026'dan beri geçici kapalı).
+Görev kutuları uygulama sırasında işaretlenmedi; tamamlanma PR'ın merge'ü ve Bitirme komutlarının bugün `main`'de yeniden koşulmasıyla doğrulandı.
