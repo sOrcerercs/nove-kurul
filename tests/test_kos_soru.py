@@ -83,6 +83,18 @@ class MaddeSecimiTesti(Kurulum):
         self.kuyruk([])
         self.assertIsNone(kos.soru_maddesi("finans", self.kok))
 
+    def test_soru_maddesi_yoksa_claude_cagrilmaz_kayit_yazilmaz(self):
+        """Kilit sırasında bekleyen bir kos.py, sıra ona geldiğinde kuyruğu boş bulabilir (11.11.2026:
+        beş boş koşu, 1,16 USD). Nove'de her iş bir s-/r- maddesidir; maddesiz koşu para harcamaz,
+        koşu kaydı yazmaz (günlük koşu tavanını yemesin), son_kosu'ya dokunmaz."""
+        self.kuyruk([{"id": f"s-{SID}", "durum": "tamam", "not": SORU}])
+        onceki = ayar.durum_oku("finans", self.kok).get("son_kosu")
+        with mock.patch.object(kos, "_claude_kos") as claude:
+            kos.kos("finans", zorla=True)
+        claude.assert_not_called()
+        self.assertEqual(list((self.kok / "takimlar" / "finans").glob("kosu/*.md")), [])
+        self.assertEqual(ayar.durum_oku("finans", self.kok).get("son_kosu"), onceki)
+
 
 class IstemTesti(Kurulum):
     def test_yeni_soru_istemi_soruyu_ve_taslak_yolunu_soyler(self):
@@ -97,12 +109,6 @@ class IstemTesti(Kurulum):
         self.assertIn(SORU, self.istem, "soru metni soru kaydından okunur")
         self.assertIn("1. Neden kırılımı ekle.", self.istem)
         self.assertIn("düzelt", self.istem)
-
-    def test_soru_maddesi_yoksa_istemde_soru_yok(self):
-        self.kuyruk([])
-        self.kostur(claude=self.sahte_claude(taslak_yaz=False))
-        self.assertNotIn("kurul sorusu", self.istem.lower())
-        self.assertIsNone(self.taslak_arg)
 
 
 class SoruKaydinaKopyaTesti(Kurulum):

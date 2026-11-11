@@ -187,6 +187,8 @@ class KuruKosuTesti(unittest.TestCase):
     def test_nim_kosusu_anahtarsiz_atlanir_claude_cagrilmaz(self):
         with tempfile.TemporaryDirectory() as d:
             kok = sahte_kok(d, saglayici="nim", model="meta/llama-3.3-70b-instruct")
+            # Maddesiz koşu claude'a hiç varmaz; anahtar kontrolüne ulaşmak için kuyrukta bir soru olmalı.
+            ayar.durum_guncelle("deneme", {"kuyruk": [{"id": "s-20261111-0900-abcd", "durum": "bekliyor"}]}, kok)
             with mock.patch.object(kos.ayar, "KOK", kok), mock.patch.object(kos, "KOK", kok), \
                     mock.patch.object(kos.ayar, "ENV_DOSYASI", kok / ".env"), \
                     mock.patch.object(kos.agents_uret, "uret"), \
