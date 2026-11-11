@@ -4,6 +4,7 @@
 Bütün betikler buradan okur; hiçbir sayı ikinci bir yerde yazılmaz.
 Anahtarlar repo kökündeki `.env` dosyasındadır (`.env.example` kopyası) ve git'e girmez.
 """
+import fcntl
 import json
 import os
 import re
@@ -119,6 +120,20 @@ def eksik_anahtarlar(gerekli, ortam=None):
 
 
 # --- mesai -----------------------------------------------------------------
+
+KOSU_KILIDI = ".kos.lock"   # bin/kos.py aynı anda tek koşu için tutar
+
+
+def kosu_suruyor(kok=None):
+    """Bir kos.py koşu kilidini tutuyor mu? Kilidi almayı dener, alırsa hemen bırakır; beklemez."""
+    with open(Path(kok or KOK) / KOSU_KILIDI, "a") as kilit:
+        try:
+            fcntl.flock(kilit, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(kilit, fcntl.LOCK_UN)
+        return False
+
 
 def mesaide_mi(simdi=None):
     an = simdi or datetime.now()

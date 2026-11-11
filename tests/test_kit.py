@@ -382,6 +382,21 @@ class TavanTesti(unittest.TestCase):
             kossun, _ = dagitici.tetik_karari(self._bekleyen_kok(tmp), "kasa-bakimi", self.SIMDI)
             self.assertTrue(kossun)
 
+    def test_kosu_suruyorken_yeni_kosu_baslatmaz(self):
+        """Bir kos.py kilidi tutarken madde hâlâ 'bekliyor' görünür (yapiliyor'a kilitten sonra döner).
+        Dağıtıcı her ilerletmede yeni süreç başlatıyordu; kilit doluysa beklemeli (11.11.2026)."""
+        import fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            kok = self._bekleyen_kok(tmp)
+            with open(kok / ".kos.lock", "w") as kilit:
+                fcntl.flock(kilit, fcntl.LOCK_EX)
+                kossun, sebep = dagitici.tetik_karari(kok, "kasa-bakimi", self.SIMDI)
+                fcntl.flock(kilit, fcntl.LOCK_UN)
+            self.assertFalse(kossun)
+            self.assertIn("koşu sürüyor", sebep)
+            kossun, _ = dagitici.tetik_karari(kok, "kasa-bakimi", self.SIMDI)
+            self.assertTrue(kossun, "kilit boşalınca koşar")
+
     def test_mesai_disi_bekletir(self):
         with tempfile.TemporaryDirectory() as tmp:
             gece = self.SIMDI.replace(hour=3)

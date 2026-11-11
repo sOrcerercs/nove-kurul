@@ -518,6 +518,11 @@ def kos(takim, kuru=False, zorla=False):
     if eksik:
         _atla(takim, kosu, zaman, fm, "eksik anahtar: " + ", ".join(eksik))
         return 0
+    if madde is None:
+        # Nove'de her iş bir s-/r- maddesidir (ZINCIR boş, zamanlı rapor da sistem sorusu). Kilit sırasında
+        # bekleyen bir süreç kuyruğu boş bulabilir: claude çağrılmaz, kayıt yazılmaz, son_kosu değişmez.
+        print(f"{takim}: kuyrukta soru maddesi yok — koşu yapılmadı")
+        return 0
     kosu.parent.mkdir(parents=True, exist_ok=True)
     if madde:  # dağıtıcı aynı maddeyi ikinci kez başlatmasın
         _madde_durumu(takim, madde["id"], "yapiliyor")
@@ -557,7 +562,7 @@ def main(argv):
         return 2
     if "--kuru" in argv:  # kuru koşu hiçbir şeye dokunmaz, kilide de girmez
         return kos(argv[0], kuru=True)
-    with open(KOK / ".kos.lock", "w") as kilit:  # aynı anda iki koşu olmasın
+    with open(KOK / ayar.KOSU_KILIDI, "w") as kilit:  # aynı anda iki koşu olmasın
         fcntl.flock(kilit, fcntl.LOCK_EX)
         try:
             return kos(argv[0], zorla="--zorla" in argv)

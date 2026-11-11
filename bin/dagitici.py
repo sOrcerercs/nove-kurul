@@ -152,6 +152,10 @@ def tetik_karari(kok, takim, simdi):
     bekleyen = bekleyen_sayisi(durum)
     if not bekleyen:
         return False, "kuyrukta bekleyen madde yok"
+    # Madde 'yapiliyor'a ancak kos.py kilidi aldıktan sonra döner; kilit doluyken madde 'bekliyor'
+    # görünür ve her ilerletme yeni bir kos.py yığardı (11.11.2026: beş boş koşu). Sonraki ilerletmede.
+    if ayar.kosu_suruyor(kok):
+        return False, "bir koşu sürüyor (kilit dolu); sonraki ilerletmede"
     son_kosu = _dt(durum.get("son_kosu"))
     if son_kosu is not None:
         gecen = int((simdi - son_kosu).total_seconds() // 60)
