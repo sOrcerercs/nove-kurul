@@ -60,7 +60,7 @@
 | **Kurul üyesi** (insan) | Soruyu sorar, yanıtı okur | Panel kullanıcısı (e-posta + şifre girişi, N11) | — |
 | **Q&A Danışmanı** | Soruyu alır, kayda geçirir; sonunda yanıtı kurula iletir | Giriş/çıkış kapısı. **LLM çağırmaz.** Rol, ön kontroller (N15) ve maskeleme burada; panelden gelen soruyu Faz 5'te `panel.py` buraya verir | `bin/soru_kapisi.py` |
 | **İş Dağıtımcı** | Bölümü seçer, soruyu doğru danışmana götürür | `dagitici.py` + `takim_sec()`. Önce anahtar kelime tablosu kullanılır; o tutmazsa Haiku ile sınıflandırılır | `bin/dagitici.py` |
-| **Danışman** (Finans, Kalite, OKR, Raporlama, Satış Müdürü, …) | Analiz eder; CEO reddederse düzeltir | **Takım.** Dört dosyalı iskelet: `takim.md` · `kurallar.md` · `defter.md` · `durum.json` | `takimlar/<danisman>/` |
+| **Danışman** (Finans, Kalite, OKR, Raporlama, Satış Müdürü, SDR, …) | Analiz eder; CEO reddederse düzeltir | **Takım.** Dört dosyalı iskelet: `takim.md` · `kurallar.md` · `defter.md` · `durum.json` | `takimlar/<danisman>/` |
 | **Denetçi Ajan** | Masaya gelir; kaynak, hesap ve tutarlılık kontrol eder | **Bekçi.** Stop hook'ta, ayrı süreçte ve ayrı model ailesinde çalışır | `bin/bekci.py` |
 | **CEO Ajanı** | Bekçi'nin onayladığı çıktıyı ikinci kez kontrol eder, onaylar | **Yeni.** Bekçi kabulünden sonra çalışan ayrı bir `claude -p` koşusu: double check + onay şeması | `bin/ceo.py`, `sirket/CEO-KIMLIGI.md` |
 | **Yanıt defteri** (sekme, eski adı Karar defteri) | Sorulan soruların onaylı yanıtlarının listesi | `yanit_defteri.py` (`karar_defter.py`'den türer). Ona yalnız sürücü yazar | `yanitlar/` |
@@ -130,7 +130,7 @@ nove-kurul/
 │   └── YETENEKLER.md
 ├── takimlar/
 │   ├── _iskelet/              takim-olustur.sh'in kopyaladığı dört dosya
-│   ├── finans/  kalite/  okr/  raporlama/  satis-muduru/
+│   ├── finans/  kalite/  okr/  raporlama/  satis-muduru/  sdr/
 │   └── <danisman>/  takim.md · kurallar.md · defter.md · durum.json · gelen/ · kosu/ · cikti/ · veri/
 ├── formlar/                   şablon: `DANISMAN-FORMU.md`
 │   ├── DANISMAN-FORMU.md      yöneticilere giden boş şablon (§6)
@@ -504,7 +504,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 ### Faz 6 · Yönetici danışmanları
 > **Durum (09.10.2026):** başlamadı — `takim.md` dosyaları boş açıldı.
 
-- [ ] Formlar gönderildi: Finans, OKR, Raporlama, Satış Müdürü (+ boş odalar)
+- [ ] Formlar gönderildi: Finans, OKR, Raporlama, Satış Müdürü, SDR (+ boş odalar) — dördü ön dolduruldu, SDR eklendi (11.11.2026)
 - [ ] Her form gelince: revize → `onayli/` → `formdan_takim.py` → kuru koşu → 3 gerçek soru → devreye alma
 - [ ] Bir danışman ancak **verisi bağlıysa** devreye girer. Verisi olmayan danışman sahnede "kurulumda" olarak görünür
 

@@ -13,6 +13,7 @@
 | OKR Danışmanı | `takimlar/okr/` | kurulumda — form bekliyor (Faz 6) |
 | Raporlama Danışmanı | `takimlar/raporlama/` | kurulumda — form bekliyor (Faz 6) |
 | Satış Müdürü | `takimlar/satis-muduru/` | kurulumda — form bekliyor (Faz 6) |
+| SDR Danışmanı | `takimlar/sdr/` | kurulumda — form bekliyor (Faz 6; Satış Müdürü'nden ayrıldı, 11.11.2026) |
 
 "Kurulu" ama koşmayan danışman: `gerekli_anahtarlar` eksikse sürücü "eksik anahtar" deyip atlar (`bin/kos.py`).
 
