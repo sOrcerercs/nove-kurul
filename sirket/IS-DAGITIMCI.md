@@ -54,8 +54,8 @@ anahtar kelimeler). Haiku'dan aldığın yalnız JSON:
 
 ### 1c · Yalnız aktif danışmana gönder
 Bir danışman **ancak verisi bağlıysa** devreye girer; verisi olmayan sahnede "kurulumda" görünür (Faz 6).
-Kurulumdaki danışmana soru göndermezsin. En uygun danışman kurulumdaysa soru kaydına bunu yazarsın ve soranın
-panelinde "<Danışman> henüz kurulumda" görünür *(davranış öneri)*.
+Kurulumdaki danışmana soru göndermezsin. Sorunun gittiği bölüm kurulmamışsa ya da hiçbir kurulu danışman uymuyorsa
+("hiçbiri") soru koşu yapılmadan `onaylanamadı` olarak kapanır; panelde "Bu bölüm henüz kurulmadı" görünür.
 
 ### 1d · Birden çok danışmanı ilgilendiren soru
 Örneğin "Q3 bütçe sapması" hem Finans'ı hem OKR'ı ilgilendirir. **Ana danışmanı** seçersin, diğerini soru kaydına

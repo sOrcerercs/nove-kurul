@@ -34,7 +34,7 @@
 | N13 | **TC kimlik deseni sağlama hanesiyle çalışır:** yalnız geçerli TC numarası yakalanır (12.10.2026) |
 | N14 | **Şemasız yollarda (NIM, Haiku) `kontrol` alanı eksikse karar korunur**, kontrol "yapılmadı" yazılır; panelde ışıklar gri (12.10.2026) |
 | N15 | **Q&A ön kontrolleri:** günlük 10 soruyu dolduranın 11. sorusu reddedilir · şirket günü 40 USD doluysa soru ertesi güne bekler · 3 kelimeden kısa soru geri döner · aynı kişi aynı soruyu 10 dk içinde sorarsa ikinci kayıt açılmaz (12.10.2026) |
-| N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026) |
+| N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026; 12.11.2026: Haiku "hiçbiri" diyebilir; seçilemeyen soru koşusuz `onaylanamadı` olarak deftere girer) |
 | N17 | **Soruyu adımdan adıma İş Dağıtımcı otomatik taşır:** Denetçi kararını soru kaydına sürücü kopyalar, CEO'yu dağıtıcı başlatır, CEO reddinde `r-` açar, onayda iletir (12.10.2026) |
 | N18 | **Denetçi'nin son kararı `red` ya da `atlandi` ise soru "onaylanamadı" olur:** CEO'ya gitmez, Yanıt defterine Denetçi'nin gerekçesiyle girer (12.10.2026) |
 | N19 | **Denetçi yönergesi ve üç ek sınır kagan-sirketi'nden aynen alınır:** madde 3–4 Denetçi'nin konusu değildir · "kaynaksız sayı" yalnız dış dünya iddiaları içindir · hedef aralıktan %15'e kadar sapma red sebebi değildir (13.10.2026) |
@@ -366,17 +366,17 @@ panel/
 ```
 
 - **Giriş ucu:** `POST /api/giris` gövdesi `{"eposta", "sifre"}`. Başarıda `200 {"ad", "basHarf", "rol"}` ve
-  `HttpOnly; Secure; SameSite=Strict` oturum çerezi döner. Yanlış bilgide `401`, çok denemede `429`. Panel bu üç durumu
+  `HttpOnly; SameSite=Strict` oturum çerezi döner; `Secure` yalnız `--https-arkasinda` ile eklenir. Yanlış bilgide `401`, çok denemede `429`. Panel bu üç durumu
   kullanıcıya ayrı mesajla gösterir; sunucuya ulaşılamazsa da ayrı mesaj verir.
 - **Çıkış ucu:** `POST /api/cikis` oturumu kapatır; panel giriş ekranına döner.
-- **Şifre saklama:** Düz metin tutulmaz; `panel.py` Python stdlib'deki `hashlib.scrypt` ile özet saklar. Kullanıcı ve özet dosyası
+- **Şifre saklama:** Düz metin tutulmaz; `panel.py` Python stdlib ile özet saklar: scrypt, yoksa PBKDF2-SHA256 (kayıtta `yontem`). Kullanıcı ve özet dosyası
   git'e girmez ve izni `600`'dür. Dağıtım ve sıfırlama N23'e göre: yönetici ekler, ilk girişte geçici şifre değişir.
 - **Rol:** `/api/giris` yanıtındaki `rol` (`kurul` | `yonetici`) `deploy/roller.json`'dan gelir (§8b). `panel.js` rolü henüz
   kullanmıyor; süzme (ör. Yanıt defteri, N10) sunucuda yapılır.
 - **Demo modu:** Sayfa dosyadan açılırsa (`file://`) ya da adres `?demo` ile açılırsa her e-posta ve şifre kabul edilir ve
   `#ofis` bağlantısı girişi atlar. Bu yalnız tarayıcıdaki görünümü açar; güvenlik sınırı `panel.py`'dir: oturum çerezi olmadan
   hiçbir uç veri döndürmez. Üretimde `panel.js`'teki `DEMO` bayrağı `false` sabitlenir.
-- **Yerelde açmak:** `cd panel && python3 -m http.server 8000` → `http://127.0.0.1:8000/?demo`
+- **Yerelde açmak:** `python3 bin/panel.py` → `http://127.0.0.1:8770` (`?demo` aynı adreste)
 
 ---
 
@@ -492,11 +492,12 @@ ve `qa-koclugu-kurgusu` taşınır.
     buna göre konur (N31, şimdi geçici 1,50 USD)
 
 ### Faz 5 · Panel
-> **Durum (09.10.2026):** kısmen — panel demo verisiyle çalışıyor; `panel.py` yok.
+> **Durum (12.11.2026):** panel canlı — giriş, soru, durum yoklaması, Yanıt defteri; SSE, CRM zili, ajan kartı, Caddy/systemd açık.
 
 - [x] Giriş ekranı ve Kurul Ofisi `panel/` altında, demo verisiyle çalışıyor (09.10.2026)
 - [ ] Orijinal `.dc.html` + `support.js` Claude Design'dan dışa aktarıldı (14 Aralık'tan önce)
-- [ ] `bin/panel.py`: `sahne.py` temel alınır. `POST /api/giris`, `POST /api/cikis` (§8c), `POST /api/soru`, `GET /api/durum`, `GET /api/olaylar` (SSE), `GET /api/yanitlar` (role göre süzülür), `POST /api/crm/satis`
+- [x] `bin/panel.py` (12.11.2026): `POST /api/giris`, `POST /api/cikis` (§8c), `GET /api/ben`, `POST /api/soru`, `GET /api/sorular/<id>`, `GET /api/yanitlar` (role göre süzülür), arka plan ilerleticisi
+- [ ] `bin/panel.py` kalanı: `GET /api/olaylar` (SSE), `POST /api/crm/satis`
 - [ ] "Soru akışı" kartı soru kaydından, "Ajan kartı" `takim.md` + `durum.json` + `defter.md`'den beslenir
 - [ ] `otomatikDemo` yalnız demo ortamında açılır, üretimde kapalı kalır
 - [ ] Caddy + systemd birimleri (`deploy/`)

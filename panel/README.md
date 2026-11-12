@@ -14,16 +14,28 @@ Akış: dönen dünya ve e-posta + şifre formu → "Hoş geldin, <ad>" → Kuru
 ## Yerelde açmak
 
 ```bash
-cd panel
-python3 -m http.server 8000
-# tarayıcıda: http://127.0.0.1:8000/?demo
+python3 bin/panel.py
+# tarayıcıda: http://127.0.0.1:8770   (demo: http://127.0.0.1:8770/?demo)
 ```
 
+- `bin/panel.py` `panel/` dosyalarını ve API'yi aynı adresten (`127.0.0.1:8770`) sunar.
+- Bayraklar: `--port N` · `--ilerletme-yok` (arka plan ilerleticisini kapatır) · `--https-arkasinda` (çerez `Secure` olur) ·
+  `--kullanici-ekle <eposta> --ad "<ad>"` (kullanıcı ekler; Claude Code ortamında reddedilir, kendi terminalinde koşturulur).
 - `?demo` ile ya da dosyayı çift tıklayarak açınca **demo modu**: her e-posta ve şifre kabul edilir, `#ofis` girişi atlar.
-- `?demo` olmadan açınca form `POST /api/giris`'e gider. `bin/panel.py` yazılana kadar "Giriş şu an yapılamıyor" mesajı görünür; bu beklenen davranış.
+- `?demo` olmadan açınca form `POST /api/giris`'e gider; gerçek modda soru, bekleme ekranı ve Yanıt defteri canlıdır.
 
 ## Sunucu sözleşmesi (`bin/panel.py`)
 
 - `POST /api/giris` `{"eposta","sifre"}` → `200 {"ad","basHarf","rol"}` + oturum çerezi · `401` yanlış bilgi · `429` çok deneme
 - `POST /api/cikis` → oturumu kapatır
-- Soru akışı şu an `panel.js` içindeki demo verisiyle dönüyor; Faz 5'te `GET /api/olaylar` (SSE) olaylarına bağlanacak.
+- `GET /api/ben` → oturumdaki kullanıcı (`ad`, `basHarf`, `rol`) · `401` oturum yok
+- `POST /api/soru` → soruyu Q&A kapısından geçirip kaydeder; soru kimliğini döner
+- `GET /api/sorular/<id>` → sorunun durumu; başkasının sorusu `404`
+- `GET /api/yanitlar` → Yanıt defteri, role göre süzülür (kurul yalnız kendi sorularını görür)
+- Durum yoklaması 10 sn'de bir yapılır. SSE (`GET /api/olaylar`) Faz 7'de.
+- Arka plan ilerleticisi: açık soru varken her ~60 sn'de bir İş Dağıtımcı adımı koşturur; `.kos.lock` doluysa atlar, bir adımdan
+  sonra en az 15 sn (`ASGARI_ARA_SN`) bekler.
+- Şifre: scrypt, yoksa PBKDF2-SHA256 (600 000 tur; kayıtta `yontem`). `deploy/kullanicilar.json` git'e girmez, izni `600`.
+  Oturumlar bellekte, 12 saat. Fren: aynı e-posta ya da IP için 15 dk'da 5 hatalı giriş (dev'de bütün istekler `127.0.0.1`).
+- Kurulmamış bölüme giden soru koşusuz `onaylanamadı` ("Bu bölüm henüz kurulmadı") olarak deftere girer. Onaylanamayan
+  yanıtlarda kurul kısa sebebi, yönetici ham gerekçeyi görür.
