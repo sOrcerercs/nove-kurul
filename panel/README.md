@@ -30,7 +30,9 @@ python3 bin/panel.py
 - `POST /api/cikis` → oturumu kapatır
 - `GET /api/ben` → oturumdaki kullanıcı (`ad`, `basHarf`, `rol`) · `401` oturum yok
 - `POST /api/soru` → soruyu Q&A kapısından geçirip kaydeder; soru kimliğini döner
-- `GET /api/sorular/<id>` → sorunun durumu; başkasının sorusu `404`
+- `GET /api/sorular/<id>` → sorunun durumu, `asama` (sabit sekiz ad, bu sırayla: `qa_al`, `dagit`, `analiz`, `denetim`, `ceo_sorgu`, `revize`, `ceo_onay`, `qa_ilet`; yalnız gerçekleşenler) ve `danisman`; başkasının sorusu `404`
+- Gerçek modda sahne, yoklamadaki aşamalarla gerçek sırayla oynar (`sahne-sira.js`); sayfa yenilenince yalnız son aşama gösterilir, geçmiş aşamalar baştan oynamaz.
+  Bilinen sınır: `onaylanamadı` biten sorudan sonra sahnenin boşta gezintileri bir sonraki tamamlanan akışa ya da yenilemeye kadar durur (`ofis3d-v4.js` değişmedi).
 - `GET /api/yanitlar` → Yanıt defteri, role göre süzülür (kurul yalnız kendi sorularını görür)
 - Durum yoklaması 10 sn'de bir yapılır. SSE (`GET /api/olaylar`) Faz 7'de.
 - Arka plan ilerleticisi: açık soru varken her ~60 sn'de bir İş Dağıtımcı adımı koşturur; `.kos.lock` doluysa atlar, bir adımdan
