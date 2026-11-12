@@ -43,7 +43,8 @@ Haiku'ya verdiğin: maskelenmiş soru metni ve **yalnız aktif** danışmanları
 anahtar kelimeler). Haiku'dan aldığın yalnız JSON:
 
 ```json
-{ "danisman": "<listeden bir ad> | hiçbiri", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null" }
+{ "danisman": "<listeden bir ad> | hiçbiri", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null",
+  "zorluk": "kolay | orta | zor", "zorluk_gerekce": "tek kısa cümle" }
 ```
 
 - Haiku listede olmayan bir ad döndürürse ya da JSON bozuksa: soru **yönlendirilemedi** sayılır. Hiçbir danışmana
@@ -74,11 +75,11 @@ Soru kaydına (`sirket-log/sorular/<soru-id>.md`) bir `## Dağıtım` bölümü 
 ```markdown
 ## Dağıtım
 - danışman: Finans
+- zorluk: zor · dönemler arası karşılaştırma
 - yöntem: anahtar kelime            (ya da: Haiku — tablo eşleşmedi / beraberlik)
 - eşleşen ifadeler: bütçe, sapma
 - güven: %86
 - öneri: OKR
-- zorluk: zor · dönemler arası karşılaştırma
 ```
 
 Kabul ölçütü: her yanıtın soru kaydında dağıtım gerekçesi görünür (§12).

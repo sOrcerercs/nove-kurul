@@ -83,7 +83,7 @@
       │
  [2] İş Dağıtımcı       dagitici.py → anahtar kelime tablosu → (belirsizse Haiku)
       │                 → takimlar/<danisman>/durum.json kuyruğuna  s-<soru-id>
- [3] Danışman           kos.py <danisman>   (claude -p, sonnet)
+ [3] Danışman           kos.py <danisman>   (claude -p; model zorluğa göre: haiku / sonnet / opus)
       │                 → cikti/<soru-id>-taslak.md
  [4] Denetçi (Bekçi)    Stop hook → bekci.py  (NIM → OpenAI → Haiku; yedek geçici olarak Opus 5.5 — N32)
       │   red ─► aynı oturumda düzelt (en fazla 2) — CEO'ya HİÇ gitmez
@@ -196,7 +196,7 @@ Bekçi ile CEO'nun işi aynı değildir. Biri kuralları, diğeri kararı kontro
 |---|---|---|
 | Ne zaman | Danışman koşusunun sonunda (Stop hook) | Yalnız Bekçi `kabul` verdikten sonra |
 | Neye bakar | **Kural:** ANAYASA + `kurallar.md`. Kaynak, hesap, tutarlılık, gizli veri | **Karar kalitesi:** soru gerçekten yanıtlandı mı, kurul bu yanıtla karar verebilir mi, sayılar taslağın kendi kaynaklarıyla tutuyor mu, Yanıt defterindeki önceki yanıtlarla çelişki var mı |
-| Model | Ayrı aile (NIM → OpenAI → Haiku; yedek geçici olarak Opus 5.5 — N32) | Claude **Opus**. Danışman Sonnet'te çalıştığı için CEO ondan daha güçlü bir modeldir |
+| Model | Ayrı aile (NIM → OpenAI → Haiku; yedek geçici olarak Opus 5.5 — N32) | Claude **Opus**. Danışman çoğunlukla Sonnet'te çalıştığı için CEO ondan daha güçlü bir modeldir; zor bir koşu CEO ile aynı Opus'ta çalışır (modeller aynı, bağlam ve rol ayrı) |
 | Sonuç | `kabul` / `red` | `onay` / `red` + bulgular |
 | Red sonrası | Danışman aynı oturumda düzeltir (en fazla 2) | Danışman yeni bir koşuda düzeltir (en fazla 1), sonra yine Bekçi → CEO |
 
@@ -389,7 +389,7 @@ panel/
 | Danışman koşusu | 2 USD / 15 dk | kolay/orta 2 USD, zor 4 USD / 15 dk | Sınıfı İş Dağıtımcı koyar (N32) |
 | Denetçi yedeği | — | **0,75 USD**/çağrı, 240 sn | Geçici Opus; soru bütçesine sayılır, koşu tavanına sayılmaz (N32) |
 | CEO kontrolü | — | **1,50 USD** / 5 dk | Opus kullanılır. **Geçici** — Faz 4 beş gerçek soruda ölçülecek (N31) |
-| **Soru başına toplam** | — | **8 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol `4 + 1,5 + 1,5 = 7 USD` (zor koşu + CEO + CEO); düzeltme turu kalan bütçeyle koşar: `8 − harcanan − 1,50 − 0,75`, alt sınır 0,50 USD (N27, N31, N32) |
+| **Soru başına toplam** | — | **8 USD** | Danışman + düzeltme + Bekçi + CEO. İlk tur en kötü `0,05 + 4 + 2×0,75 + 1,5 = 7,05 USD` (Dağıtım Haiku + zor koşu + Denetçi yedeği + CEO); düzeltmeli yolda tavan tam 8,00 USD (K11 formülü + CEO kapısı); düzeltme turu kalan bütçeyle koşar: `8 − harcanan − 1,50 − 0,75`, alt sınır 0,50 USD (N27, N31, N32) |
 | Kurul üyesi başına gün | — | 10 soru | Kötüye kullanım freni |
 | Danışman başına gün | 2 koşu | 15 koşu | Soru akışı olaylıdır, takvimli değildir |
 | Şirket günü | 5 USD | **40 USD** | İlk ay ölçülür (`sirket-log/rapor/`), sonra karar verilir |
