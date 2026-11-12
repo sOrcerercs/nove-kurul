@@ -241,12 +241,31 @@ def istem(takim, fm, kosu, zaman, kok=None):
 # --- kurul sorusu ------------------------------------------------------------
 
 def soru_maddesi(takim, kok=None):
-    """Kuyruktaki ilk bekleyen `s-`/`r-` maddesi: {id, tur, soru_id, not}; yoksa None."""
+    """Kuyruktaki ilk bekleyen `s-`/`r-` maddesi: {id, tur, soru_id, not, zorluk, butce_usd}; yoksa None."""
     for oge in ayar.durum_oku(takim, kok).get("kuyruk") or []:
         eslesme = SORU_MADDESI.match(str(oge.get("id") or "")) if isinstance(oge, dict) else None
         if eslesme and oge.get("durum") == "bekliyor":
-            return {"id": oge["id"], "tur": eslesme.group(1), "soru_id": eslesme.group(2), "not": oge.get("not") or ""}
+            return {"id": oge["id"], "tur": eslesme.group(1), "soru_id": eslesme.group(2), "not": oge.get("not") or "",
+                    "zorluk": oge.get("zorluk"), "butce_usd": oge.get("butce_usd")}
     return None
+
+
+def madde_ayari(fm, madde):
+    """Kuyruk maddesinin zorluğu modeli ve tavanı belirler (zor→opus/4, orta→sonnet/2, kolay→haiku/2).
+    Madde `butce_usd` taşıyorsa (düzeltme turu) tavan en çok o kadar olur. Geçerli bir şey yoksa `fm` aynen döner:
+    zamanlı rapor ve eski maddeler takim.md'ye düşer."""
+    if not madde:
+        return fm
+    z, b = madde.get("zorluk"), madde.get("butce_usd")
+    z = z if isinstance(z, str) and z in ayar.ZORLUK_MODELI else None
+    b = b if isinstance(b, (int, float)) and not isinstance(b, bool) and b > 0 else None
+    if z is None and b is None:
+        return fm
+    taban = ayar.ZORLUK_BUTCESI_USD[z] if z else float(fm.get("butce_usd", ayar.KOSU_BUTCESI_USD))
+    yeni = {**fm, "butce_usd": min(taban, b) if b is not None else taban}
+    if z:
+        yeni["model"], yeni["zorluk"] = ayar.ZORLUK_MODELI[z], z
+    return yeni
 
 
 def taslak_yolu(takim, soru_id, kok=None):
@@ -499,6 +518,7 @@ def kos(takim, kuru=False, zorla=False):
         return 0
     kosu = kosu_yolu(takim, zaman)
     madde = soru_maddesi(takim)
+    fm = madde_ayari(fm, madde)
     taslak = taslak_yolu(takim, madde["soru_id"]) if madde else None
     metin = istem(takim, fm, kosu, zaman) + (soru_istemi(takim, madde) if madde else "")
     if kuru:
@@ -541,7 +561,7 @@ def kos(takim, kuru=False, zorla=False):
         cozum = {**cozum, "hata": True}
     with open(kosu, "a", encoding="utf-8") as dosya:
         dosya.write(f"\n\n---\n- maliyet: {cozum['maliyet']:.3f} USD · tur: {cozum['tur']} · hata: {cozum['hata']}"
-                    f" · model: {model_metni(cozum)}\n")
+                    f" · model: {model_metni(cozum)} · zorluk: {fm.get('zorluk') or '—'}\n")
     for s in sonhazirlik_kos(takim, fm.get("sonhazirlik") or []):
         try:
             with open(kosu, "a", encoding="utf-8") as dosya:

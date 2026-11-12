@@ -206,3 +206,76 @@ class ModelSatiriTesti(Kurulum):
         bugun = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).name[:10]
         self.assertAlmostEqual(ayar.gunluk_maliyet(self.kok, bugun), 0.4)
 
+
+
+class ZorlukTesti(Kurulum):
+    """B16/K8/K9: koşu modeli ve tavanı sorunun zorluğundan gelir; zorluk yoksa takim.md."""
+    FM = {"model": "sonnet", "butce_usd": "2"}
+
+    def zor_kuyruk(self, **ek):
+        self.kuyruk([{"id": f"s-{SID}", "durum": "bekliyor", "not": SORU, "zorluk": "zor", **ek}])
+
+    def test_zorluk_tablosu(self):
+        for z, model, butce in (("kolay", "haiku", 2.0), ("orta", "sonnet", 2.0), ("zor", "opus", 4.0)):
+            with self.subTest(z=z):
+                fm = kos.madde_ayari(self.FM, {"zorluk": z, "butce_usd": None})
+                self.assertEqual((fm["model"], fm["butce_usd"], fm["zorluk"]), (model, butce, z))
+
+    def test_zorluk_yoksa_takim_md(self):
+        self.assertIs(kos.madde_ayari(self.FM, {"zorluk": None, "butce_usd": None}), self.FM)
+        self.assertIs(kos.madde_ayari(self.FM, None), self.FM)
+
+    def test_taninmayan_zorluk_takim_md(self):
+        self.assertIs(kos.madde_ayari(self.FM, {"zorluk": "çok zor", "butce_usd": None}), self.FM)
+
+    def test_duzeltme_butcesi_kisar(self):
+        fm = kos.madde_ayari(self.FM, {"zorluk": "zor", "butce_usd": 1.25})
+        self.assertEqual((fm["butce_usd"], fm["model"]), (1.25, "opus"))
+        self.assertEqual(kos.madde_ayari(self.FM, {"zorluk": "zor", "butce_usd": 9.0})["butce_usd"], 4.0)
+        for b in (0, -1, "3", True):
+            with self.subTest(b=b):
+                self.assertEqual(kos.madde_ayari(self.FM, {"zorluk": "zor", "butce_usd": b})["butce_usd"], 4.0)
+
+    def test_zorluksuz_duzeltme_butcesi(self):
+        fm = kos.madde_ayari(self.FM, {"zorluk": None, "butce_usd": 0.8})
+        self.assertEqual((fm["butce_usd"], fm["model"]), (0.8, "sonnet"))
+        self.assertNotIn("zorluk", fm)
+
+    def test_soru_maddesi_zorluk_tasir(self):
+        self.zor_kuyruk()
+        madde = kos.soru_maddesi("finans", self.kok)
+        self.assertEqual(madde["zorluk"], "zor")
+        self.assertIsNone(madde["butce_usd"])
+
+    def test_zor_madde_opus_ve_dort_dolarla_kosar(self):
+        self.zor_kuyruk()
+        sahte, gelen = self.sahte_claude(), {}
+        def yakala(metin, fm, takim, kosu, taslak=None):
+            gelen["fm"] = fm
+            return sahte(metin, fm, takim, kosu, taslak=taslak)
+        self.kostur(claude=yakala)
+        self.assertEqual(gelen["fm"]["model"], "opus")
+        self.assertEqual(gelen["fm"]["butce_usd"], 4.0)
+        self.assertIn("Bütçe 4.0 USD", self.istem)
+
+    def test_altbilgi_zorluk_ve_model(self):
+        self.zor_kuyruk()
+        sahte = self.sahte_claude()
+        def kos_(*a, **k):
+            return {**sahte(*a, **k), "modeller": ["claude-opus-5-5"]}
+        self.kostur(claude=kos_)
+        kayit = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).read_text(encoding="utf-8")
+        self.assertIn("· model: claude-opus-5-5 · zorluk: zor", kayit)
+
+    def test_zamanli_rapor_takim_md_modeliyle(self):
+        yol = self.kok / "takimlar" / "finans" / "takim.md"
+        yol.write_text("---\nname: finans\ndescription: Finans danışmanı\nskills: []\nmodel: sonnet\n---\n# finans\n",
+                       encoding="utf-8")
+        gelen, sahte = {}, self.sahte_claude()
+        def yakala(metin, fm, takim, kosu, taslak=None):
+            gelen["fm"] = fm
+            return sahte(metin, fm, takim, kosu, taslak=taslak)
+        self.kostur(claude=yakala)
+        self.assertEqual(gelen["fm"]["model"], "sonnet")
+        kayit = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).read_text(encoding="utf-8")
+        self.assertIn("· zorluk: —", kayit)
