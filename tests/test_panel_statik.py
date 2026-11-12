@@ -13,7 +13,7 @@ class PanelStatikTest(unittest.TestCase):
         cls.css = (PANEL / "stil.css").read_text(encoding="utf-8")
 
     def test_gercek_mod_metinleri_ve_uclari(self):
-        for parca in ("Sizin için araştırılıyor", "/api/ben", "/api/soru", "/api/sorular/",
+        for parca in ("Sizin için araştırılıyor", "/api/ben", "'/api/soru'", "/api/sorular/",
                       "/api/yanitlar", "YOKLAMA_MS = 10000"):
             self.assertIn(parca, self.js)
 
@@ -28,6 +28,14 @@ class PanelStatikTest(unittest.TestCase):
 
     def test_demo_kosulu_yeterince_var(self):
         self.assertGreaterEqual(len(re.findall(r"if *\(!?DEMO\)|!?DEMO &&", self.js)), 4)
+
+    def test_cikis_sonrasi_gelen_yanit_yok_sayilir(self):
+        self.assertIn("oturumNo++", self.js)
+        self.assertGreaterEqual(self.js.count("oturumNo"), 10)
+
+    def test_defter_hatasi_gorunur(self):
+        self.assertIn("Yanıt defteri yüklenemedi", self.js)
+        self.assertIn("Yeniden dene", self.js)
 
     def test_md_kurali(self):
         self.assertRegex(self.css, r"(^|\n)\.md[\s{,]")

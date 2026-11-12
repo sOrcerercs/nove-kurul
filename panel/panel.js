@@ -395,7 +395,7 @@ $('logout').addEventListener('click',()=>{
   cikisYap('');
 });
 function cikisYap(mesaj){
-  if(!DEMO){ bekleDurdur(); st.run=null; st.defter=null; Object.assign(gs,GS0); st.panel='akis'; $('question').value=''; renderApp(); }
+  if(!DEMO){ oturumNo++; bekleDurdur(); st.run=null; st.defter=null; Object.assign(gs,GS0); st.panel='akis'; $('question').value=''; renderApp(); }
   timers.splice(0).forEach(clearTimeout);
   $('app').classList.remove('on');
   $('greetInner').classList.remove('on');
@@ -530,7 +530,8 @@ window.__noveAyar = { hiz: 1 };
 
 /* ---------- gerçek mod: bin/panel.py uçları (DEMO'da hiçbiri çağrılmaz) ---------- */
 const YOKLAMA_MS = 10000;
-const GS0 = { bekleyen: null, sonuc: null, red: null, hata: '', bilgi: '', gonderiyor: false, baglanti: true, yokluyor: false };
+const GS0 = { bekleyen: null, sonuc: null, red: null, hata: '', bilgi: '', gonderiyor: false, baglanti: true, yokluyor: false, defterHata: false };
+let oturumNo = 0;
 const gs = Object.assign({}, GS0);
 let yoklamaT = 0, sureT = 0;
 const bas = s => { s = String(s || ''); return s ? s.charAt(0).toLocaleUpperCase('tr') + s.slice(1) : s; };
@@ -538,9 +539,12 @@ const trTarih = s => { const d = new Date(s); return s && !isNaN(d) ? zaman(d) :
 async function api(yol, govde, sessiz){
   const o = { credentials: 'same-origin' };
   if (govde !== undefined) { o.method = 'POST'; o.headers = { 'Content-Type': 'application/json' }; o.body = JSON.stringify(govde); }
+  const no = oturumNo;
   const r = await fetch(yol, o);
+  if (no !== oturumNo) return { ok: false, durum: 0, veri: {}, eski: true };
   if (r.status === 401 && !sessiz) { cikisYap('Oturumun kapandı. Yeniden giriş yap.'); return { ok: false, durum: 401, veri: {} }; }
   const j = await r.json().catch(() => ({}));
+  if (no !== oturumNo) return { ok: false, durum: 0, veri: {}, eski: true };
   return { ok: r.ok, durum: r.status, veri: j };
 }
 function bekleDurdur(){ clearInterval(yoklamaT); clearInterval(sureT); yoklamaT = sureT = 0; }
@@ -559,10 +563,10 @@ function bekle(k, bilgi){
 }
 async function yokla(){
   const b = gs.bekleyen; if (!b || gs.yokluyor) return;
-  gs.yokluyor = true;
+  gs.yokluyor = true; const no = oturumNo;
   try {
     const s = await api('/api/sorular/' + encodeURIComponent(b.soru_id));
-    if (gs.bekleyen !== b || s.durum === 401) return;
+    if (no !== oturumNo || gs.bekleyen !== b || s.durum === 401) return;
     if (s.durum === 404) { bekleDurdur(); gs.bekleyen = null; gs.hata = 'Soru kaydı bulunamadı.'; renderApp(); return; }
     if (!s.ok) throw new Error('durum ' + s.durum);
     const degisti = !gs.baglanti; gs.baglanti = true;
@@ -571,8 +575,8 @@ async function yokla(){
       if (degisti || yeniNot !== b.not) { b.not = yeniNot; renderApp(); }
     } else sonucGoster(s.veri, true);
   } catch (_) {
-    if (gs.bekleyen === b && gs.baglanti) { gs.baglanti = false; renderApp(); }
-  } finally { gs.yokluyor = false; }
+    if (no === oturumNo && gs.bekleyen === b && gs.baglanti) { gs.baglanti = false; renderApp(); }
+  } finally { if (no === oturumNo) gs.yokluyor = false; }
 }
 function sonucGoster(v, temizle){
   bekleDurdur(); gs.bekleyen = null; gs.sonuc = v; gs.red = null; gs.hata = ''; gs.bilgi = '';
@@ -581,20 +585,24 @@ function sonucGoster(v, temizle){
 }
 async function gercekGonder(t){
   if (gs.bekleyen || gs.gonderiyor) return;
-  gs.gonderiyor = true; gs.red = null; gs.hata = ''; renderApp();
+  gs.gonderiyor = true; gs.red = null; gs.hata = ''; renderApp(); const no = oturumNo;
   try {
     const s = await api('/api/soru', { soru: t });
-    if (s.durum === 401) return;
+    if (no !== oturumNo || s.durum === 401) return;
     if (s.ok && s.veri.durum === 'reddedildi') { gs.sonuc = null; gs.red = s.veri.sebep || ''; }
     else if (s.ok) bekle(s.veri, s.veri.bilgi);
     else { gs.sonuc = null; gs.hata = s.veri.hata || 'Soru gönderilemedi.'; }
-  } catch (_) { gs.hata = 'Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.'; }
-  finally { gs.gonderiyor = false; renderApp(); }
+  } catch (_) { if (no === oturumNo) gs.hata = 'Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.'; }
+  finally { if (no === oturumNo) { gs.gonderiyor = false; renderApp(); } }
 }
 async function defterYukle(){
   if (DEMO) return;
+  const no = oturumNo;
   try {
-    const s = await api('/api/yanitlar'); if (!s.ok) return;
+    const s = await api('/api/yanitlar');
+    if (no !== oturumNo || s.durum === 401) return;
+    if (!s.ok) throw new Error('durum ' + s.durum);
+    gs.defterHata = false;
     const k = Array.isArray(s.veri.kayitlar) ? s.veri.kayitlar : [], acik = Array.isArray(s.veri.acik) ? s.veri.acik : [];
     st.defter = k.map(d => {
       const kz = d.etiket === 'onaylanamadı', ky = d.etiket === 'CEO kontrolü yapılmadı';
@@ -604,22 +612,24 @@ async function defterYukle(){
         kararRenk: kz ? '#a3281c' : ky ? '#8f6212' : '#1f7a56', kararBg: kz ? '#fdeceb' : ky ? '#fbf1dc' : '#e8f5ee' };
     });
     if (acik.length && !gs.bekleyen && !gs.gonderiyor) bekle(acik[0]); else renderApp();
-  } catch (_) {}
+  } catch (_) { if (no === oturumNo) { gs.defterHata = true; renderApp(); } }
 }
 async function satirAc(id){
   if (DEMO || !id || gs.bekleyen || gs.gonderiyor) return;
+  const no = oturumNo;
   try {
     const s = await api('/api/sorular/' + encodeURIComponent(id));
-    if (!s.ok || gs.bekleyen) return;
+    if (no !== oturumNo || s.durum === 401 || gs.bekleyen) return;
+    if (!s.ok) throw new Error('durum ' + s.durum);
     $('app').scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     if (s.veri.durum === 'arastiriliyor') bekle(s.veri); else sonucGoster(s.veri, false);
-  } catch (_) {}
+  } catch (_) { if (no === oturumNo) { gs.hata = 'Kayıt açılamadı. Bağlantını kontrol edip tekrar dene.'; st.panel = 'akis'; renderApp(); } }
 }
 function gercekAkis(){
   const b = gs.bekleyen, v = gs.sonuc;
   let h = '<div class="panel">';
   if (gs.red !== null) h += `<div><div class="lbl red">SORU KAYDA ALINMADI</div><div class="qtext">${esc(gs.red)}</div></div>`;
-  else if (b || v) h += `<div><div class="lbl">SORU</div><div class="qtext">${esc((b || v).soru)}</div></div>`;
+  else if (b || v) h += `<div><div class="lbl">SORU</div><div class="qtext">${esc((b || v).soru || '')}</div></div>`;
   else if (!gs.hata) h += `<div><div class="lbl">SORU</div><div class="qtext">Henüz soru yok. Yukarıdan bir soru yazın ya da örneklerden birini seçin.</div></div>`;
   if (gs.hata) h += `<div class="gerr" role="alert">${esc(gs.hata)}</div>`;
   if (b) {
@@ -670,9 +680,15 @@ function renderApp(){
   }
   $('panel').innerHTML = h;
   const defter = DEMO ? (st.defter || SEED_DEFTER) : (st.defter || []);
-  $('defterAdet').textContent = defter.length + ' kayıt';
+  $('defterAdet').textContent = !DEMO && st.defter === null ? '' : defter.length + ' kayıt';
+  if (!DEMO && st.defter === null) {
+    $('defterRows').innerHTML = gs.defterHata
+      ? '<div class="tr bos">Yanıt defteri yüklenemedi. <button type="button" class="yeniden">Yeniden dene</button></div>'
+      : '<div class="tr bos">Yükleniyor…</div>';
+    return;
+  }
   if (!DEMO) {
-    $('defterRows').innerHTML = defter.length ? defter.map(d => `<div class="tr tikli" role="button" tabindex="0" data-id="${esc(d.id)}"><div class="d">${esc(d.tarih)}</div><div class="q">${esc(d.soru)}${d.soran ? `<small class="soran">${esc(d.soran)}</small>` : ''}</div><div class="c">${esc(d.bolum)}</div><div class="c">${esc(d.denetci)}</div><div><span class="badge" style="background:${d.kararBg};color:${d.kararRenk}">${esc(d.karar)}</span></div></div>`).join('')
+    $('defterRows').innerHTML = defter.length ? defter.map(d => `<div class="tr tikli" role="button" tabindex="0" data-id="${esc(d.id)}"><div class="d">${esc(d.tarih)}</div><div class="q">${esc(d.soru || '')}${d.soran ? `<small class="soran">${esc(d.soran)}</small>` : ''}</div><div class="c">${esc(d.bolum)}</div><div class="c">${esc(d.denetci)}</div><div><span class="badge" style="background:${d.kararBg};color:${d.kararRenk}">${esc(d.karar)}</span></div></div>`).join('')
       : '<div class="tr bos">Henüz kayıt yok</div>';
     return;
   }
@@ -680,7 +696,7 @@ function renderApp(){
 }
 $('chips').insertAdjacentHTML('beforeend', ORNEKLER.map(m => `<button type="button" class="chip">${esc(m)}</button>`).join(''));
 $('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; if (!DEMO) { const q = $('question'); q.value = b.textContent; q.focus(); return; } gonder(b.textContent); });
-$('defterRows').addEventListener('click', e => { const r = e.target.closest('.tikli'); if (r) satirAc(r.dataset.id); });
+$('defterRows').addEventListener('click', e => { if (e.target.closest('.yeniden')) { gs.defterHata = false; renderApp(); defterYukle(); return; } const r = e.target.closest('.tikli'); if (r) satirAc(r.dataset.id); });
 $('defterRows').addEventListener('keydown', e => { if (e.key !== 'Enter') return; const r = e.target.closest('.tikli'); if (r) { e.preventDefault(); satirAc(r.dataset.id); } });
 $('ask').addEventListener('submit', e => { e.preventDefault(); gonder(); });
 $('segAkis').addEventListener('click', () => { st.panel = "akis"; renderApp(); });
