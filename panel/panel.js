@@ -395,7 +395,7 @@ $('logout').addEventListener('click',()=>{
   cikisYap('');
 });
 function cikisYap(mesaj){
-  if(!DEMO){ oturumNo++; bekleDurdur(); st.run=null; st.defter=null; Object.assign(gs,GS0); st.panel='akis'; $('question').value=''; renderApp(); }
+  if(!DEMO){ oturumNo++; bekleDurdur(); sahneSifirla(); st.run=null; st.defter=null; Object.assign(gs,GS0); st.panel='akis'; $('question').value=''; renderApp(); }
   timers.splice(0).forEach(clearTimeout);
   $('app').classList.remove('on');
   $('greetInner').classList.remove('on');
@@ -524,7 +524,7 @@ function ilerle(runId, i){
   }
   r.step = n; renderApp(); adimGonder();
 }
-window.addEventListener("nove-adim-bitti", e => { const d = e.detail || {}; ilerle(d.runId, d.i); });
+window.addEventListener("nove-adim-bitti", e => { const d = e.detail || {}; DEMO ? ilerle(d.runId, d.i) : sahneBitti(d); });
 window.addEventListener("nove-sec", e => { const k = e.detail && e.detail.key; if (k) { st.sec = k; st.panel = "ajan"; renderApp(); } });
 window.__noveAyar = { hiz: 1 };
 
@@ -547,6 +547,37 @@ async function api(yol, govde, sessiz){
   if (no !== oturumNo) return { ok: false, durum: 0, veri: {}, eski: true };
   return { ok: r.ok, durum: r.status, veri: j };
 }
+/* gerçek mod sahnesi: sunucunun aşama listesini sırayla oynar (DEMO'da çalışmaz) */
+let sahne = null;
+function sahneSifirla(){ if (sahne) clearTimeout(sahne.t); sahne = null; }
+function sahneIsle(v){
+  if (DEMO || !sahne) return;
+  const r = NoveSahneSira.sira(sahne.gorulen, v.asama, v.danisman);
+  r.oyna.forEach(t => sahne.kuyruk.push(t));
+  sahne.gorulen = r.gorulen; if (r.dept) sahne.dept = r.dept;
+  if (v.durum === 'onaylanamadi') sahne.bosalt = true;
+  sahneSonraki();
+}
+function sahneSonraki(){
+  const s = sahne; if (DEMO || !s || s.oynuyor) return;
+  if (!s.kuyruk.length) {
+    if (s.bosalt) {
+      ['qa', 'dagitici', s.dept, 'denetci'].forEach(key => { if (key) window.dispatchEvent(new CustomEvent("nove-komut", { detail: { key: key, cmd: "masa" } })); });
+      s.bosalt = false;
+    }
+    return;
+  }
+  if (!window.__noveOfisHazir) { s.kuyruk.length = 0; return; }
+  const tip = s.kuyruk.shift();
+  s.oynuyor = true;
+  window.dispatchEvent(new CustomEvent("nove-akis", { detail: { tip: tip, i: s.i, runId: s.runId, dept: s.dept } }));
+  const i = s.i; clearTimeout(s.t);
+  s.t = setTimeout(() => sahneBitti({ runId: s.runId, i: i }), 25000);
+}
+function sahneBitti(d){
+  const s = sahne; if (DEMO || !s || !d || d.runId !== s.runId || d.i !== s.i || !s.oynuyor) return;
+  clearTimeout(s.t); s.i++; s.oynuyor = false; sahneSonraki();
+}
 function bekleDurdur(){ clearInterval(yoklamaT); clearInterval(sureT); yoklamaT = sureT = 0; }
 function sureMetin(z){
   const ms = Date.now() - Date.parse(z); if (isNaN(ms)) return '';
@@ -556,6 +587,10 @@ function sureMetin(z){
 function sureYaz(){ const e = $('bekleSure'); if (e && gs.bekleyen) e.textContent = sureMetin(gs.bekleyen.zaman); }
 function bekle(k, bilgi){
   bekleDurdur();
+  if (!DEMO) {
+    if (!sahne || sahne.id !== k.soru_id) { sahneSifirla(); sahne = { id: k.soru_id, runId: Date.now(), gorulen: null, kuyruk: [], i: 0, oynuyor: false, dept: null, bosalt: false, t: 0 }; }
+    if (Array.isArray(k.asama)) sahneIsle(k);
+  }
   gs.bekleyen = { soru_id: k.soru_id, soru: k.soru, zaman: k.zaman, not: k.not || '' };
   gs.sonuc = null; gs.red = null; gs.hata = ''; gs.bilgi = bilgi || ''; gs.baglanti = true;
   st.panel = 'akis'; renderApp();
@@ -570,6 +605,7 @@ async function yokla(){
     if (s.durum === 404) { bekleDurdur(); gs.bekleyen = null; gs.hata = 'Soru kaydı bulunamadı.'; renderApp(); return; }
     if (!s.ok) throw new Error('durum ' + s.durum);
     const degisti = !gs.baglanti; gs.baglanti = true;
+    sahneIsle(s.veri);
     if (s.veri.durum === 'arastiriliyor') {
       const yeniNot = s.veri.not || '';
       if (degisti || yeniNot !== b.not) { b.not = yeniNot; renderApp(); }

@@ -23,6 +23,21 @@ class PanelStatikTest(unittest.TestCase):
         for ad in ("yonlendir", "adimUret", "adimGonder", "ilerle"):
             self.assertIn("function %s(" % ad, self.js)
 
+    def test_sahne_gercek_modda(self):
+        for parca in ("NoveSahneSira.sira(", "function sahneBitti(", "function sahneSonraki(", "nove-komut"):
+            self.assertIn(parca, self.js)
+
+    def test_betik_sirasi(self):
+        h = (PANEL / "index.html").read_text(encoding="utf-8")
+        a, b, c = h.index("ofis3d-v4.js"), h.index("sahne-sira.js"), h.index("panel.js")
+        self.assertLess(a, b)
+        self.assertLess(b, c)
+
+    def test_sahneye_ham_metin_gitmez(self):
+        i = self.js.index("function sahneSonraki(")
+        j = self.js.find("\nfunction ", i + 1)
+        self.assertNotIn("metin:", self.js[i:j])
+
     def test_olaylar_ucu_kullanilmaz(self):
         self.assertNotIn("/api/olaylar", self.js)
 
