@@ -304,6 +304,11 @@ def _kontrol_satiri(kontrol):
     return " · ".join(f"{k} {kontrol[k]}" for k in KONTROLLER)
 
 
+def denetim_maliyeti(kosu):
+    """Koşu kaydındaki `- denetçi maliyeti: N USD` satırlarının toplamı (yoksa 0.0)."""
+    return sum(float(m) for m in re.findall(r"^- denetçi maliyeti: ([\d.]+) USD", _oku(kosu), re.MULTILINE))
+
+
 def _kaydet(kok, takim, kosu, karar):
     """Kararı koşu kaydının altına, durum.json'a ve bekçi telemetrisine yazar."""
     durum = ayar.durum_oku(takim, kok)
@@ -317,6 +322,8 @@ def _kaydet(kok, takim, kosu, karar):
         dosya.write(f"\n\n## Bekçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
                     f"- ihlal edilen kural: {karar.get('ihlal_edilen_kural') or '-'}\n"
                     f"- kontrol: {_kontrol_satiri(karar.get('kontrol'))}\n")
+        if karar.get("maliyet") is not None:
+            dosya.write(f"- denetçi maliyeti: {karar['maliyet']:.3f} USD\n")
     telemetri = Path(kok) / "takimlar" / "bekci-telemetri.jsonl"
     with open(telemetri, "a", encoding="utf-8") as dosya:
         dosya.write(json.dumps({"zaman": ayar.simdi_iso(), "takim": takim,

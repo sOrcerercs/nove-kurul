@@ -290,7 +290,8 @@ def soru_sonrasi(takim, madde, kosu, cozum, kok=None):
         soru_kaydi.bolum_ekle(yol, f"## Denetçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
                                    f"- kontrol: {bekci._kontrol_satiri(karar.get('kontrol'))}\n"
                                    f"- koşu: {_goreli(kosu, kok)} ({madde['id']})\n"
-                                   f"- maliyet: {cozum['maliyet']:.3f} USD\n")
+                                   f"- maliyet: {cozum['maliyet']:.3f} USD\n"
+                                   f"- denetçi maliyeti: {bekci.denetim_maliyeti(kosu):.3f} USD\n")
         soru_kaydi.durum_yaz(yol, f"Denetçi: {karar['karar']}")
     _madde_durumu(takim, madde["id"], "kacti" if cozum["hata"] else "tamam", kok)
     return karar

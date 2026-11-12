@@ -121,6 +121,16 @@ class SoruKaydinaKopyaTesti(Kurulum):
         self.assertEqual(sk.bolum_alani(metin, "## Denetçi", "maliyet"), "1.200 USD")
         self.assertTrue(sk.bolum_alani(metin, "## Denetçi", "koşu").startswith("takimlar/finans/kosu/"))
 
+    def test_denetci_maliyeti_soru_kaydina_yazilir(self):
+        self.kostur(llm={**KABUL, "maliyet": 0.3})
+        metin = self.kayit()
+        self.assertEqual(sk.bolum_alani(metin, "## Denetçi", "denetçi maliyeti"), "0.300 USD")
+        self.assertAlmostEqual(sk.harcanan(metin), 1.5)
+
+    def test_yedeksiz_denetci_maliyeti_sifir(self):
+        self.kostur()
+        self.assertEqual(sk.bolum_alani(self.kayit(), "## Denetçi", "denetçi maliyeti"), "0.000 USD")
+
     def test_kuyruk_maddesi_tamam_olur(self):
         self.kostur()
         madde = ayar.durum_oku("finans", self.kok)["kuyruk"][0]
