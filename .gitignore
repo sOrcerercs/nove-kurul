@@ -24,6 +24,7 @@ formlar/gelen/
 formlar/onayli/
 # Panel rolleri (personel e-postası) ve Yanıt defteri (kurulun soruları, soranlar) — kişisel ve şirket içi
 deploy/roller.json
+deploy/kullanicilar.json
 yanitlar/
 
 # Bilgi kasası: kendi git deposu var, proje deposuna girmez
