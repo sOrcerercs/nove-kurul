@@ -180,6 +180,25 @@ class DurumTest(Taban):
         self.assertEqual([k["soru_id"] for k in pd.liste(self.kok, YON, "yonetici")["acik"]], [])
         self.assertEqual([k["soru_id"] for k in pd.liste(self.kok, DIGER, "kurul")["acik"]], [d])
 
+    def test_liste_baskasinin_kaydini_gostermez(self):
+        a = self.soru(UYE)
+        self.defterle(a, kayit("onaylı", "## Yanıt\nx\n", soran=UYE))
+        self.assertEqual(pd.liste(self.kok, DIGER, "kurul")["kayitlar"], [])
+        b = self.soru(DIGER, simdi=GUN[1])
+        self.defterle(b, kayit("onaylı", "## Yanıt\ny\n", soran=DIGER, tarih="2026-11-11T12:00:00+03:00"))
+        yon = pd.liste(self.kok, YON, "yonetici")["kayitlar"]
+        self.assertEqual([(k["soru_id"], k["soran"]) for k in yon], [(b, DIGER), (a, UYE)])
+        self.assertEqual([k["soru_id"] for k in pd.liste(self.kok, UYE, "kurul")["kayitlar"]], [a])
+
+    def test_gunluk_rapor_gorunurluk_satiri_parserdan_gecer(self):
+        a, b = "20261110-1100-rpr1", "20261110-1100-rpr2"
+        self.defterle(a, kayit("onaylı", "## Yanıt\nrapor\n", soran="zamanlayıcı", ek="- gorunurluk: kurul\n"))
+        self.defterle(b, kayit("onaylı", "## Yanıt\nrapor\n", soran="zamanlayıcı"))
+        ids = [k["soru_id"] for k in pd.liste(self.kok, UYE, "kurul")["kayitlar"]]
+        self.assertEqual(ids, [a])
+        self.assertIsNotNone(pd.durum(self.kok, a, UYE, "kurul"))
+        self.assertIsNone(pd.durum(self.kok, b, UYE, "kurul"))
+
     def test_acik_sorular_bitmisleri_saymaz(self):
         a, b, c, d = (self.soru(UYE, simdi=GUN[i % 3]) for i in range(4))
         self.defterle(a, kayit("onaylı", "## Yanıt\nx\n"))
