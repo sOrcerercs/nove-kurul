@@ -264,7 +264,9 @@ def madde_ayari(fm, madde):
     taban = ayar.ZORLUK_BUTCESI_USD[z] if z else float(fm.get("butce_usd", ayar.KOSU_BUTCESI_USD))
     yeni = {**fm, "butce_usd": min(taban, b) if b is not None else taban}
     if z:
-        yeni["model"], yeni["zorluk"] = ayar.ZORLUK_MODELI[z], z
+        yeni["zorluk"] = z
+        if str(fm.get("saglayici") or "anthropic").strip().lower() == "anthropic":
+            yeni["model"] = ayar.ZORLUK_MODELI[z]  # nim vb. için takim.md'nin açık model kimliği kalır
     return yeni
 
 

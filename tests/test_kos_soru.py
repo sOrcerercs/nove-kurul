@@ -279,3 +279,16 @@ class ZorlukTesti(Kurulum):
         self.assertEqual(gelen["fm"]["model"], "sonnet")
         kayit = next((self.kok / "takimlar" / "finans" / "kosu").glob("*.md")).read_text(encoding="utf-8")
         self.assertIn("· zorluk: —", kayit)
+
+    def test_nim_takiminda_model_degismez_butce_ve_etiket_uygulanir(self):
+        fm = {"saglayici": "nim", "model": "meta/llama-3.3-70b-instruct", "butce_usd": "2"}
+        yeni = kos.madde_ayari(fm, {"zorluk": "zor", "butce_usd": None})
+        self.assertEqual((yeni["model"], yeni["butce_usd"], yeni["zorluk"]),
+                         ("meta/llama-3.3-70b-instruct", 4.0, "zor"))
+
+    def test_anthropic_cozulen_degerler_argve_ulasir(self):
+        fm = kos.madde_ayari(self.FM, {"zorluk": "zor", "butce_usd": None})
+        _, model = kos.saglayici_ortami(fm, {})
+        komut = kos.claude_komutu("x", ["Read"], fm["butce_usd"], model)
+        self.assertEqual(komut[komut.index("--model") + 1], "opus")
+        self.assertEqual(komut[komut.index("--max-budget-usd") + 1], "4.0")
