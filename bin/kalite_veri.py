@@ -35,6 +35,12 @@ SORGU_ZAMAN_ASIMI_MS = 15000        # 15s — bağlantı seçeneği olarak veril
 UYE_KOSULU = "u.\"role\" IN ('AGENT', 'TEAM_LEADER') AND u.\"isActive\" = true"
 SAYIM_KOSULU = ("(e.\"callClassification\" IS NULL OR e.\"callClassification\" = 'CONNECTED_QUALIFIED')"
                 " AND " + UYE_KOSULU)
+# Ekip çözümü: üye `User.teamId` ile, takım lideri `Team.leaderId` ile bağlanır (liderin teamId'si NULL).
+# İç JOIN liderlerin kayıtlarını sessizce düşürürdü; ekibi olmayan kayıt "Ekipsiz" olarak sayılır.
+EKIP_BAGLANTISI = ("LEFT JOIN public.\"Team\" tm ON tm.id = u.\"teamId\"\n"
+                   "  LEFT JOIN public.\"Team\" tl ON tl.\"leaderId\" = u.id")
+EKIPSIZ = "Ekipsiz"
+EKIP_ADI = "COALESCE(tm.name, tl.name, '%s')" % EKIPSIZ
 SAAT_DILIMI = "UTC gün sınırı (TR 03:00)"      # DB timezone UTC; panel (Vercel) de UTC günleri kullanır
 BOSLUK_DOSYASI = Path(__file__).resolve().parents[1] / "takimlar" / "kalite" / "veri-bosluklari.json"
 PUANLAMA_DEGISIM_TARIHI = datetime(2026, 9, 1)  # öncesinde puanlama farklı; karşılaştırma geçersiz
@@ -198,10 +204,11 @@ def sema_bas(baglanti):
 
 
 def ekipler_sorgusu():
-    """(sql, params) — ekip adı ve aktif AGENT/TEAM_LEADER üye sayısı."""
+    """(sql, params) — ekip adı ve aktif AGENT/TEAM_LEADER üye sayısı (lider, yönettiği ekipte sayılır)."""
     sql = ("SELECT t.name, count(u.id) AS temsilci\n"
            "  FROM public.\"Team\" t\n"
-           "  LEFT JOIN public.\"User\" u ON u.\"teamId\" = t.id AND " + UYE_KOSULU + "\n"
+           "  LEFT JOIN public.\"User\" u ON (u.\"teamId\" = t.id OR t.\"leaderId\" = u.id) AND "
+           + UYE_KOSULU + "\n"
            " GROUP BY t.name\n ORDER BY t.name")
     return sql, {}
 
@@ -217,7 +224,7 @@ def _filtre_kosullari(bas, bit, tip, ekip):
         kosul.append("e.\"callType\"::text = %(tip)s")
         param["tip"] = TIP_ESLEME[tip]
     if ekip:
-        kosul.append("t.name = %(ekip)s")
+        kosul.append(EKIP_ADI + " = %(ekip)s")
         param["ekip"] = ekip
     return "\n   AND ".join(kosul), param
 
@@ -225,14 +232,85 @@ def _filtre_kosullari(bas, bit, tip, ekip):
 def ekip_ozet_sorgusu(bas, bit, tip, ekip=None):
     """(sql, params) — ekip başına (ekip, toplam puan, kayıt, temsilci sayısı). Parametreli."""
     kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
-    sql = ("SELECT t.name, sum(e.score) AS toplam, count(*) AS adet,"
+    sql = ("SELECT " + EKIP_ADI + " AS ekip, sum(e.score) AS toplam, count(*) AS adet,"
            " count(DISTINCT e.\"agentId\") AS temsilci\n"
            "  FROM public.\"Evaluation\" e\n"
            "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
-           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
            " WHERE " + kosul + "\n"
-           " GROUP BY t.id, t.name\n ORDER BY t.name")
+           " GROUP BY " + EKIP_ADI + "\n ORDER BY " + EKIP_ADI)
     return sql, param
+
+
+def _ham_kosullari(bas, bit, tip, ekip):
+    """Filtresiz sayım: tarih (+ `--tip`, `--ekip`); SAYIM_KOSULU yok."""
+    kosul = ["e.\"callDate\" >= %(bas)s", "e.\"callDate\" <= %(bit)s"]
+    param = {"bas": bas, "bit": bit}
+    if tip:
+        kosul.append("e.\"callType\"::text = %(tip)s")
+        param["tip"] = TIP_ESLEME[tip]
+    if ekip:
+        kosul.append(EKIP_ADI + " = %(ekip)s")
+        param["ekip"] = ekip
+    return kosul, param
+
+
+def toplam_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — aralıktaki TÜM değerlendirmeler (SDR Analyzer programının saydığı). Parametreli."""
+    kosul, param = _ham_kosullari(bas, bit, tip, ekip)
+    sql = ("SELECT count(*) AS toplam_kayit\n"
+           "  FROM public.\"Evaluation\" e\n"
+           "  LEFT JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
+           " WHERE " + "\n   AND ".join(kosul))
+    return sql, param
+
+
+def fark_sorgusu(bas, bit, tip, ekip=None):
+    """(sql, params) — SAYIM_KOSULU'na girmeyen kayıtlar, ilk eşleşen nedene göre (sınıf, pasif, rol).
+    (neden, sınıf, adet); sınıf yalnız 'sinif' nedeninde dolu. Kişi bilgisi yok."""
+    kosul, param = _ham_kosullari(bas, bit, tip, ekip)
+    kosul.append("NOT COALESCE((" + SAYIM_KOSULU + "), false)")
+    sql = ("SELECT CASE\n"
+           "         WHEN e.\"callClassification\" IS NOT NULL"
+           " AND e.\"callClassification\" <> 'CONNECTED_QUALIFIED' THEN 'sinif'\n"
+           "         WHEN u.\"isActive\" IS DISTINCT FROM true THEN 'pasif'\n"
+           "         ELSE 'rol' END AS neden,\n"
+           "       CASE WHEN e.\"callClassification\" IS NOT NULL"
+           " AND e.\"callClassification\" <> 'CONNECTED_QUALIFIED'"
+           " THEN e.\"callClassification\"::text END AS sinif,\n"
+           "       count(*) AS adet\n"
+           "  FROM public.\"Evaluation\" e\n"
+           "  LEFT JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
+           " WHERE " + "\n   AND ".join(kosul) + "\n"
+           " GROUP BY 1, 2\n ORDER BY 1, 2")
+    return sql, param
+
+
+def sayim_blogu(toplam, nitelikli, fark_satirlari):
+    """`ekip-ozet` üstündeki iki sayı bloğu. Parçalar farkın toplamına eşittir; sıfır olan parça yazılmaz."""
+    sinif = [(str(s), int(a)) for n, s, a in fark_satirlari if n == "sinif" and int(a) > 0]
+    sayilar = {"pasif": 0, "rol": 0}
+    for n, _, a in fark_satirlari:
+        if n in sayilar:
+            sayilar[n] += int(a)
+    parcalar = []
+    if sinif:
+        parcalar.append("transkript kullanılamaz/elenmiş sınıf: %d (%s)" % (
+            sum(a for _, a in sinif), ", ".join("%s: %d" % (_tek_satir(s), a) for s, a in sorted(sinif))))
+    if sayilar["pasif"]:
+        parcalar.append("pasif temsilci: %d" % sayilar["pasif"])
+    if sayilar["rol"]:
+        parcalar.append("rol dışı: %d" % sayilar["rol"])
+    fark = "Fark: %d" % (toplam - nitelikli)
+    if parcalar:
+        fark += " — " + ", ".join(parcalar)
+    return ["Toplam değerlendirme (filtresiz, programla aynı): %d" % toplam,
+            "Kalite raporuna giren (nitelikli): %d" % nitelikli,
+            fark,
+            "Kurula \"kaç değerlendirme\" sorusunda iki sayıyı birlikte ver: toplam %d (programla aynı) "
+            "ve nitelikli %d; puan ortalamaları yalnız nitelikli kayıtlardan." % (toplam, nitelikli)]
 
 
 def ekip_tablosu(satirlar):
@@ -249,12 +327,12 @@ def ekip_tablosu(satirlar):
 def temsilci_ozet_sorgusu(bas, bit, tip, ekip=None):
     """(sql, params) — temsilci başına (temsilci, ekip, toplam puan, kayıt). Parametreli."""
     kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
-    sql = ("SELECT u.name, t.name, sum(e.score) AS toplam, count(*) AS adet\n"
+    sql = ("SELECT u.name, " + EKIP_ADI + " AS ekip, sum(e.score) AS toplam, count(*) AS adet\n"
            "  FROM public.\"Evaluation\" e\n"
            "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
-           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
            " WHERE " + kosul + "\n"
-           " GROUP BY u.id, u.name, t.name\n ORDER BY t.name, u.name")
+           " GROUP BY u.id, u.name, " + EKIP_ADI + "\n ORDER BY " + EKIP_ADI + ", u.name")
     return sql, param
 
 
@@ -279,14 +357,14 @@ OKUNMAYAN_KOSULU = ("(e.\"coachingSeenAt\" IS NULL OR (e.\"coachingDoneAt\" IS N
 def kocluk_sorgusu(bas, bit, tip, ekip=None):
     """(sql, params) — temsilci başına (temsilci, ekip, kayıt, koçluk yapılan, okunmayan). Parametreli."""
     kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
-    sql = ("SELECT u.name, t.name, count(*) AS adet,\n"
+    sql = ("SELECT u.name, " + EKIP_ADI + " AS ekip, count(*) AS adet,\n"
            "       count(*) FILTER (WHERE e.\"coachingDone\") AS kocluk_yapilan,\n"
            "       count(*) FILTER (WHERE e.\"coachingDone\" AND " + OKUNMAYAN_KOSULU + ") AS okunmayan\n"
            "  FROM public.\"Evaluation\" e\n"
            "  JOIN public.\"User\" u ON u.id = e.\"agentId\"\n"
-           "  JOIN public.\"Team\" t ON t.id = u.\"teamId\"\n"
+           "  " + EKIP_BAGLANTISI + "\n"
            " WHERE " + kosul + "\n"
-           " GROUP BY u.id, u.name, t.name\n ORDER BY t.name, u.name")
+           " GROUP BY u.id, u.name, " + EKIP_ADI + "\n ORDER BY " + EKIP_ADI + ", u.name")
     return sql, param
 
 
@@ -306,17 +384,17 @@ def kocluk_tablosu(satirlar):
 def kriter_sorgusu(bas, bit, tip, ekip=None):
     """(sql, params) — ekip ve kriter başına (ekip, kriter_id, etiket, kaldı, kısmi, geçti). NA sayılmaz."""
     kosul, param = _filtre_kosullari(bas, bit, tip, ekip)
-    sql = ("SELECT t.name, k.kriter_id, k.kriter_label,\n"
+    sql = ("SELECT " + EKIP_ADI + " AS ekip, k.kriter_id, k.kriter_label,\n"
            "       count(*) FILTER (WHERE k.verdict = 'FAIL') AS kaldi,\n"
            "       count(*) FILTER (WHERE k.verdict = 'PARTIAL') AS kismi,\n"
            "       count(*) FILTER (WHERE k.verdict = 'PASS') AS gecti\n"
            "  FROM public.qa_kriter k\n"
            "  JOIN public.\"Evaluation\" e ON e.id = k.eval_id\n"
            "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
-           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
            " WHERE " + kosul + "\n"
            "   AND k.verdict IN ('FAIL', 'PARTIAL', 'PASS')\n"
-           " GROUP BY t.name, k.kriter_id, k.kriter_label\n ORDER BY k.kriter_id, t.name")
+           " GROUP BY " + EKIP_ADI + ", k.kriter_id, k.kriter_label\n ORDER BY k.kriter_id, " + EKIP_ADI)
     return sql, param
 
 
@@ -327,7 +405,7 @@ def kriter_kayit_sorgusu(bas, bit, tip, ekip=None):
            "  FROM public.qa_kriter k\n"
            "  JOIN public.\"Evaluation\" e ON e.id = k.eval_id\n"
            "  JOIN public.\"User\" u ON e.\"agentId\" = u.id\n"
-           "  JOIN public.\"Team\" t ON u.\"teamId\" = t.id\n"
+           "  " + EKIP_BAGLANTISI + "\n"
            " WHERE " + kosul + "\n"
            "   AND k.verdict IN ('FAIL', 'PARTIAL', 'PASS')")
     return sql, param
@@ -393,6 +471,22 @@ def ekipler_bas(baglanti):
     return 0
 
 
+def _ekip_dogrula(baglanti, args):
+    """`--ekip` geçerli mi: ekip listesi ya da "Ekipsiz" (ekibi olmayan kayıtlar). Değilse sebep yazılır."""
+    if not args.ekip:
+        return True
+    adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
+    if args.ekip in adlar or args.ekip == EKIPSIZ:
+        return True
+    print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
+                        % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar + [EKIPSIZ]))))
+    return False
+
+
+def _toplam_say(baglanti, bas, bit, args):
+    return int((_sorgula(baglanti, toplam_sorgusu(bas, bit, args.tip, args.ekip)) or [(0,)])[0][0])
+
+
 def ekip_ozet_bas(baglanti, args):
     try:
         bas, bit = gun_siniri(args.baslangic, args.bitis)
@@ -403,14 +497,15 @@ def ekip_ozet_bas(baglanti, args):
         print(hazirlanamadi("tarih geçersiz (%s)" % hata))
         return 1
     aralik = "%s..%s" % (args.baslangic, args.bitis)
-    if args.ekip:
-        adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
-        if args.ekip not in adlar:
-            print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
-                                % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar) or "yok")))
-            return 1
+    if not _ekip_dogrula(baglanti, args):
+        return 1
     tablo = ekip_tablosu(_sorgula(baglanti, ekip_ozet_sorgusu(bas, bit, args.tip, args.ekip)))
     if not tablo:
+        toplam = _toplam_say(baglanti, bas, bit, args)
+        if toplam > 0:                           # nitelikli kayıt yok ama değerlendirme var: sayı gizlenmez
+            print("\n".join(sayim_blogu(toplam, 0, _sorgula(baglanti,
+                                                            fark_sorgusu(bas, bit, args.tip, args.ekip)))))
+            print()
         print(kayit_yok(args.baslangic, args.bitis))
         return 1
     filtre = {}
@@ -427,6 +522,12 @@ def ekip_ozet_bas(baglanti, args):
     if args.tip != "first":
         filtre["not"] = "canlı Second Call formülü deploy bekliyor"
     print(kapsam_bolumu("ekip-ozet", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
+    nitelikli = sum(t["kayit"] for t in tablo)
+    toplam = _toplam_say(baglanti, bas, bit, args)
+    print()
+    print("\n".join(sayim_blogu(toplam, nitelikli,
+                               _sorgula(baglanti, fark_sorgusu(bas, bit, args.tip, args.ekip)))))
+    print()
     for t in tablo:
         ort = "yok" if t["ortalama"] is None else t["ortalama"]
         satir = "- %s: ortalama=%s kayit=%d temsilci=%d" % (_tek_satir(t["ekip"]), ort,
@@ -451,12 +552,8 @@ def _hazirla(baglanti, args):
     except ValueError as hata:
         print(hazirlanamadi("tarih geçersiz (%s)" % hata))
         return None
-    if args.ekip:
-        adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
-        if args.ekip not in adlar:
-            print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
-                                % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar) or "yok")))
-            return None
+    if not _ekip_dogrula(baglanti, args):
+        return None
     return bas, bit
 
 

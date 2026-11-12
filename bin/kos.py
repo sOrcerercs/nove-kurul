@@ -241,12 +241,33 @@ def istem(takim, fm, kosu, zaman, kok=None):
 # --- kurul sorusu ------------------------------------------------------------
 
 def soru_maddesi(takim, kok=None):
-    """Kuyruktaki ilk bekleyen `s-`/`r-` maddesi: {id, tur, soru_id, not}; yoksa None."""
+    """Kuyruktaki ilk bekleyen `s-`/`r-` maddesi: {id, tur, soru_id, not, zorluk, butce_usd}; yoksa None."""
     for oge in ayar.durum_oku(takim, kok).get("kuyruk") or []:
         eslesme = SORU_MADDESI.match(str(oge.get("id") or "")) if isinstance(oge, dict) else None
         if eslesme and oge.get("durum") == "bekliyor":
-            return {"id": oge["id"], "tur": eslesme.group(1), "soru_id": eslesme.group(2), "not": oge.get("not") or ""}
+            return {"id": oge["id"], "tur": eslesme.group(1), "soru_id": eslesme.group(2), "not": oge.get("not") or "",
+                    "zorluk": oge.get("zorluk"), "butce_usd": oge.get("butce_usd")}
     return None
+
+
+def madde_ayari(fm, madde):
+    """Kuyruk maddesinin zorluğu modeli ve tavanı belirler (zor→opus/4, orta→sonnet/2, kolay→haiku/2).
+    Madde `butce_usd` taşıyorsa (düzeltme turu) tavan en çok o kadar olur. Geçerli bir şey yoksa `fm` aynen döner:
+    zamanlı rapor ve eski maddeler takim.md'ye düşer."""
+    if not madde:
+        return fm
+    z, b = madde.get("zorluk"), madde.get("butce_usd")
+    z = z if isinstance(z, str) and z in ayar.ZORLUK_MODELI else None
+    b = b if isinstance(b, (int, float)) and not isinstance(b, bool) and b > 0 else None
+    if z is None and b is None:
+        return fm
+    taban = ayar.ZORLUK_BUTCESI_USD[z] if z else float(fm.get("butce_usd", ayar.KOSU_BUTCESI_USD))
+    yeni = {**fm, "butce_usd": min(taban, b) if b is not None else taban}
+    if z:
+        yeni["zorluk"] = z
+        if str(fm.get("saglayici") or "anthropic").strip().lower() == "anthropic":
+            yeni["model"] = ayar.ZORLUK_MODELI[z]  # nim vb. için takim.md'nin açık model kimliği kalır
+    return yeni
 
 
 def taslak_yolu(takim, soru_id, kok=None):
@@ -287,11 +308,13 @@ def soru_sonrasi(takim, madde, kosu, cozum, kok=None):
                  "kontrol": bekci_durumu.get("kontrol")}
     yol = soru_kaydi.yol(madde["soru_id"], kok or KOK)
     if yol.is_file():
-        soru_kaydi.bolum_ekle(yol, f"## Denetçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
-                                   f"- kontrol: {bekci._kontrol_satiri(karar.get('kontrol'))}\n"
-                                   f"- koşu: {_goreli(kosu, kok)} ({madde['id']})\n"
-                                   f"- maliyet: {cozum['maliyet']:.3f} USD\n")
-        soru_kaydi.durum_yaz(yol, f"Denetçi: {karar['karar']}")
+        t = soru_kaydi.tek_satir
+        soru_kaydi.bolum_ekle(yol, f"## Denetçi\n- karar: **{t(karar['karar'])}**\n- gerekçe: {t(karar['gerekce'])}\n"
+                                   f"- kontrol: {t(bekci._kontrol_satiri(karar.get('kontrol')))}\n"
+                                   f"- koşu: {t(_goreli(kosu, kok))} ({t(madde['id'])})\n"
+                                   f"- maliyet: {cozum['maliyet']:.3f} USD\n"
+                                   f"- denetçi maliyeti: {bekci.denetim_maliyeti(kosu):.3f} USD\n")
+        soru_kaydi.durum_yaz(yol, f"Denetçi: {t(karar['karar'])}")
     _madde_durumu(takim, madde["id"], "kacti" if cozum["hata"] else "tamam", kok)
     return karar
 
@@ -437,7 +460,13 @@ def _claude_kos(metin, fm, takim, kosu, taslak=None):
         sonuc = subprocess.run(komut, cwd=str(KOK), capture_output=True, text=True,
                                timeout=ayar.KOSU_SURESI_SN, env=ortam)
     except subprocess.TimeoutExpired:
-        return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": "süre tavanı aşıldı"}
+        # kapalı kalır: ne harcandığı bilinmiyor → bütçe tavanı harcanmış sayılır (soru bütçesi + günlük tavan)
+        try:
+            tavan = float(fm.get("butce_usd", ayar.KOSU_BUTCESI_USD))
+        except (TypeError, ValueError):
+            tavan = float(ayar.KOSU_BUTCESI_USD)
+        return {"hata": True, "maliyet": tavan, "tur": 0, "zaman_asimi": True,
+                "metin": "süre tavanı aşıldı — zaman aşımı: tavan harcanmış sayıldı"}
     except OSError as exc:
         return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": f"claude başlatılamadı: {exc}"}
     cozum = sonucu_cozumle(sonuc.stdout)
@@ -498,6 +527,7 @@ def kos(takim, kuru=False, zorla=False):
         return 0
     kosu = kosu_yolu(takim, zaman)
     madde = soru_maddesi(takim)
+    fm = madde_ayari(fm, madde)
     taslak = taslak_yolu(takim, madde["soru_id"]) if madde else None
     metin = istem(takim, fm, kosu, zaman) + (soru_istemi(takim, madde) if madde else "")
     if kuru:
@@ -540,7 +570,8 @@ def kos(takim, kuru=False, zorla=False):
         cozum = {**cozum, "hata": True}
     with open(kosu, "a", encoding="utf-8") as dosya:
         dosya.write(f"\n\n---\n- maliyet: {cozum['maliyet']:.3f} USD · tur: {cozum['tur']} · hata: {cozum['hata']}"
-                    f" · model: {model_metni(cozum)}\n")
+                    f" · model: {model_metni(cozum)} · zorluk: {fm.get('zorluk') or '—'}"
+                    + (" · zaman aşımı — tavan harcanmış sayıldı" if cozum.get("zaman_asimi") else "") + "\n")
     for s in sonhazirlik_kos(takim, fm.get("sonhazirlik") or []):
         try:
             with open(kosu, "a", encoding="utf-8") as dosya:

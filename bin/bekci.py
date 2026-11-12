@@ -6,9 +6,9 @@
      eşleşirse karar doğrudan `red`. Bu katman anahtarsız da çalışır.
   2. **Denetim (LLM).** `OPENAI_API_KEY` varsa OpenAI (üreten Claude, denetleyen başka aile).
      Anahtar **yoksa ya da geçersizse** (401/403) ve OpenAI'a ulaşılamazsa yedek yol
-     `claude -p --model haiku`: karar verilir ama kayda **"bekçi aynı aileden — uyarı"** notu
+     `claude -p --model opus` (`ayar.BEKCI_YEDEK_MODEL`, GEÇİCİ — OpenAI anahtarı gelene kadar): karar verilir ama kayda **"bekçi aynı aileden — uyarı"** notu
      düşülür, çünkü aynı aile kendi hatasını aynı sebeple onaylar. Yedeğe düşüldüyse gerekçe
-     bunu da söyler: `openai 401 → haiku yedeği`.
+     bunu da söyler: `openai 401 → opus yedeği`.
 
 Modlar:
   Stop hook (stdin JSON): takım ve koşu dosyası `SIRKET_TAKIM` / `SIRKET_KOSU` ortamından okunur.
@@ -36,7 +36,7 @@ MAKS_RED = 2
 ZAMAN_ASIMI_SN = 60
 # NIM istemi ANAYASA + kurallar + koşu kaydını birlikte taşıyor ve modeller önce
 # "düşünüyor"; 60 sn ölçümde yetmedi (nim ulaşılamadı: timeout). 180 sn de 23.10.2026 uçtan uca
-# denemede gerçek sorularda yetmedi → 300. Stop hook süresi bundan + Haiku yedeğinden uzun olmalı.
+# denemede gerçek sorularda yetmedi → 300. Stop hook süresi bundan + yedek (Opus) süresinden uzun olmalı.
 NIM_ZAMAN_ASIMI_SN = 300
 OPENAI_MODEL = "gpt-5-mini"
 # NIM bekçi modeli. 2026-09-15 ölçümü: gerçek ANAYASA ve kurallarla üç fikstürde 3/3 doğru
@@ -51,7 +51,7 @@ NIM_ACIK = False
 # boş kaldı ("reasoning'e harcadı") → 8000.
 NIM_MAKS_TOKEN = 8000
 AYNI_AILE_UYARISI = "bekçi aynı aileden — uyarı"
-# Bu gerekçelerle gelen "atlandi" kararı koşuyu denetimsiz bırakır → Haiku yedeğine düşülür.
+# Bu gerekçelerle gelen "atlandi" kararı koşuyu denetimsiz bırakır → yedeğe (Opus) düşülür.
 YEDEGE_DUSUREN = re.compile(r"^openai (401|403|ulaşılamadı)")
 
 ON_KONTROL = {
@@ -222,46 +222,59 @@ def nim_sor(anahtar, istem):
     return yaniti_ayristir({"output": [{"content": [{"text": icerik[basi:sonu + 1]}]}]})
 
 
-def haiku_sor(istem):
-    """Yedek bekçi: OpenAI anahtarı yoksa `claude -p --model haiku`, ayrı pencere.
+def yedek_sor(istem, model=None):
+    """Yedek bekçi: OpenAI anahtarı yoksa `claude -p --model <ayar.BEKCI_YEDEK_MODEL>` (GEÇİCİ: Opus), ayrı pencere.
 
-    Aynı aile olduğu için karar dürüstçe işaretlenir: gerekçenin başına uyarı yazılır."""
+    Aynı aile olduğu için karar dürüstçe işaretlenir: gerekçenin başına uyarı yazılır.
+    Dönen sözlük her yolda `maliyet` taşır (başarısızlıkta 0.0; zaman aşımında bütçe tavanı)."""
     ortam = {k: v for k, v in os.environ.items()
              if k not in ("CLAUDECODE", "SIRKET_TAKIM", "SIRKET_KOSU")}
     try:
-        sonuc = subprocess.run(["claude", "-p", istem + JSON_TALIMATI, "--model", "haiku", "--output-format",
-                                "json", "--max-budget-usd", "0.2", "--allowedTools", ""],
-                               capture_output=True, text=True, timeout=150, env=ortam)
-        metin = json.loads(sonuc.stdout).get("result", "")
-    except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+        sonuc = subprocess.run(["claude", "-p", istem + JSON_TALIMATI, "--model", model or ayar.BEKCI_YEDEK_MODEL,
+                                "--output-format", "json", "--max-budget-usd", str(ayar.BEKCI_YEDEK_BUTCESI_USD),
+                                "--allowedTools", ""],
+                               capture_output=True, text=True, timeout=ayar.BEKCI_YEDEK_SURESI_SN, env=ortam)
+        cikti = json.loads(sonuc.stdout)
+        if not isinstance(cikti, dict):
+            raise ValueError("json nesne değil")
+        metin = str(cikti.get("result") or "")
+        try:
+            maliyet = float(cikti.get("total_cost_usd") or 0.0)
+        except (TypeError, ValueError):
+            maliyet = 0.0
+    except subprocess.TimeoutExpired as exc:   # ne harcandığı bilinmiyor → tavan harcanmış sayılır
+        return {"karar": "atlandi", "ihlal_edilen_kural": None, "maliyet": float(ayar.BEKCI_YEDEK_BUTCESI_USD),
+                "gerekce": f"yedek bekçi ulaşılamadı: {type(exc).__name__} — zaman aşımı: tavan harcanmış sayıldı"}
+    except (OSError, ValueError) as exc:
         return {"karar": "atlandi", "gerekce": f"yedek bekçi ulaşılamadı: {type(exc).__name__}",
-                "ihlal_edilen_kural": None}
+                "ihlal_edilen_kural": None, "maliyet": 0.0}
     basi, sonu = metin.find("{"), metin.rfind("}")
     if basi < 0 or sonu < 0:
-        return {"karar": "atlandi", "gerekce": "yedek bekçi JSON döndürmedi", "ihlal_edilen_kural": None}
+        return {"karar": "atlandi", "gerekce": "yedek bekçi JSON döndürmedi", "ihlal_edilen_kural": None,
+                "maliyet": maliyet}
     karar = yaniti_ayristir({"output": [{"content": [{"text": metin[basi:sonu + 1]}]}]})
-    return {**karar, "gerekce": f"[{AYNI_AILE_UYARISI}] " + karar["gerekce"]}
+    return {**karar, "gerekce": f"[{AYNI_AILE_UYARISI}] " + karar["gerekce"], "maliyet": maliyet}
 
 
 def llm_karari(ortam, istem):
-    """Denetim katmanı — sıra: NIM → OpenAI → Haiku (ANAYASA §3). `NIM_ACIK` False iken NIM atlanır.
+    """Denetim katmanı — sıra: NIM → OpenAI → yedek (ANAYASA §3; yedek GEÇİCİ olarak Opus). `NIM_ACIK` False iken NIM atlanır.
 
-    Her yol, bir öncekinin anahtarı yok ya da yanıtı kullanılamaz olduğunda devreye girer.
-    Hiçbir düşüş sessiz değildir: gerekçe hangi yoldan geçildiğini söyler."""
-    onceki = ""
-    for anahtar_adi, cagir in (("NVIDIA_API_KEY", nim_sor), ("OPENAI_API_KEY", openai_sor)):
+    Hiçbir düşüş sessiz değildir: atlanan her yol (kapalı, anahtar yok, hata) gerekçe zincirinde adıyla yazılır."""
+    zincir = ""
+    for ad, anahtar_adi, cagir in (("nim", "NVIDIA_API_KEY", nim_sor), ("openai", "OPENAI_API_KEY", openai_sor)):
+        if cagir is nim_sor and not NIM_ACIK:          # anahtar kontrolünden ÖNCE
+            zincir += "nim kapalı (geçici) → "
+            continue
         anahtar = str(ortam.get(anahtar_adi) or "").strip()
         if not anahtar:
-            continue
-        if cagir is nim_sor and not NIM_ACIK:
-            onceki += "nim kapalı (geçici) → openai yolu · "
+            zincir += f"{ad} anahtarı yok → "
             continue
         karar = cagir(anahtar, istem)
         if karar["karar"] != "atlandi":
-            return {**karar, "gerekce": onceki + karar["gerekce"]} if onceki else karar
-        onceki += f"{karar['gerekce']} → " + ("openai yolu · " if cagir is nim_sor else "")
-    yedek = haiku_sor(istem)
-    return {**yedek, "gerekce": (f"{onceki}haiku yedeği · " if onceki else "") + yedek["gerekce"]}
+            return {**karar, "gerekce": (f"{zincir}{ad} yolu · " if zincir else "") + karar["gerekce"]}
+        zincir += f"{karar['gerekce']} → "
+    yedek = yedek_sor(istem)
+    return {**yedek, "gerekce": f"{zincir}{ayar.BEKCI_YEDEK_MODEL} yedeği · {yedek['gerekce']}"}
 
 
 def gecersiz_gerekceyi_ayikla(karar):
@@ -270,7 +283,8 @@ def gecersiz_gerekceyi_ayikla(karar):
     if karar.get("karar") != "red":
         return karar
     kural = str(karar.get("ihlal_edilen_kural") or "").strip()
-    if GECERSIZ_GEREKCE.search(karar.get("gerekce") or "") or kural in ("3", "4"):
+    arama = (karar.get("gerekce") or "").replace(f"[{AYNI_AILE_UYARISI}]", "")   # sürücünün kendi notu "aynı aile" sayılmaz
+    if GECERSIZ_GEREKCE.search(arama) or kural in ("3", "4"):
         return {**karar, "karar": "kabul", "ihlal_edilen_kural": None,
                 "gerekce": "(madde 3/4 gerekçeli red geçersiz sayıldı — sürücünün kuralı) "
                            + (karar.get("gerekce") or "")[:300]}
@@ -295,6 +309,11 @@ def _kontrol_satiri(kontrol):
     return " · ".join(f"{k} {kontrol[k]}" for k in KONTROLLER)
 
 
+def denetim_maliyeti(kosu):
+    """Koşu kaydındaki `- denetçi maliyeti: N USD` satırlarının toplamı (yoksa 0.0)."""
+    return sum(float(m) for m in re.findall(r"^- denetçi maliyeti: ([\d.]+) USD", _oku(kosu), re.MULTILINE))
+
+
 def _kaydet(kok, takim, kosu, karar):
     """Kararı koşu kaydının altına, durum.json'a ve bekçi telemetrisine yazar."""
     durum = ayar.durum_oku(takim, kok)
@@ -308,6 +327,8 @@ def _kaydet(kok, takim, kosu, karar):
         dosya.write(f"\n\n## Bekçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
                     f"- ihlal edilen kural: {karar.get('ihlal_edilen_kural') or '-'}\n"
                     f"- kontrol: {_kontrol_satiri(karar.get('kontrol'))}\n")
+        if karar.get("maliyet") is not None:
+            dosya.write(f"- denetçi maliyeti: {karar['maliyet']:.3f} USD\n")
     telemetri = Path(kok) / "takimlar" / "bekci-telemetri.jsonl"
     with open(telemetri, "a", encoding="utf-8") as dosya:
         dosya.write(json.dumps({"zaman": ayar.simdi_iso(), "takim": takim,

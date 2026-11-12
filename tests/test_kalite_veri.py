@@ -333,13 +333,152 @@ class _SorguImlec:
 URL = {"QA_READONLY_URL": "postgresql://u:p@h/db"}
 
 
-def _calistir(argv, yanit):
-    imlec = _SorguImlec(yanit)
+def _calistir(argv, yanit, toplam=0, fark=()):
+    """`toplam` / `fark`: ekip-ozet'in filtresiz sayım ve fark-nedeni sorgularının sahte yanıtı."""
+    def sarmal(sql, params):
+        if "AS toplam_kayit" in sql:
+            return [(toplam,)]
+        if "AS neden" in sql:
+            return list(fark)
+        return yanit(sql, params)
+    imlec = _SorguImlec(sarmal)
     baglanti = _SahteBaglanti(imlec)
     tampon = io.StringIO()
     with redirect_stdout(tampon):
         kod = kalite_veri.main(argv, ortam=URL, baglan=lambda url: baglanti)
     return kod, tampon.getvalue(), imlec
+
+
+class TakimLideriTesti(unittest.TestCase):
+    """Takım liderlerinin teamId'si NULL; `Team.leaderId` ile bağlanır. İç JOIN onları düşürürdü."""
+    BAS, BIT = kalite_veri.gun_siniri("2026-11-11", "2026-11-11")
+
+    def _sorgular(self):
+        b, t = self.BAS, self.BIT
+        return [kalite_veri.ekip_ozet_sorgusu(b, t, None, "A")[0],
+                kalite_veri.temsilci_ozet_sorgusu(b, t, None, "A")[0],
+                kalite_veri.kocluk_sorgusu(b, t, None, "A")[0],
+                kalite_veri.kriter_sorgusu(b, t, None, "A")[0],
+                kalite_veri.kriter_kayit_sorgusu(b, t, None, "A")[0],
+                kalite_veri.ekipler_sorgusu()[0]]
+
+    def test_her_sorgu_lider_ekibini_cozer(self):
+        for sql in self._sorgular():
+            with self.subTest(sql=sql[:40]):
+                self.assertIn('"leaderId"', sql)
+                self.assertIn("LEFT JOIN", sql)
+                self.assertNotIn('JOIN public."Team" t ON u."teamId" = t.id', sql)
+                self.assertNotIn('JOIN public."Team" t ON t.id = u."teamId"', sql)
+
+    def test_ortak_sabitler(self):
+        self.assertIn("Ekipsiz", kalite_veri.EKIP_ADI)
+        for sql in self._sorgular()[:5]:
+            self.assertIn(kalite_veri.EKIP_BAGLANTISI, sql)
+            self.assertIn(kalite_veri.EKIP_ADI, sql)
+
+    def test_ekip_filtresi_cozulen_adla(self):
+        sql, param = kalite_veri.ekip_ozet_sorgusu(self.BAS, self.BIT, None, "Alfa")
+        self.assertIn(kalite_veri.EKIP_ADI + " = %(ekip)s", sql)
+        self.assertEqual(param["ekip"], "Alfa")
+        self.assertNotIn("t.name = ", sql)
+
+    def test_toplam_ve_fark_sorgulari_parametreli_sayim_kosulsuz(self):
+        sql, param = kalite_veri.toplam_sorgusu(self.BAS, self.BIT, "first", "X'; DROP")
+        self.assertIn("AS toplam_kayit", sql)
+        self.assertNotIn(kalite_veri.SAYIM_KOSULU, sql)
+        self.assertNotIn("DROP", sql)
+        self.assertIn("X'; DROP", param.values())
+        self.assertIn("FIRST_CALL", param.values())
+        self.assertIn('"callDate" >=', sql)
+        sql, param = kalite_veri.fark_sorgusu(self.BAS, self.BIT, None)
+        self.assertIn("AS neden", sql)
+        self.assertIn("NOT COALESCE", sql)
+        self.assertIsNone(YASAK.search(sql))
+        self.assertNotIn("u.name", sql)
+
+    def test_ozet_ikisi_birden(self):
+        def yanit(sql, p):
+            return [("Alfa", 5600, 56, 7)]
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-11-11", "--bitis", "2026-11-11"],
+                                  yanit, toplam=68,
+                                  fark=[("sinif", "TRANSCRIPT_UNUSABLE", 4), ("pasif", None, 8),
+                                        ("rol", None, 0)])
+        self.assertEqual(kod, 0)
+        self.assertIn("Toplam değerlendirme (filtresiz, programla aynı): 68", cikti)
+        self.assertIn("Kalite raporuna giren (nitelikli): 56", cikti)
+        self.assertIn("Fark: 12 — transkript kullanılamaz/elenmiş sınıf: 4 (TRANSCRIPT_UNUSABLE: 4), "
+                      "pasif temsilci: 8", cikti)
+        self.assertNotIn("rol dışı", cikti)
+        self.assertIn('Kurula "kaç değerlendirme" sorusunda iki sayıyı birlikte ver: toplam 68 '
+                      '(programla aynı) ve nitelikli 56; puan ortalamaları yalnız nitelikli kayıtlardan.',
+                      cikti)
+        self.assertLess(cikti.index("Toplam değerlendirme"), cikti.index("- Alfa:"))
+
+    def test_ozet_fark_yoksa_tire_yok(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-11-11", "--bitis", "2026-11-11"],
+                                  lambda s, p: [("Alfa", 5600, 56, 7)], toplam=56)
+        self.assertIn("Fark: 0", cikti)
+        self.assertNotIn("Fark: 0 —", cikti)
+
+    def test_ozet_ekip_adi_ekipsiz_gecerli(self):
+        def yanit(sql, p):
+            return [("Alfa", 3)] if "GROUP BY t.name" in sql else [("Ekipsiz", 100, 1, 1)]
+        kod, cikti, imlec = _calistir(["ekip-ozet", "--baslangic", "2026-11-11", "--bitis", "2026-11-11",
+                                       "--ekip", "Ekipsiz"], yanit, toplam=1)
+        self.assertEqual(kod, 0)
+        self.assertIn("- Ekipsiz: ortalama=100 kayit=1 temsilci=1", cikti)
+        self.assertIn("ekip=Ekipsiz", cikti)
+        self.assertIn("Toplam değerlendirme (filtresiz, programla aynı): 1", cikti)
+        self.assertTrue(any(p and p.get("ekip") == "Ekipsiz" for _, p in imlec.cagrilar))
+
+    def test_ekipsiz_diger_komutlarda_gecerli(self):
+        satirlar = {"temsilci-ozet": [("Ayse", "Ekipsiz", 100, 1)],
+                    "kocluk": [("Ayse", "Ekipsiz", 1, 0, 0)],
+                    "kriterler": [("Ekipsiz", 1, "Selam", 1, 0, 1)]}
+        for komut, rows in satirlar.items():
+            with self.subTest(komut=komut):
+                def yanit(sql, p, rows=rows, komut=komut):
+                    if "GROUP BY t.name" in sql:
+                        return [("Alfa", 3)]
+                    if "count(DISTINCT e.id) AS kriter_kayit" in sql:
+                        return [(1,)]
+                    if "AS ekip, sum(e.score)" in sql and komut == "kriterler":
+                        return [("Ekipsiz", 100, 1, 1)]
+                    return rows
+                kod, cikti, _ = _calistir([komut, "--baslangic", "2026-11-11", "--bitis", "2026-11-11",
+                                           "--ekip", "Ekipsiz"], yanit)
+                self.assertEqual(kod, 0, cikti)
+                self.assertNotIn("ekip bulunamadı", cikti)
+
+    def test_olmayan_ekip_hatasi_ekipsizi_listeler(self):
+        for komut in ("ekip-ozet", "temsilci-ozet", "kocluk", "kriterler"):
+            with self.subTest(komut=komut):
+                kod, cikti, _ = _calistir([komut, "--baslangic", "2026-11-11", "--bitis", "2026-11-11",
+                                           "--ekip", "Olmayan"],
+                                          lambda s, p: [("Alfa", 3)] if "GROUP BY t.name" in s else [])
+                self.assertEqual(kod, 1)
+                self.assertIn("Alfa", cikti)
+                self.assertIn("Ekipsiz", cikti)
+
+    def test_nitelikli_kayit_yokken_toplam_gosterilir(self):
+        kod, cikti, _ = _calistir(["ekip-ozet", "--baslangic", "2026-11-11", "--bitis", "2026-11-11"],
+                                  lambda s, p: [], toplam=5, fark=[("sinif", "TRANSCRIPT_UNUSABLE", 5)])
+        self.assertEqual(kod, 1)
+        self.assertIn("Toplam değerlendirme (filtresiz, programla aynı): 5", cikti)
+        self.assertIn("Kalite raporuna giren (nitelikli): 0", cikti)
+        self.assertIn("Fark: 5 — transkript kullanılamaz/elenmiş sınıf: 5 (TRANSCRIPT_UNUSABLE: 5)", cikti)
+        self.assertIn("**Hazırlanamadı:**", cikti)
+
+    def test_neden_sirasi_sinif_pasif_rol(self):
+        sql, _ = kalite_veri.fark_sorgusu(self.BAS, self.BIT, None)
+        self.assertLess(sql.index("THEN 'sinif'"), sql.index("THEN 'pasif'"))
+        self.assertLess(sql.index("THEN 'pasif'"), sql.index("ELSE 'rol'"))
+        # aynı kayıt hem elenmiş sınıf hem pasif ise CASE ilk eşleşeni verir: yalnız sınıfa sayılır
+        # (sorgu tek satır üretir; parçalar farkın toplamına eşit kalır)
+        satirlar = [("sinif", "TRANSCRIPT_UNUSABLE", 2), ("pasif", None, 1)]
+        self.assertEqual(kalite_veri.sayim_blogu(10, 7, satirlar)[2],
+                         "Fark: 3 — transkript kullanılamaz/elenmiş sınıf: 2 (TRANSCRIPT_UNUSABLE: 2), "
+                         "pasif temsilci: 1")
 
 
 class EkipOzetTesti(unittest.TestCase):

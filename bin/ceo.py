@@ -135,15 +135,16 @@ def claude_sor(metin):
 
 
 def _bolum(karar, tur, maliyet, model="bilinmiyor"):
+    t = soru_kaydi.tek_satir
     satirlar = [f"\n## CEO — karar: {karar['karar']}",
                 f"- tur: {tur}/{1 + ayar.CEO_MAKS_RED}",
-                f"- gerekçe: {karar['gerekce'] or '-'}"]
+                f"- gerekçe: {t(karar['gerekce']) or '-'}"]
     if karar["bulgular"]:
         satirlar.append("- bulgular:")
-        satirlar += [f"  {i}. {b}" for i, b in enumerate(karar["bulgular"], 1)]
-    satirlar += [f"- kurula not: {karar['kurula_not'] or '-'}",
+        satirlar += [f"  {i}. {t(b)}" for i, b in enumerate(karar["bulgular"], 1)]
+    satirlar += [f"- kurula not: {t(karar['kurula_not']) or '-'}",
                  f"- maliyet: {maliyet:.3f} USD",
-                 f"- model: {model}",
+                 f"- model: {t(model)}",
                  f"- zaman: {ayar.simdi_iso()}"]
     return "\n".join(satirlar) + "\n"
 

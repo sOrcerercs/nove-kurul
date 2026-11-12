@@ -34,7 +34,7 @@
 | N13 | **TC kimlik deseni sağlama hanesiyle çalışır:** yalnız geçerli TC numarası yakalanır (12.10.2026) |
 | N14 | **Şemasız yollarda (NIM, Haiku) `kontrol` alanı eksikse karar korunur**, kontrol "yapılmadı" yazılır; panelde ışıklar gri (12.10.2026) |
 | N15 | **Q&A ön kontrolleri:** günlük 10 soruyu dolduranın 11. sorusu reddedilir · şirket günü 40 USD doluysa soru ertesi güne bekler · 3 kelimeden kısa soru geri döner · aynı kişi aynı soruyu 10 dk içinde sorarsa ikinci kayıt açılmaz (12.10.2026) |
-| N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026) |
+| N16 | **Anahtar kelime eşleşmezse ya da berabere kalırsa Haiku sınıflandırır** (yalnız aktif danışmanlar); listede olmayan ad → "yönlendirilemedi", varsayılan danışman yok (12.10.2026; 12.11.2026: Haiku "hiçbiri" diyebilir; seçilemeyen soru koşusuz `onaylanamadı` olarak deftere girer) |
 | N17 | **Soruyu adımdan adıma İş Dağıtımcı otomatik taşır:** Denetçi kararını soru kaydına sürücü kopyalar, CEO'yu dağıtıcı başlatır, CEO reddinde `r-` açar, onayda iletir (12.10.2026) |
 | N18 | **Denetçi'nin son kararı `red` ya da `atlandi` ise soru "onaylanamadı" olur:** CEO'ya gitmez, Yanıt defterine Denetçi'nin gerekçesiyle girer (12.10.2026) |
 | N19 | **Denetçi yönergesi ve üç ek sınır kagan-sirketi'nden aynen alınır:** madde 3–4 Denetçi'nin konusu değildir · "kaynaksız sayı" yalnız dış dünya iddiaları içindir · hedef aralıktan %15'e kadar sapma red sebebi değildir (13.10.2026) |
@@ -50,6 +50,7 @@
 | N29 | **Sistem haftanın her günü 08:00–20:00 çalışır;** aylık en kötü durum 1.200 USD (13.10.2026) |
 | N30 | **ANAYASA §2: hasta ve müşterinin ad soyadı yazılabilir;** telefon, e-posta, TC kimlik no yasak kalır; ad soyad taşıyabilen dosya (defter, onaylı form) herkese açık depoya girmez. Yapay zekâ sağlayıcılarına aktarım Kağan'ın teyidiyle uygun (19.10.2026) |
 | N31 | **CEO tavanı geçici olarak 1,50 USD/kontrol, soru bütçesi 8 USD:** Opus 5.5 fiyatıyla (4 $ / 20 $ MTok, düşünme kapatılamıyor ve çıktı sayılıyor) tahmin tipik ~0,53, ağır ~1,28 USD; 0,50 USD'de CEO karar yazamadan kesilir. Kalıcı rakam Faz 4 beş gerçek soruda ölçülüp konur. En kötü yol 2 + 1,5 + 2 + 1,5 = 7 USD + 1 USD pay. Aylık 1.200 USD değişmez (günlük 40 USD belirliyor) (19.10.2026) |
+| N32 | **Panel canlı 2 (12.11.2026, K7–K11):** (K7) NIM geçici kapalı ve OpenAI anahtarı yok; Denetçi yedeği geçici olarak **Opus 5.5** (`ayar.BEKCI_YEDEK_MODEL`, 0,75 USD/çağrı, 240 sn); gerekçe atlanan her yolu adıyla sayar, aynı aile uyarısı kalır; Denetçi maliyeti (`- denetçi maliyeti:`) soru bütçesine ve günlük tavana sayılır, koşu tavanına sayılmaz. ANAYASA §3 hâlâ Haiku'yu adlandırır; bu geçici sapmadır (Kağan, 12.11.2026), ANAYASA'ya dokunulmadı. (K8) İş Dağıtımcı soruyu kolay/orta/zor sınıflar; model zorluğa göre (kolay Haiku, orta Sonnet, zor Opus; yalnız Anthropic sağlayıcılı takımlarda). (K9) Danışman koşusu kolay/orta 2 USD, zor 4 USD. (K11) Düzeltme tavanı `min(sınıf tavanı, 8 − harcanan − 1,50 − 0,75)`, sente aşağı; 0,50 USD'nin altındaysa "soru bütçesi doldu" ile kapanır. (K10) Gerçek modda sahne sorunun aşamalarıyla oynar (`asama` + `danisman`). NIM yeniden açılırken Stop hook zaman aşımı (`.claude/settings.json`, şimdi 420 sn; en kötü yol 600 sn) yükseltilmelidir; bunun için bir test bilerek kırmızı olur |
 
 ---
 
@@ -82,9 +83,9 @@
       │
  [2] İş Dağıtımcı       dagitici.py → anahtar kelime tablosu → (belirsizse Haiku)
       │                 → takimlar/<danisman>/durum.json kuyruğuna  s-<soru-id>
- [3] Danışman           kos.py <danisman>   (claude -p, sonnet)
+ [3] Danışman           kos.py <danisman>   (claude -p; model zorluğa göre: haiku / sonnet / opus)
       │                 → cikti/<soru-id>-taslak.md
- [4] Denetçi (Bekçi)    Stop hook → bekci.py  (NIM → OpenAI → Haiku)
+ [4] Denetçi (Bekçi)    Stop hook → bekci.py  (NIM → OpenAI → Haiku; yedek geçici olarak Opus 5.5 — N32)
       │   red ─► aynı oturumda düzelt (en fazla 2) — CEO'ya HİÇ gitmez
       │ kabul
  [5] CEO double check   ceo.py <soru-id>  → {karar: onay | red, bulgular[]}
@@ -159,7 +160,7 @@ kagan-sirketi'deki tanım **aynen** kalır:
 - **Katman 1 — LLM'siz ön kontrol:** e-posta, anahtar ve token desenleri bulunursa karar doğrudan `red` olur.
   Boş kayıtta da karar `red` olur.
 - **Katman 2 — LLM denetimi:** `<anayasa>` + `<kurallar>` + `<kosu>` blokları verilir. Model şüphede `red` verir ve yalnız JSON döner.
-- **Ayrı aile:** sıra NIM (`openai/gpt-oss-20b`) → OpenAI → Haiku. Haiku'ya düşülürse karar
+- **Ayrı aile:** sıra NIM (`openai/gpt-oss-20b`) → OpenAI → Haiku (yedek geçici olarak Opus 5.5 — N32). Yedeğe düşülürse karar
   "denetçi aynı aileden — uyarı" notuyla kaydedilir.
 - **En fazla 2 red.** Sayaç `kosu/.bekci-deneme` dosyasında tutulur. `stop_hook_active` gelirse Denetçi son kararı yine verir.
 - Karar `atlandi` olabilir ama asla sessizce `kabul` sayılmaz.
@@ -195,7 +196,7 @@ Bekçi ile CEO'nun işi aynı değildir. Biri kuralları, diğeri kararı kontro
 |---|---|---|
 | Ne zaman | Danışman koşusunun sonunda (Stop hook) | Yalnız Bekçi `kabul` verdikten sonra |
 | Neye bakar | **Kural:** ANAYASA + `kurallar.md`. Kaynak, hesap, tutarlılık, gizli veri | **Karar kalitesi:** soru gerçekten yanıtlandı mı, kurul bu yanıtla karar verebilir mi, sayılar taslağın kendi kaynaklarıyla tutuyor mu, Yanıt defterindeki önceki yanıtlarla çelişki var mı |
-| Model | Ayrı aile (NIM → OpenAI → Haiku) | Claude **Opus**. Danışman Sonnet'te çalıştığı için CEO ondan daha güçlü bir modeldir |
+| Model | Ayrı aile (NIM → OpenAI → Haiku; yedek geçici olarak Opus 5.5 — N32) | Claude **Opus**. Danışman çoğunlukla Sonnet'te çalıştığı için CEO ondan daha güçlü bir modeldir; zor bir koşu CEO ile aynı Opus'ta çalışır (modeller aynı, bağlam ve rol ayrı) |
 | Sonuç | `kabul` / `red` | `onay` / `red` + bulgular |
 | Red sonrası | Danışman aynı oturumda düzeltir (en fazla 2) | Danışman yeni bir koşuda düzeltir (en fazla 1), sonra yine Bekçi → CEO |
 
@@ -366,17 +367,17 @@ panel/
 ```
 
 - **Giriş ucu:** `POST /api/giris` gövdesi `{"eposta", "sifre"}`. Başarıda `200 {"ad", "basHarf", "rol"}` ve
-  `HttpOnly; Secure; SameSite=Strict` oturum çerezi döner. Yanlış bilgide `401`, çok denemede `429`. Panel bu üç durumu
+  `HttpOnly; SameSite=Strict` oturum çerezi döner; `Secure` yalnız `--https-arkasinda` ile eklenir. Yanlış bilgide `401`, çok denemede `429`. Panel bu üç durumu
   kullanıcıya ayrı mesajla gösterir; sunucuya ulaşılamazsa da ayrı mesaj verir.
 - **Çıkış ucu:** `POST /api/cikis` oturumu kapatır; panel giriş ekranına döner.
-- **Şifre saklama:** Düz metin tutulmaz; `panel.py` Python stdlib'deki `hashlib.scrypt` ile özet saklar. Kullanıcı ve özet dosyası
+- **Şifre saklama:** Düz metin tutulmaz; `panel.py` Python stdlib ile özet saklar: scrypt, yoksa PBKDF2-SHA256 (kayıtta `yontem`). Kullanıcı ve özet dosyası
   git'e girmez ve izni `600`'dür. Dağıtım ve sıfırlama N23'e göre: yönetici ekler, ilk girişte geçici şifre değişir.
 - **Rol:** `/api/giris` yanıtındaki `rol` (`kurul` | `yonetici`) `deploy/roller.json`'dan gelir (§8b). `panel.js` rolü henüz
   kullanmıyor; süzme (ör. Yanıt defteri, N10) sunucuda yapılır.
 - **Demo modu:** Sayfa dosyadan açılırsa (`file://`) ya da adres `?demo` ile açılırsa her e-posta ve şifre kabul edilir ve
   `#ofis` bağlantısı girişi atlar. Bu yalnız tarayıcıdaki görünümü açar; güvenlik sınırı `panel.py`'dir: oturum çerezi olmadan
   hiçbir uç veri döndürmez. Üretimde `panel.js`'teki `DEMO` bayrağı `false` sabitlenir.
-- **Yerelde açmak:** `cd panel && python3 -m http.server 8000` → `http://127.0.0.1:8000/?demo`
+- **Yerelde açmak:** `python3 bin/panel.py` → `http://127.0.0.1:8770` (`?demo` aynı adreste)
 
 ---
 
@@ -385,9 +386,10 @@ panel/
 | Ayar | kagan-sirketi | Nove başlangıç | Not |
 |---|---|---|---|
 | Mesai | 09:00–23:00 | 08:00–20:00, haftanın her günü | Dışında gelen soru sabaha kalır; soran kişi bunu panelde görür |
-| Danışman koşusu | 2 USD / 15 dk | 2 USD / 15 dk | Aynı kalır |
+| Danışman koşusu | 2 USD / 15 dk | kolay/orta 2 USD, zor 4 USD / 15 dk | Sınıfı İş Dağıtımcı koyar (N32) |
+| Denetçi yedeği | — | **0,75 USD**/çağrı, 240 sn | Geçici Opus; soru bütçesine sayılır, koşu tavanına sayılmaz (N32) |
 | CEO kontrolü | — | **1,50 USD** / 5 dk | Opus kullanılır. **Geçici** — Faz 4 beş gerçek soruda ölçülecek (N31) |
-| **Soru başına toplam** | — | **8 USD** | Danışman + düzeltme + Bekçi + CEO. En kötü yol 2 + 1,5 + 2 + 1,5 = 7 USD; 1 USD Denetçi ve pay (N27, N31) |
+| **Soru başına toplam** | — | **8 USD** | Danışman + düzeltme + Bekçi + CEO. İlk tur en kötü `0,05 + 4 + 2×0,75 + 1,5 = 7,05 USD` (Dağıtım Haiku + zor koşu + Denetçi yedeği + CEO); düzeltmeli yolda tavan tam 8,00 USD (K11 formülü + CEO kapısı); düzeltme turu kalan bütçeyle koşar: `8 − harcanan − 1,50 − 0,75`, alt sınır 0,50 USD (N27, N31, N32) |
 | Kurul üyesi başına gün | — | 10 soru | Kötüye kullanım freni |
 | Danışman başına gün | 2 koşu | 15 koşu | Soru akışı olaylıdır, takvimli değildir |
 | Şirket günü | 5 USD | **40 USD** | İlk ay ölçülür (`sirket-log/rapor/`), sonra karar verilir |
@@ -492,11 +494,12 @@ ve `qa-koclugu-kurgusu` taşınır.
     buna göre konur (N31, şimdi geçici 1,50 USD)
 
 ### Faz 5 · Panel
-> **Durum (09.10.2026):** kısmen — panel demo verisiyle çalışıyor; `panel.py` yok.
+> **Durum (12.11.2026):** panel canlı — giriş, soru, durum yoklaması, Yanıt defteri; SSE, CRM zili, ajan kartı, Caddy/systemd açık.
 
 - [x] Giriş ekranı ve Kurul Ofisi `panel/` altında, demo verisiyle çalışıyor (09.10.2026)
 - [ ] Orijinal `.dc.html` + `support.js` Claude Design'dan dışa aktarıldı (14 Aralık'tan önce)
-- [ ] `bin/panel.py`: `sahne.py` temel alınır. `POST /api/giris`, `POST /api/cikis` (§8c), `POST /api/soru`, `GET /api/durum`, `GET /api/olaylar` (SSE), `GET /api/yanitlar` (role göre süzülür), `POST /api/crm/satis`
+- [x] `bin/panel.py` (12.11.2026): `POST /api/giris`, `POST /api/cikis` (§8c), `GET /api/ben`, `POST /api/soru`, `GET /api/sorular/<id>` (`asama` ve `danisman` ile), `GET /api/yanitlar` (role göre süzülür), arka plan ilerleticisi; gerçek modda sahne aşamalarla oynar (`panel/sahne-sira.js`, N32)
+- [ ] `bin/panel.py` kalanı: `GET /api/olaylar` (SSE), `POST /api/crm/satis`
 - [ ] "Soru akışı" kartı soru kaydından, "Ajan kartı" `takim.md` + `durum.json` + `defter.md`'den beslenir
 - [ ] `otomatikDemo` yalnız demo ortamında açılır, üretimde kapalı kalır
 - [ ] Caddy + systemd birimleri (`deploy/`)

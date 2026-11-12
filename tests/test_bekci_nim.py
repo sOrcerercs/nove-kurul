@@ -100,7 +100,7 @@ class UcYolluSiraTesti(unittest.TestCase):
     def test_nim_anahtari_varsa_openai_cagrilmaz(self):
         with mock.patch.object(bekci, "nim_sor", return_value=self.TEMIZ) as n, \
              mock.patch.object(bekci, "openai_sor") as o, \
-             mock.patch.object(bekci, "haiku_sor") as h:
+             mock.patch.object(bekci, "yedek_sor") as h:
             karar = bekci.llm_karari({"NVIDIA_API_KEY": "nvapi-x", "OPENAI_API_KEY": "sk-y"}, "istem")
         n.assert_called_once()
         o.assert_not_called()
@@ -111,12 +111,11 @@ class UcYolluSiraTesti(unittest.TestCase):
         atlandi = {"karar": "atlandi", "gerekce": "nim 404", "ihlal_edilen_kural": None}
         with mock.patch.object(bekci, "nim_sor", return_value=atlandi), \
              mock.patch.object(bekci, "openai_sor", return_value=self.TEMIZ) as o, \
-             mock.patch.object(bekci, "haiku_sor") as h:
+             mock.patch.object(bekci, "yedek_sor") as h:
             karar = bekci.llm_karari({"NVIDIA_API_KEY": "nvapi-x", "OPENAI_API_KEY": "sk-y"}, "istem")
         o.assert_called_once()
         h.assert_not_called()
-        self.assertIn("nim 404", karar["gerekce"])
-        self.assertIn("openai yolu", karar["gerekce"])
+        self.assertTrue(karar["gerekce"].startswith("nim 404 → openai yolu · "), karar["gerekce"])
 
     def test_nim_yoksa_dogrudan_openai(self):
         with mock.patch.object(bekci, "nim_sor") as n, \
@@ -130,7 +129,7 @@ class UcYolluSiraTesti(unittest.TestCase):
                  "ihlal_edilen_kural": None}
         with mock.patch.object(bekci, "nim_sor") as n, \
              mock.patch.object(bekci, "openai_sor") as o, \
-             mock.patch.object(bekci, "haiku_sor", return_value=yedek) as h:
+             mock.patch.object(bekci, "yedek_sor", return_value=yedek) as h:
             karar = bekci.llm_karari({}, "istem")
         n.assert_not_called()
         o.assert_not_called()
@@ -141,11 +140,11 @@ class UcYolluSiraTesti(unittest.TestCase):
         atlandi = lambda g: {"karar": "atlandi", "gerekce": g, "ihlal_edilen_kural": None}
         with mock.patch.object(bekci, "nim_sor", return_value=atlandi("nim 404")), \
              mock.patch.object(bekci, "openai_sor", return_value=atlandi("openai 401")), \
-             mock.patch.object(bekci, "haiku_sor",
+             mock.patch.object(bekci, "yedek_sor",
                                return_value={"karar": "red", "gerekce": "boş", "ihlal_edilen_kural": "x"}):
             karar = bekci.llm_karari({"NVIDIA_API_KEY": "n", "OPENAI_API_KEY": "s"}, "istem")
         self.assertEqual(karar["karar"], "red")
-        self.assertIn("haiku yedeği", karar["gerekce"])
+        self.assertIn("opus yedeği", karar["gerekce"])
 
 
 class NimKapaliTesti(unittest.TestCase):
@@ -156,12 +155,98 @@ class NimKapaliTesti(unittest.TestCase):
         yedek = {"karar": "kabul", "gerekce": "[bekçi aynı aileden — uyarı] temiz", "ihlal_edilen_kural": None}
         with mock.patch.object(bekci, "NIM_ACIK", False), \
              mock.patch.object(bekci, "nim_sor") as n, \
-             mock.patch.object(bekci, "haiku_sor", return_value=yedek) as h:
+             mock.patch.object(bekci, "yedek_sor", return_value=yedek) as h:
             karar = bekci.llm_karari({"NVIDIA_API_KEY": "nvapi-x"}, "istem")
         n.assert_not_called()
         h.assert_called_once()
         self.assertIn("nim kapalı", karar["gerekce"])
-        self.assertIn("haiku yedeği", karar["gerekce"])
+        self.assertIn("opus yedeği", karar["gerekce"])
+
+
+class YedekZinciriTesti(unittest.TestCase):
+    YEDEK = {"karar": "kabul", "gerekce": "[bekçi aynı aileden — uyarı] temiz",
+             "ihlal_edilen_kural": None, "maliyet": 0.31}
+
+    def _claude(self, result="{\"karar\":\"kabul\",\"gerekce\":\"temiz\",\"ihlal_edilen_kural\":null}",
+                maliyet=0.42):
+        return mock.Mock(stdout=json.dumps({"result": result, "total_cost_usd": maliyet}), returncode=0)
+
+    def test_basari_olcutu_gerekcesi(self):
+        with mock.patch.object(bekci, "NIM_ACIK", False), \
+             mock.patch.object(bekci, "yedek_sor", return_value=self.YEDEK):
+            karar = bekci.llm_karari({}, "istem")
+        self.assertEqual(karar["gerekce"], "nim kapalı (geçici) → openai anahtarı yok → opus yedeği · "
+                                           "[bekçi aynı aileden — uyarı] temiz")
+        self.assertEqual(karar["maliyet"], 0.31)
+
+    def test_nim_acik_anahtar_yok_yazilir(self):
+        with mock.patch.object(bekci, "NIM_ACIK", True), \
+             mock.patch.object(bekci, "yedek_sor", return_value=self.YEDEK):
+            karar = bekci.llm_karari({}, "istem")
+        self.assertTrue(karar["gerekce"].startswith("nim anahtarı yok → openai anahtarı yok → opus yedeği · "))
+
+    def test_nim_kapali_anahtar_yokken_de_yazilir(self):
+        temiz = {"karar": "kabul", "gerekce": "temiz", "ihlal_edilen_kural": None}
+        with mock.patch.object(bekci, "NIM_ACIK", False), \
+             mock.patch.object(bekci, "nim_sor") as n, \
+             mock.patch.object(bekci, "yedek_sor") as y, \
+             mock.patch.object(bekci, "openai_sor", return_value=temiz):
+            karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-y"}, "istem")
+        n.assert_not_called()
+        y.assert_not_called()
+        self.assertEqual(karar["gerekce"], "nim kapalı (geçici) → openai yolu · temiz")
+
+    def test_openai_401_zinciri(self):
+        atlandi = {"karar": "atlandi", "gerekce": "openai 401", "ihlal_edilen_kural": None}
+        with mock.patch.object(bekci, "NIM_ACIK", False), \
+             mock.patch.object(bekci, "openai_sor", return_value=atlandi), \
+             mock.patch.object(bekci, "yedek_sor", return_value=self.YEDEK):
+            karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-y"}, "istem")
+        self.assertTrue(karar["gerekce"].startswith("nim kapalı (geçici) → openai 401 → opus yedeği · "))
+
+    def test_yedek_modeli_butcesi_suresi_ayardan(self):
+        with mock.patch.object(bekci.subprocess, "run", return_value=self._claude()) as r:
+            karar = bekci.yedek_sor("istem")
+        komut = r.call_args.args[0]
+        self.assertEqual(komut[komut.index("--model") + 1], "opus")
+        self.assertEqual(komut[komut.index("--max-budget-usd") + 1], "0.75")
+        self.assertEqual(r.call_args.kwargs["timeout"], 240)
+        self.assertEqual(karar["maliyet"], 0.42)
+        self.assertIn(bekci.AYNI_AILE_UYARISI, karar["gerekce"])
+
+    def test_model_parametresi_ezer(self):
+        with mock.patch.object(bekci.subprocess, "run", return_value=self._claude()) as r:
+            bekci.yedek_sor("i", model="haiku")
+        komut = r.call_args.args[0]
+        self.assertEqual(komut[komut.index("--model") + 1], "haiku")
+
+    def test_yedek_zaman_asimi_atlandi_maliyet_sifir(self):
+        with mock.patch.object(bekci.subprocess, "run",
+                               side_effect=bekci.subprocess.TimeoutExpired("claude", 240)):
+            karar = bekci.yedek_sor("istem")
+        self.assertEqual(karar["karar"], "atlandi")
+        self.assertEqual(karar["maliyet"], ayar.BEKCI_YEDEK_BUTCESI_USD)   # kapalı kalır: tavan harcanmış sayılır
+        self.assertIn("tavan harcanmış sayıldı", karar["gerekce"])
+
+    def test_yedek_json_nesne_degilse_ya_da_result_null_ise_atlandi(self):
+        for stdout in ("null", "[1]", '"x"', json.dumps({"result": None, "total_cost_usd": 0.3})):
+            with mock.patch.object(bekci.subprocess, "run",
+                                   return_value=mock.Mock(stdout=stdout, stderr="", returncode=0)):
+                karar = bekci.yedek_sor("istem")
+            self.assertEqual(karar["karar"], "atlandi", stdout)
+            self.assertIn("maliyet", karar)
+
+    def test_yedek_json_yoksa_maliyet_korunur(self):
+        with mock.patch.object(bekci.subprocess, "run", return_value=self._claude("bütçe aşıldı", 0.75)):
+            karar = bekci.yedek_sor("istem")
+        self.assertEqual(karar["karar"], "atlandi")
+        self.assertEqual(karar["maliyet"], 0.75)
+
+    def test_yedek_reddi_uyari_notu_yuzunden_kabule_donmez(self):
+        k = {"karar": "red", "gerekce": "nim kapalı (geçici) → openai anahtarı yok → opus yedeği · "
+                                        "[bekçi aynı aileden — uyarı] kaynaksız sayı var",
+             "ihlal_edilen_kural": "kaynak", "kontrol": None}
+        self.assertEqual(bekci.kontrol_uygula(bekci.gecersiz_gerekceyi_ayikla(k))["karar"], "red")
 
 
 if __name__ == "__main__":

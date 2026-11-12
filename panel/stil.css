@@ -190,3 +190,35 @@ body{background:var(--sky);color:var(--ink);overflow:hidden;font-family:var(--ch
   .app.on{opacity:1}
 }
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* gerçek mod: bekleme ekranı, yanıt gövdesi (.md), tıklanır defter satırı */
+.lbl.red{color:#a3281c}
+.bekle{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#faf9f7}
+.bekle-b{font-size:16px;font-weight:600;color:var(--text)}
+.bekle-s{font-family:var(--mono);font-size:13px;color:#4a4540;font-variant-numeric:tabular-nums}
+.bekle-n{font-size:13px;color:#4a4540}
+.bekle-a{font-size:12px;line-height:1.5;color:var(--muted);margin-top:4px}
+.bekle-k{font-size:12px;color:#8f6212;background:#fbf1dc;border-radius:8px;padding:6px 10px}
+.gerr{font-size:13px;color:#a3281c;background:#fdeceb;border-radius:10px;padding:10px 12px}
+.answer.red{background:#fdf4f3;border-color:#f1cbc7}
+.answer.red .lbl{color:#a3281c}
+.gerekce{margin:0;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:8px;font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto}
+.kurulanot{background:#fbf1dc;border-radius:10px;padding:10px 12px}
+.kurulanot .lbl{color:#8f6212}
+.md{font-size:14px;line-height:1.6;color:var(--text);overflow-wrap:anywhere}
+.md>:first-child{margin-top:0}
+.md>:last-child{margin-bottom:0}
+.md p{margin:0 0 10px}
+.md h3,.md h4,.md h5{margin:14px 0 6px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.md h3{font-size:16px}.md h4{font-size:15px}.md h5{font-size:14px}
+.md ul,.md ol{margin:0 0 10px;padding-left:22px}
+.md li{margin:2px 0}
+.md code{font-family:var(--mono);font-size:12px;background:#f4f2ee;border-radius:4px;padding:1px 5px}
+.md table{border-collapse:collapse;margin:0 0 10px;display:block;overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px;text-align:left;font-size:13px}
+.md th{background:#faf9f7;font-weight:600}
+.tr.tikli{cursor:pointer}
+.tr.tikli:hover{background:#faf9f7}
+.tr.bos{display:block;color:var(--muted);font-size:14px}
+.tr .q .soran{display:block;font-size:11px;color:#9a9387;margin-top:2px}
+.tr.bos .yeniden{margin-left:8px;border:1px solid #e3dfd6;background:#fff;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}

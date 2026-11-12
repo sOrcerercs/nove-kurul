@@ -114,11 +114,14 @@ yalnız ikinci kapıya taşır. Panelde **Denetçi ✔** yanar.
 
 ## Hangi modelle çalışırsın
 
-Sıra: **NIM** (`openai/gpt-oss-20b`) → **OpenAI** → **Haiku**.
+Sıra: **NIM** (`openai/gpt-oss-20b`) → **OpenAI** → **yedek**.
 > **11.11.2026 — NIM geçici kapalı** (`bin/bekci.py` `NIM_ACIK = False`): NVIDIA hesabından sohbet istekleri yanıt
-> dönmüyor. Bu sürede denetim Haiku yedeğinde ve "aynı aile" uyarısıyla yapılır; gerekçe "nim kapalı" der. Hesap düzelince açılır.
+> dönmüyor. Bu sürede denetim yedekte ve "aynı aile" uyarısıyla yapılır; gerekçe "nim kapalı" der. Hesap düzelince açılır.
 
-- NIM ve OpenAI ayrı ailedir. İkisine de ulaşılamazsa Haiku'ya düşülür ve gerekçenin başına
+> **Geçici (Kağan, 12.11.2026):** yedek Haiku değil Opus 5.5 (`ayar.BEKCI_YEDEK_MODEL`), OpenAI anahtarı gelene kadar.
+> Opus da danışmanla aynı ailedir; uyarı notu kalır. ANAYASA §3 yedeği 'Haiku' diye adlandırır — metni güncellemek Kağan'ın kararı.
+
+- NIM ve OpenAI ayrı ailedir. İkisine de ulaşılamazsa yedeğe düşülür ve gerekçenin başına
   **"denetçi aynı aileden — uyarı"** eklenir. Bu uyarı panelde ve raporda görünür.
 - Anahtar yok, ağ yok, yanıt bozuk → karar **`atlandi`**. `atlandi` hiçbir zaman sessizce `kabul` sayılmaz;
   atlanan yanıt CEO'ya gitmez.

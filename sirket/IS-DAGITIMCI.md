@@ -14,6 +14,7 @@
 
 Sahnede bir danışman gibi görünürsün ama **çoğunlukla sürücüsün**: kararlarının büyük kısmını bir tablo verir,
 LLM çağırmazsın. Yalnız tablo karar veremediğinde **Haiku'ya** sorarsın ve gerekçeyi kayda yazarsın (§1).
+İstisna: her soruda zorluk için tek kısa Haiku çağrısı yaparsın (§1b; yönlendirme Haiku'daysa aynı çağrıda).
 
 Neden böyle: dağıtıcı LLM çağırmaz; yönlendirme ucuz ve deterministik olmalı (§1). Aynı soru her seferinde
 aynı danışmana gitmeli.
@@ -42,19 +43,27 @@ Haiku'ya verdiğin: maskelenmiş soru metni ve **yalnız aktif** danışmanları
 anahtar kelimeler). Haiku'dan aldığın yalnız JSON:
 
 ```json
-{ "danisman": "<listeden bir ad>", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null" }
+{ "danisman": "<listeden bir ad> | hiçbiri", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null",
+  "zorluk": "kolay | orta | zor", "zorluk_gerekce": "tek kısa cümle" }
 ```
 
 - Haiku listede olmayan bir ad döndürürse ya da JSON bozuksa: soru **yönlendirilemedi** sayılır. Hiçbir danışmana
-  tahminle gönderilmez. Soru kaydına `durum: yönlendirilemedi` ve sebebi yazılır; yönetici (Kağan) bunu görür,
-  soranın panelinde "sorun inceleniyor" görünür *(öneri)*.
+  tahminle gönderilmez. Seçilemeyen soru koşu yapılmadan `onaylanamadı` etiketiyle Yanıt defterine girer
+  (gerekçe: "yönlendirilemedi — <sebep>"); Haiku soru hiçbir danışmanın alanına girmiyorsa `"danisman": "hiçbiri"`
+  diyebilir, gerekçe "bu bölüm henüz kurulmadı — …" olur. Defter yazılamazsa durum `yönlendirilemedi` kalır.
+- **Zorluk (her soruda):** Haiku soruyu `kolay`, `orta` ya da `zor` diye de sınıflar; her soruda zorluk için tek kısa Haiku
+  çağrısı yapılır (yönlendirme Haiku'daysa aynı çağrıda). Hata ya da tanınmayan yanıt → `orta`, sebep yazılır. Tanımlar
+  (`ZORLUK_TANIMI`): *kolay = tek kaynak, tek sayı ya da liste, hesap yok; orta = birkaç kaynak ya da basit karşılaştırma;
+  zor = çok adımlı analiz, dönemler arası karşılaştırma, neden-sonuç, koçluk önerisi.* Sınıf danışman koşusunun modelini ve
+  bütçesini belirler (`ayar.ZORLUK_MODELI`, `ayar.ZORLUK_BUTCESI_USD`); yalnız Anthropic sağlayıcılı takımlarda model değişir,
+  NIM takımları kendi modelinde kalır (bütçe yine uygulanır).
 - Haiku çağrısının maliyeti sorunun bütçesinden (`ayar.SORU_BUTCESI_USD`) düşer (§9). Çağrı başına tavan
   `ayar.DAGITIM_HAIKU_BUTCESI_USD` *(öneri)*.
 
 ### 1c · Yalnız aktif danışmana gönder
 Bir danışman **ancak verisi bağlıysa** devreye girer; verisi olmayan sahnede "kurulumda" görünür (Faz 6).
-Kurulumdaki danışmana soru göndermezsin. En uygun danışman kurulumdaysa soru kaydına bunu yazarsın ve soranın
-panelinde "<Danışman> henüz kurulumda" görünür *(davranış öneri)*.
+Kurulumdaki danışmana soru göndermezsin. Sorunun gittiği bölüm kurulmamışsa ya da hiçbir kurulu danışman uymuyorsa
+("hiçbiri") soru koşu yapılmadan `onaylanamadı` olarak kapanır; panelde "Bu bölüm henüz kurulmadı" görünür.
 
 ### 1d · Birden çok danışmanı ilgilendiren soru
 Örneğin "Q3 bütçe sapması" hem Finans'ı hem OKR'ı ilgilendirir. **Ana danışmanı** seçersin, diğerini soru kaydına
@@ -66,6 +75,7 @@ Soru kaydına (`sirket-log/sorular/<soru-id>.md`) bir `## Dağıtım` bölümü 
 ```markdown
 ## Dağıtım
 - danışman: Finans
+- zorluk: zor · dönemler arası karşılaştırma
 - yöntem: anahtar kelime            (ya da: Haiku — tablo eşleşmedi / beraberlik)
 - eşleşen ifadeler: bütçe, sapma
 - güven: %86

@@ -39,7 +39,7 @@ class OnKontrolTesti(unittest.TestCase):
 
     def test_eposta_telefon_ve_bos_kayit_llm_cagirmadan_red_olur(self):
         with mock.patch.object(bk.bekci, "nim_sor") as n, \
-             mock.patch.object(bk.bekci, "haiku_sor") as h, \
+             mock.patch.object(bk.bekci, "yedek_sor") as h, \
              mock.patch.object(bk.bekci, "openai_sor") as o:
             satirlar = bk.calistir(["nim"], {"NVIDIA_API_KEY": "nvapi-x"})
         onkontrol = {s["ad"]: s for s in satirlar if s["on_kontrol"]}

@@ -16,6 +16,7 @@ from unittest import mock
 KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "bin"))
 import ayar  # noqa: E402
+import bekci  # noqa: E402
 import dagitici  # noqa: E402
 import soru_kaydi as sk  # noqa: E402
 
@@ -158,6 +159,74 @@ class SoruButcesiTesti(Kurulum):
         self.ilerlet()
         self.assertFalse(any(m["id"] == f"r-{SID}" for m in self.kuyruk()))
         self.assertIn("bütçe", self.ilet.call_args.kwargs["onaylanamadi"])
+
+
+class DuzeltmeTavaniTesti(Kurulum):
+    def zorluk_yaz(self, sinif):
+        m = self.yol.read_text(encoding="utf-8")
+        self.yol.write_text(m.replace("- maliyet: 0.000 USD\n", f"- zorluk: {sinif} · x\n- maliyet: 0.000 USD\n", 1),
+                            encoding="utf-8")
+
+    def harca(self, tutar):
+        self.ekle(DENETCI_KABUL.replace("1.200", f"{tutar - 0.4:.3f}"), CEO_RED)
+
+    def r(self):
+        return self.kuyruk()[-1]
+
+    def test_zor_kalan_butceyle(self):
+        self.zorluk_yaz("zor")
+        self.harca(4.65)
+        self.ilerlet()
+        self.assertEqual(self.r()["butce_usd"], 1.1)
+        self.assertEqual(self.r()["zorluk"], "zor")
+
+    def test_zor_bol_butcede_dort_dolar(self):
+        self.zorluk_yaz("zor")
+        self.harca(1.6)
+        self.ilerlet()
+        self.assertEqual(self.r()["butce_usd"], 4.0)
+
+    def test_orta_tavan_iki_dolar(self):
+        self.zorluk_yaz("orta")
+        self.harca(1.6)
+        self.ilerlet()
+        self.assertEqual(self.r()["butce_usd"], 2.0)
+        self.assertEqual(dagitici.duzeltme_tavani(self.yol.read_text(encoding="utf-8")), 2.0)
+        self.ekle("## Dağıtım\n- zorluk: orta · x\n- maliyet: 2.900 USD\n")
+        self.assertEqual(dagitici.duzeltme_tavani(self.yol.read_text(encoding="utf-8")), 1.25)
+
+    def test_elli_sentin_altinda_kapanir(self):
+        self.zorluk_yaz("zor")
+        self.harca(5.3)
+        adimlar = self.ilerlet()
+        self.assertEqual(adimlar[0]["adim"], "onaylanamadı")
+        self.assertTrue(self.ilet.call_args.kwargs["onaylanamadi"].startswith("soru bütçesi doldu"))
+        self.assertFalse(any(m["id"] == f"r-{SID}" for m in self.kuyruk()))
+
+    def test_tam_elli_sent_baslar(self):
+        self.zorluk_yaz("zor")
+        self.harca(5.25)
+        adimlar = self.ilerlet()
+        self.assertEqual(adimlar[0]["adim"], "düzeltme")
+        self.assertEqual(self.r()["butce_usd"], 0.5)
+
+    def test_zorluksuz_eski_kayit(self):
+        self.harca(1.6)
+        self.ilerlet()
+        self.assertEqual(self.r()["butce_usd"], 2.0)
+        self.assertNotIn("zorluk", self.r())
+
+    def test_denetci_maliyeti_tavani_daraltir(self):
+        self.zorluk_yaz("zor")
+        self.ekle("## Denetçi\n- karar: **kabul**\n- gerekçe: temiz\n- maliyet: 2.000 USD\n"
+                  "- denetçi maliyeti: 1.500 USD\n", CEO_RED)
+        self.ilerlet()
+        self.assertEqual(self.r()["butce_usd"], 1.85)
+
+    def test_en_kotu_yol_sekiz_dolari_asmaz(self):
+        self.assertLessEqual(ayar.ZORLUK_BUTCESI_USD["zor"] + bekci.MAKS_RED * ayar.BEKCI_YEDEK_BUTCESI_USD
+                             + ayar.CEO_BUTCESI_USD + 2 * ayar.DAGITIM_HAIKU_BUTCESI_USD, ayar.SORU_BUTCESI_USD)
+        self.assertLessEqual(bekci.MAKS_RED * ayar.BEKCI_YEDEK_BUTCESI_USD, ayar.CEO_BUTCESI_USD)
 
 
 class KapsamTesti(Kurulum):

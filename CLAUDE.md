@@ -40,14 +40,14 @@
 ```
 NOVE-KURULUM.md       kurulum belgesi — kararlar (N1–N11), akış, fazlar, açık sorular
 ANAYASA.md            beş madde — İNSANIN dosyası, ajan değiştirmez
-bin/                  kos.py · bekci.py · dagitici.py · gunluk.py · ayar.py · agents_uret.py · sahne.py · …
+bin/                  kos.py · bekci.py · dagitici.py · gunluk.py · ayar.py · agents_uret.py · sahne.py · panel.py · …
 sirket/               AJAN-KIMLIGI.md · DENETCI.md · CEO-KIMLIGI.md · QA-DANISMANI.md · IS-DAGITIMCI.md · YETENEKLER.md
 takimlar/<danisman>/  takim.md · kurallar.md · defter.md · durum.json · kosu/ · cikti/ · veri/
 takimlar/_iskelet/    yeni danışmanın dört dosyalık iskeleti (bin/takim-olustur.sh)
 skills/<ad>/SKILL.md  yetenekler
 formlar/              DANISMAN-FORMU.md şablonu · gelen/ (git'e girmez) · onayli/ (insanın; ikisi de git'e girmez)
 docs/superpowers/     PLANS.md · specs/ · plans/
-panel/                kurul üyelerinin arayüzü: giriş + Kurul Ofisi (demo verisiyle)
+panel/                kurul üyelerinin arayüzü: giriş + Kurul Ofisi (canlı: `bin/panel.py`; `?demo` demo verisiyle)
 tests/                python3 -m unittest discover -s tests
 sirket-log/           soru kayıtları, rapor, telemetri — git'e girmez
 kasa/                 bilgi kasası (kendi git deposu) — git'e girmez

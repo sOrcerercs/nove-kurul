@@ -16,6 +16,11 @@ BOLUM = re.compile(r"^## (Denetçi|CEO — karar: (onay|red)|CEO — kontrol yap
 DENETCI_KARARI = re.compile(r"^- karar: \*\*(\w+)\*\*", re.MULTILINE)
 
 
+def tek_satir(metin):
+    """Serbest metni tek satıra indirir (boşluklar tek boşluk): satır başı sahte `## …` başlığı üretemez."""
+    return " ".join(str(metin if metin is not None else "").split())
+
+
 def yol(soru_id, kok=None):
     return Path(kok or ayar.KOK) / "sirket-log" / "sorular" / f"{soru_id}.md"
 
@@ -37,10 +42,10 @@ def alan(metin, ad):
 
 def bolum(metin, baslik):
     """Son `<baslik>` bölümünün gövdesi (başlık satırı hariç, sondaki boşluk kırpılmış); yoksa None."""
-    parcalar = metin.split(baslik + "\n")
-    if len(parcalar) < 2:
+    baslar = list(re.finditer(rf"^{re.escape(baslik)}[ \t]*$\n?", metin, re.MULTILINE))   # satır başı: alan değeri başlık taklit edemez
+    if not baslar:
         return None
-    return re.split(r"^## ", parcalar[-1], maxsplit=1, flags=re.MULTILINE)[0].rstrip()
+    return re.split(r"^## ", metin[baslar[-1].end():], maxsplit=1, flags=re.MULTILINE)[0].rstrip()
 
 
 def bolum_alani(metin, baslik, ad):
@@ -48,6 +53,13 @@ def bolum_alani(metin, baslik, ad):
     govde = bolum(metin, baslik)
     eslesme = _satir(govde, ad) if govde is not None else None
     return eslesme.group(1) if eslesme else None
+
+
+def zorluk(metin):
+    """Son `## Dağıtım`'daki `zorluk` (` · ` öncesi); sınıflarda değilse None."""
+    ham = bolum_alani(metin, "## Dağıtım", "zorluk")
+    deger = ham.split(" · ")[0].strip() if ham else None
+    return deger if deger in ayar.ZORLUKLAR else None
 
 
 def durum_yaz(dosya, durum):
