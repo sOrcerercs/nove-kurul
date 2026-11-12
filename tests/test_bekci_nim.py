@@ -225,7 +225,16 @@ class YedekZinciriTesti(unittest.TestCase):
                                side_effect=bekci.subprocess.TimeoutExpired("claude", 240)):
             karar = bekci.yedek_sor("istem")
         self.assertEqual(karar["karar"], "atlandi")
-        self.assertEqual(karar["maliyet"], 0.0)
+        self.assertEqual(karar["maliyet"], ayar.BEKCI_YEDEK_BUTCESI_USD)   # kapalı kalır: tavan harcanmış sayılır
+        self.assertIn("tavan harcanmış sayıldı", karar["gerekce"])
+
+    def test_yedek_json_nesne_degilse_ya_da_result_null_ise_atlandi(self):
+        for stdout in ("null", "[1]", '"x"', json.dumps({"result": None, "total_cost_usd": 0.3})):
+            with mock.patch.object(bekci.subprocess, "run",
+                                   return_value=mock.Mock(stdout=stdout, stderr="", returncode=0)):
+                karar = bekci.yedek_sor("istem")
+            self.assertEqual(karar["karar"], "atlandi", stdout)
+            self.assertIn("maliyet", karar)
 
     def test_yedek_json_yoksa_maliyet_korunur(self):
         with mock.patch.object(bekci.subprocess, "run", return_value=self._claude("bütçe aşıldı", 0.75)):

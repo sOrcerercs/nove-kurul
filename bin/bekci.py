@@ -226,7 +226,7 @@ def yedek_sor(istem, model=None):
     """Yedek bekçi: OpenAI anahtarı yoksa `claude -p --model <ayar.BEKCI_YEDEK_MODEL>` (GEÇİCİ: Opus), ayrı pencere.
 
     Aynı aile olduğu için karar dürüstçe işaretlenir: gerekçenin başına uyarı yazılır.
-    Dönen sözlük her yolda `maliyet` taşır (başarısızlıkta 0.0)."""
+    Dönen sözlük her yolda `maliyet` taşır (başarısızlıkta 0.0; zaman aşımında bütçe tavanı)."""
     ortam = {k: v for k, v in os.environ.items()
              if k not in ("CLAUDECODE", "SIRKET_TAKIM", "SIRKET_KOSU")}
     try:
@@ -235,12 +235,17 @@ def yedek_sor(istem, model=None):
                                 "--allowedTools", ""],
                                capture_output=True, text=True, timeout=ayar.BEKCI_YEDEK_SURESI_SN, env=ortam)
         cikti = json.loads(sonuc.stdout)
-        metin = cikti.get("result", "")
+        if not isinstance(cikti, dict):
+            raise ValueError("json nesne değil")
+        metin = str(cikti.get("result") or "")
         try:
             maliyet = float(cikti.get("total_cost_usd") or 0.0)
         except (TypeError, ValueError):
             maliyet = 0.0
-    except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+    except subprocess.TimeoutExpired as exc:   # ne harcandığı bilinmiyor → tavan harcanmış sayılır
+        return {"karar": "atlandi", "ihlal_edilen_kural": None, "maliyet": float(ayar.BEKCI_YEDEK_BUTCESI_USD),
+                "gerekce": f"yedek bekçi ulaşılamadı: {type(exc).__name__} — zaman aşımı: tavan harcanmış sayıldı"}
+    except (OSError, ValueError) as exc:
         return {"karar": "atlandi", "gerekce": f"yedek bekçi ulaşılamadı: {type(exc).__name__}",
                 "ihlal_edilen_kural": None, "maliyet": 0.0}
     basi, sonu = metin.find("{"), metin.rfind("}")

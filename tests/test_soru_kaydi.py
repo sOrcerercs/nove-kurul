@@ -90,6 +90,15 @@ class BolumTesti(unittest.TestCase):
     def test_bolum_yoksa_none(self):
         self.assertIsNone(sk.bolum(BASLIK, "## Dağıtım"))
 
+    def test_alan_degeri_baslik_taklit_edemez(self):
+        metin = (BASLIK + "\n## Dağıtım\n- danışman: kalite\n- gerekçe: x ## Dağıtım\n- zorluk: zor\n\n## Denetçi\n- karar: **kabul**\n")
+        self.assertEqual(sk.bolum(metin, "## Dağıtım"), "- danışman: kalite\n- gerekçe: x ## Dağıtım\n- zorluk: zor")
+        self.assertEqual(sk.bolum_alani(metin, "## Dağıtım", "danışman"), "kalite")
+
+    def test_maliyet_satir_basina_bagli(self):
+        metin = BASLIK + "\n## Dağıtım\n- gerekçe: toplam maliyet: 500 USD diye yazmış\n- maliyet: 0.020 USD\n"
+        self.assertAlmostEqual(sk.harcanan(metin), 0.02)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -56,7 +56,7 @@ TAKIM_KISA_ADLARI = {          # telefonda ve panelde kısa yazılsın diye; tek
 }
 
 KOSU_DOSYA_ADI = re.compile(r"^(\d{4}-\d{2}-\d{2})-\d{4}(?:-\d+)?\.md$")   # grup birebir korunur; -2: aynı dakikada ikinci koşu
-MALIYET_DESENI = re.compile(r"(?:maliyet|denetçi maliyeti):\s*([\d.]+)\s*USD", re.IGNORECASE)
+MALIYET_DESENI = re.compile(r"^- (?:maliyet|denetçi maliyeti):\s*([\d.]+)\s*USD", re.IGNORECASE | re.MULTILINE)
 
 
 def bugunku_kosu_sayisi(kok, takim, bugun):

@@ -460,7 +460,13 @@ def _claude_kos(metin, fm, takim, kosu, taslak=None):
         sonuc = subprocess.run(komut, cwd=str(KOK), capture_output=True, text=True,
                                timeout=ayar.KOSU_SURESI_SN, env=ortam)
     except subprocess.TimeoutExpired:
-        return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": "süre tavanı aşıldı"}
+        # kapalı kalır: ne harcandığı bilinmiyor → bütçe tavanı harcanmış sayılır (soru bütçesi + günlük tavan)
+        try:
+            tavan = float(fm.get("butce_usd", ayar.KOSU_BUTCESI_USD))
+        except (TypeError, ValueError):
+            tavan = float(ayar.KOSU_BUTCESI_USD)
+        return {"hata": True, "maliyet": tavan, "tur": 0, "zaman_asimi": True,
+                "metin": "süre tavanı aşıldı — zaman aşımı: tavan harcanmış sayıldı"}
     except OSError as exc:
         return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": f"claude başlatılamadı: {exc}"}
     cozum = sonucu_cozumle(sonuc.stdout)
@@ -564,7 +570,8 @@ def kos(takim, kuru=False, zorla=False):
         cozum = {**cozum, "hata": True}
     with open(kosu, "a", encoding="utf-8") as dosya:
         dosya.write(f"\n\n---\n- maliyet: {cozum['maliyet']:.3f} USD · tur: {cozum['tur']} · hata: {cozum['hata']}"
-                    f" · model: {model_metni(cozum)} · zorluk: {fm.get('zorluk') or '—'}\n")
+                    f" · model: {model_metni(cozum)} · zorluk: {fm.get('zorluk') or '—'}"
+                    + (" · zaman aşımı — tavan harcanmış sayıldı" if cozum.get("zaman_asimi") else "") + "\n")
     for s in sonhazirlik_kos(takim, fm.get("sonhazirlik") or []):
         try:
             with open(kosu, "a", encoding="utf-8") as dosya:

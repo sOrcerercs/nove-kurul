@@ -42,10 +42,10 @@ def alan(metin, ad):
 
 def bolum(metin, baslik):
     """Son `<baslik>` bölümünün gövdesi (başlık satırı hariç, sondaki boşluk kırpılmış); yoksa None."""
-    parcalar = metin.split(baslik + "\n")
-    if len(parcalar) < 2:
+    baslar = list(re.finditer(rf"^{re.escape(baslik)}[ \t]*$\n?", metin, re.MULTILINE))   # satır başı: alan değeri başlık taklit edemez
+    if not baslar:
         return None
-    return re.split(r"^## ", parcalar[-1], maxsplit=1, flags=re.MULTILINE)[0].rstrip()
+    return re.split(r"^## ", metin[baslar[-1].end():], maxsplit=1, flags=re.MULTILINE)[0].rstrip()
 
 
 def bolum_alani(metin, baslik, ad):

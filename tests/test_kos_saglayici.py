@@ -172,6 +172,30 @@ class AltSureceGecenOrtamTesti(unittest.TestCase):
         self.assertEqual(ortam["ANTHROPIC_API_KEY"], "sk-gercek")
 
 
+class ZamanAsimiMaliyetiTesti(unittest.TestCase):
+    """Zaman aşımında harcama bilinmez: bütçe tavanı harcanmış sayılır (kapalı kalır)."""
+
+    def test_zaman_asimi_butce_tavanini_maliyet_yazar(self):
+        fm = {"model": "opus", "butce_usd": 4, "tools": ["Read"]}
+        with mock.patch.object(kos.subprocess, "run",
+                               side_effect=kos.subprocess.TimeoutExpired("claude", 1)):
+            cozum = kos._claude_kos("istem", fm, "deneme", Path("/tmp/yok.md"))
+        self.assertTrue(cozum["hata"])
+        self.assertEqual(cozum["maliyet"], 4.0)
+        self.assertIn("tavan harcanmış sayıldı", cozum["metin"])
+
+    def test_gunluk_maliyet_gercek_satirlari_sayar_duzyaziyi_saymaz(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "takimlar" / "x" / "kosu"
+            d.mkdir(parents=True)
+            (d / "2026-11-12-1000.md").write_text(
+                "toplam maliyet: 500 USD diye yazdım\n\n---\n- maliyet: 4.000 USD · tur: 0 · hata: True"
+                " · model: bilinmiyor · zorluk: zor · zaman aşımı — tavan harcanmış sayıldı\n"
+                "- denetçi maliyeti: 0.750 USD\n", encoding="utf-8")
+            self.assertAlmostEqual(kos.ayar.gunluk_maliyet(Path(tmp), "2026-11-12"), 4.75)
+
+
 class KuruKosuTesti(unittest.TestCase):
     def test_kuru_kosu_saglayiciyi_ve_modeli_basar(self):
         with tempfile.TemporaryDirectory() as d:
