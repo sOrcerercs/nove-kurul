@@ -25,6 +25,8 @@ import soru_kapisi  # noqa: E402
 GOVDE_SINIRI = 16 * 1024
 KOK = Path(__file__).resolve().parent.parent
 PANEL = KOK / "panel"
+# Adım kos.py'yi Popen ile başlatır; .kos.lock kos.py ayağa kalkınca alınır. O ana kadar ikinci adım atılmaz.
+ASGARI_ARA_SN = 15
 
 
 class _Hata(Exception):
@@ -155,8 +157,11 @@ class Uygulama:
 class Ilerletici:
     """Açık soru varken hattı ilerleten tek arka plan iş parçacığı: adımlar yalnız burada koşar."""
 
-    def __init__(self, kok, adim=None, aralik_sn=60, kilit_dolu=ayar.kosu_suruyor, acik=panel_defter.acik_sorular):
+    def __init__(self, kok, adim=None, aralik_sn=60, kilit_dolu=ayar.kosu_suruyor, acik=panel_defter.acik_sorular,
+                 asgari_ara_sn=ASGARI_ARA_SN):
         self.kok = kok
+        self._ara = asgari_ara_sn
+        self._dur_olay = threading.Event()
         if adim is None:
             import dagitici
             adim = dagitici.dagit
@@ -179,11 +184,13 @@ class Ilerletici:
 
     def _dongu(self):
         while not self._dur:
-            self._olay.clear()  # tur sırasında gelen tetik kaybolmaz: clear tur'dan önce
             sonuc = self.tur()
             if self._dur:
                 break
+            if sonuc == "adim" and self._dur_olay.wait(self._ara):
+                break  # ara sırasında gelen tetik olayda kalır; ara bitince sayılır
             self._olay.wait(None if sonuc == "bos" else self._aralik)
+            self._olay.clear()  # tur'dan hemen önce; tur açık soruları kendisi okur
 
     def baslat(self):
         if self._is is None:
@@ -195,6 +202,7 @@ class Ilerletici:
 
     def durdur(self):
         self._dur = True
+        self._dur_olay.set()
         self._olay.set()
         if self._is is not None:
             self._is.join(timeout=5)

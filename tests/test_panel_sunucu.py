@@ -23,7 +23,7 @@ UYE = "uye@example.com"
 
 
 def _ilerletici(kok, adim, acik=lambda k: ["x"], kilit=lambda k: False, aralik=60):
-    return panel.Ilerletici(kok, adim=adim, aralik_sn=aralik, kilit_dolu=kilit, acik=acik)
+    return panel.Ilerletici(kok, adim=adim, aralik_sn=aralik, kilit_dolu=kilit, acik=acik, asgari_ara_sn=0)
 
 
 class IlerleticiTesti(unittest.TestCase):
@@ -85,6 +85,35 @@ class IlerleticiTesti(unittest.TestCase):
             il.tetikle()
         time.sleep(0.7)
         self.assertEqual(sayac["en"], 1)
+
+    def test_adimlar_arasinda_asgari_ara(self):
+        zamanlar, ilk, ikinci = [], threading.Event(), threading.Event()
+
+        def adim(k):
+            zamanlar.append(time.monotonic())
+            if len(zamanlar) == 1:
+                ilk.set()
+            else:
+                ikinci.set()
+
+        il = panel.Ilerletici("k", adim=adim, aralik_sn=3600, kilit_dolu=lambda k: False,
+                              acik=lambda k: ["x"], asgari_ara_sn=0.5)
+        il.baslat()
+        self.addCleanup(il.durdur)
+        self.assertTrue(ilk.wait(2))
+        il.tetikle()
+        self.assertTrue(ikinci.wait(3))
+        self.assertGreaterEqual(zamanlar[1] - zamanlar[0], 0.45)
+
+    def test_durdur_arada_hizli_doner(self):
+        ilk = threading.Event()
+        il = panel.Ilerletici("k", adim=lambda k: ilk.set(), aralik_sn=3600, kilit_dolu=lambda k: False,
+                              acik=lambda k: ["x"], asgari_ara_sn=30)
+        il.baslat()
+        self.assertTrue(ilk.wait(2))
+        t0 = time.monotonic()
+        il.durdur()
+        self.assertLess(time.monotonic() - t0, 2)
 
     def test_ilerletme_yok_tetiklemez(self):
         with tempfile.TemporaryDirectory() as g:
