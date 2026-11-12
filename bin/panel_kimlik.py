@@ -88,13 +88,18 @@ def kullanici_ekle(kok, eposta, ad, sifre):
 def dogrula(kok, eposta, sifre):
     """{"eposta", "ad", "rol"} ya da None (yok, yanlış şifre, rol dışı, yöntem yok)."""
     eposta = _eposta(eposta)
+    sifre = str(sifre)
+    try:
+        sifre.encode("utf-8")
+    except UnicodeEncodeError:  # kodlanamayan şifre: bilinen ve bilinmeyen e-posta için aynı sonuç
+        return None
     kayit = kullanicilar(kok).get(eposta)
     if not isinstance(kayit, dict):
-        _ozet(_yontemler()[-1], str(sifre), b"\0" * 16)  # süre farkı kullanıcı adını sızdırmasın
+        _ozet(_yontemler()[-1], sifre, b"\0" * 16)  # süre farkı kullanıcı adını sızdırmasın
         return None
     try:
         beklenen = bytes.fromhex(kayit["ozet"])
-        bulunan = _ozet(kayit["yontem"], str(sifre), bytes.fromhex(kayit["tuz"]))
+        bulunan = _ozet(kayit["yontem"], sifre, bytes.fromhex(kayit["tuz"]))
     except (KeyError, ValueError, TypeError, AttributeError):
         return None
     if not hmac.compare_digest(beklenen, bulunan):

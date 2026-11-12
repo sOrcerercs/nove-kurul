@@ -112,6 +112,11 @@ class KimlikTesti(unittest.TestCase):
         self.assertEqual(panel_kimlik.kullanicilar(self.kok)["uye@example.com"]["yontem"], "scrypt")
         self.assertIsNotNone(panel_kimlik.dogrula(self.kok, "uye@example.com", SIFRE))
 
+    def test_kodlanamayan_sifre_none(self):
+        panel_kimlik.kullanici_ekle(self.kok, "uye@example.com", "Deneme Üye", SIFRE)
+        self.assertIsNone(panel_kimlik.dogrula(self.kok, "uye@example.com", "\ud800"))
+        self.assertIsNone(panel_kimlik.dogrula(self.kok, "yok@example.com", "\ud800"))
+
     def test_bas_harf(self):
         self.assertEqual(panel_kimlik.bas_harf("Deneme Üye"), "DÜ")
         self.assertEqual(panel_kimlik.bas_harf("Tek"), "T")
