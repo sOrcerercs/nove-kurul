@@ -50,6 +50,13 @@ def bolum_alani(metin, baslik, ad):
     return eslesme.group(1) if eslesme else None
 
 
+def zorluk(metin):
+    """Son `## Dağıtım`'daki `zorluk` (` · ` öncesi); sınıflarda değilse None."""
+    ham = bolum_alani(metin, "## Dağıtım", "zorluk")
+    deger = ham.split(" · ")[0].strip() if ham else None
+    return deger if deger in ayar.ZORLUKLAR else None
+
+
 def durum_yaz(dosya, durum):
     """Başlıktaki `- durum:` satırını değiştirir; bölümlere dokunmaz."""
     metin = Path(dosya).read_text(encoding="utf-8")

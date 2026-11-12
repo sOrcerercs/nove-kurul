@@ -55,6 +55,8 @@ class UctanUcaTesti(unittest.TestCase):
             mock.patch.object(dagitici, "_ceo_baslat",
                               side_effect=lambda kok, sid: ceo.kontrol_et(kok, sid, calistir=self._ceo)),
             mock.patch.object(dagitici, "haiku_sinifla", side_effect=AssertionError("Haiku çağrılmamalı")),
+            mock.patch.object(dagitici, "haiku_zorluk",
+                              return_value={"zorluk": "orta", "gerekce": "x", "maliyet": 0.0}),
         ]
         for y in yamalar:
             y.start()
