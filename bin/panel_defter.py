@@ -185,6 +185,13 @@ def durum(kok, soru_id, eposta, rol):
         return None
     sonuc = {"soru_id": soru_id, "soru": soru_kaydi.alan(soru_metni, "soru"),
              "zaman": soru_kaydi.alan(soru_metni, "zaman"), "durum": "arastiriliyor"}
+    kayit_durumu = soru_kaydi.alan(soru_metni, "durum")
+    if kayit_durumu in BITMIS_DURUMLAR:  # iş bitmiş ama defterde yok: panel sonsuza dek beklemesin
+        sonuc["durum"] = "onaylanamadi"
+        sonuc["sebep"] = kisa_sebep("")
+        if rol == "yonetici":
+            sonuc["gerekce"] = f"Yanıt defterinde kaydı yok (kayıt durumu: {kayit_durumu})"
+        return sonuc
     not_ = soru_kaydi.alan(soru_metni, "not")
     if not_:
         sonuc["not"] = not_
@@ -213,6 +220,8 @@ def liste(kok, eposta, rol):
             continue
         metin = _oku(yol)
         if metin is None or _soran_eposta(metin) != (eposta or "").strip().lower():
+            continue
+        if soru_kaydi.alan(metin, "durum") in BITMIS_DURUMLAR:
             continue
         satir = {"soru_id": yol.stem, "soru": soru_kaydi.alan(metin, "soru"), "zaman": soru_kaydi.alan(metin, "zaman")}
         not_ = soru_kaydi.alan(metin, "not")

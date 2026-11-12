@@ -47,6 +47,29 @@ class IlerleticiTesti(unittest.TestCase):
         with mock.patch("sys.stderr"):
             self.assertEqual(_ilerletici("k", adim).tur(), "hata")
 
+    def test_tur_acik_oserror_hata_ve_is_parcacigi_yasar(self):
+        adim = mock.Mock()
+        durumlar = iter([OSError("icloud"), ["x"]])
+
+        def acik(k):
+            v = next(durumlar)
+            if isinstance(v, Exception):
+                raise v
+            return v
+        il = _ilerletici("k", adim, acik=acik)
+        with mock.patch("sys.stderr"):
+            self.assertEqual(il.tur(), "hata")
+        self.assertEqual(il.tur(), "adim")
+        adim.assert_called_once_with("k")
+
+    def test_tur_kilit_oserror_hata(self):
+        def kilit(k):
+            raise OSError("icloud")
+        adim = mock.Mock()
+        with mock.patch("sys.stderr"):
+            self.assertEqual(_ilerletici("k", adim, kilit=kilit).tur(), "hata")
+        adim.assert_not_called()
+
     def test_baslat_acik_soru_varsa_hemen_adim_atar(self):
         olay = threading.Event()
         il = _ilerletici("k", lambda k: olay.set())

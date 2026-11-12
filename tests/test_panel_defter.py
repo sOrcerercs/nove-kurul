@@ -207,6 +207,35 @@ class DurumTest(Taban):
         self.assertEqual(pd.acik_sorular(self.kok), [d])
 
 
+class BitmisDeftersizTest(Taban):
+    def _bitmis(self):
+        a = self.soru(UYE, simdi=GUN[0])
+        soru_kaydi.durum_yaz(soru_kaydi.yol(a, self.kok), "yönlendirilemedi")
+        return a
+
+    def test_durum_kurul_onaylanamadi_gerekcesiz(self):
+        a = self._bitmis()
+        d = pd.durum(self.kok, a, UYE, "kurul")
+        self.assertEqual(d["durum"], "onaylanamadi")
+        self.assertEqual(d["sebep"], pd.kisa_sebep(""))
+        self.assertNotIn("gerekce", d)
+
+    def test_durum_yonetici_gerekce_alir(self):
+        a = self._bitmis()
+        d = pd.durum(self.kok, a, UYE, "yonetici")
+        self.assertEqual(d["durum"], "onaylanamadi")
+        self.assertIn("yönlendirilemedi", d["gerekce"])
+        self.assertIn("Yanıt defterinde kaydı yok", d["gerekce"])
+
+    def test_liste_acik_bitmisi_saymaz(self):
+        a = self._bitmis()
+        c = self.soru(UYE, simdi=GUN[2])
+        for rol in ("kurul", "yonetici"):
+            ids = [k["soru_id"] for k in pd.liste(self.kok, UYE, rol)["acik"]]
+            self.assertNotIn(a, ids)
+        self.assertEqual([k["soru_id"] for k in pd.liste(self.kok, UYE, "kurul")["acik"]], [c])
+
+
 class MarkdownTest(unittest.TestCase):
     def test_script_kacar(self):
         h = pd.md_html("<script>alert(1)</script>")

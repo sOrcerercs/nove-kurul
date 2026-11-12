@@ -590,6 +590,7 @@ async function gercekGonder(t){
     const s = await api('/api/soru', { soru: t });
     if (no !== oturumNo || s.durum === 401) return;
     if (s.ok && s.veri.durum === 'reddedildi') { gs.sonuc = null; gs.red = s.veri.sebep || ''; }
+    else if (s.ok && s.veri.durum && s.veri.durum !== 'arastiriliyor') sonucGoster(s.veri, true);
     else if (s.ok) bekle(s.veri, s.veri.bilgi);
     else { gs.sonuc = null; gs.hata = s.veri.hata || 'Soru gönderilemedi.'; }
   } catch (_) { if (no === oturumNo) gs.hata = 'Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.'; }

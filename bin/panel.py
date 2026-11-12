@@ -171,11 +171,11 @@ class Ilerletici:
         self._is = None
 
     def tur(self):
-        if not self._acik(self.kok):
-            return "bos"
-        if self._kilit_dolu(self.kok):
-            return "kilit"
         try:
+            if not self._acik(self.kok):
+                return "bos"
+            if self._kilit_dolu(self.kok):
+                return "kilit"
             self._adim(self.kok)
         except Exception as e:  # ayrıntı loga girmez; yalnız tür
             print(f"panel: ilerletici adımı başarısız: {type(e).__name__}", file=sys.stderr)
@@ -306,6 +306,11 @@ def main(argv=None):
         print(f"panel: port {arg.port} dolu (`bin/sahne.py` de 8770 kullanır)", file=sys.stderr)
         return 1
     print(f"panel: http://127.0.0.1:{arg.port} — ilerletme {'kapalı' if il is None else 'açık'}")
+    try:
+        n_acik = len(panel_defter.acik_sorular(KOK))
+    except Exception:
+        n_acik = "?"
+    print(f"panel: Açık soru: {n_acik} — {'ilerletme kapalı' if il is None else 'ilerletici çalışacak'}")
     if not (KOK / "deploy" / "kullanicilar.json").exists():
         print('panel: kullanıcı yok; eklemek için: python3 bin/panel.py --kullanici-ekle <eposta> --ad "<ad>"')
     if il is not None:

@@ -33,6 +33,9 @@ class PanelStatikTest(unittest.TestCase):
         self.assertIn("oturumNo++", self.js)
         self.assertGreaterEqual(self.js.count("oturumNo"), 10)
 
+    def test_tekrar_sonucu_arastirilmiyorsa_dogrudan_gosterilir(self):
+        self.assertIn("s.veri.durum !== 'arastiriliyor'", self.js)
+
     def test_defter_hatasi_gorunur(self):
         self.assertIn("Yanıt defteri yüklenemedi", self.js)
         self.assertIn("Yeniden dene", self.js)
