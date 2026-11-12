@@ -175,30 +175,30 @@ class BekciYedegiTesti(unittest.TestCase):
         with mock.patch.object(bekci, "openai_sor",
                                return_value={"karar": "atlandi", "gerekce": "openai 401",
                                              "ihlal_edilen_kural": None}), \
-             mock.patch.object(bekci, "haiku_sor", return_value=yedek) as sahte_haiku:
+             mock.patch.object(bekci, "yedek_sor", return_value=yedek) as sahte_haiku:
             karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-gecersiz"}, "istem")
         sahte_haiku.assert_called_once()
         self.assertEqual(karar["karar"], "kabul")
-        self.assertIn("openai 401 → haiku yedeği", karar["gerekce"])
+        self.assertIn("openai 401 → opus yedeği", karar["gerekce"])
 
     def test_ag_hatasi_da_yedege_duser(self):
         with mock.patch.object(bekci, "openai_sor",
                                return_value={"karar": "atlandi", "gerekce": "openai ulaşılamadı: URLError",
                                              "ihlal_edilen_kural": None}), \
-             mock.patch.object(bekci, "haiku_sor",
+             mock.patch.object(bekci, "yedek_sor",
                                return_value={"karar": "red", "gerekce": "boş", "ihlal_edilen_kural": "x"}):
             karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-gecersiz"}, "istem")
         self.assertEqual(karar["karar"], "red")
-        self.assertIn("haiku yedeği", karar["gerekce"])
+        self.assertIn("opus yedeği", karar["gerekce"])
 
     def test_calisan_anahtar_yedege_dusmez(self):
         with mock.patch.object(bekci, "openai_sor",
                                return_value={"karar": "kabul", "gerekce": "temiz",
                                              "ihlal_edilen_kural": None}), \
-             mock.patch.object(bekci, "haiku_sor") as sahte_haiku:
+             mock.patch.object(bekci, "yedek_sor") as sahte_haiku:
             karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-gecerli"}, "istem")
         sahte_haiku.assert_not_called()
-        self.assertEqual(karar["gerekce"], "temiz")
+        self.assertEqual(karar["gerekce"], "nim kapalı (geçici) → openai yolu · temiz")
 
     def test_denetle_gecersiz_anahtarla_atlandi_birakmaz(self):
         with tempfile.TemporaryDirectory() as d:
@@ -208,12 +208,12 @@ class BekciYedegiTesti(unittest.TestCase):
             kosu.write_text("# Koşu\n\nİki dosya okundu, bir çıktı yazıldı.\n", encoding="utf-8")
             with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-gecersiz"}), \
                  mock.patch.object(bekci.urllib.request, "urlopen", side_effect=_http_hatasi(401)), \
-                 mock.patch.object(bekci, "haiku_sor",
+                 mock.patch.object(bekci, "yedek_sor",
                                    return_value={"karar": "kabul", "gerekce": "temiz",
                                                  "ihlal_edilen_kural": None}):
                 karar = bekci.denetle(kok, "deneme", kosu)
         self.assertEqual(karar["karar"], "kabul")
-        self.assertIn("openai 401 → haiku yedeği", karar["gerekce"])
+        self.assertIn("openai 401 → opus yedeği", karar["gerekce"])
 
     def test_belgeler_gecersiz_anahtari_da_anlatir(self):
         for ad in ("README.md", "KURULUM.md"):

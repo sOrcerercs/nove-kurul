@@ -511,7 +511,7 @@ class BekciTesti(unittest.TestCase):
             kosu = kok / "takimlar/kasa-bakimi/kosu/2026-09-11-1200.md"
             kosu.write_text("# Koşu\nAPIFY_TOKEN=sk-gizli123456 ile çektim\n", encoding="utf-8")
             with mock.patch.object(bekci, "openai_sor") as sahte_openai, \
-                 mock.patch.object(bekci, "haiku_sor") as sahte_haiku:
+                 mock.patch.object(bekci, "yedek_sor") as sahte_haiku:
                 karar = bekci.denetle(kok, "kasa-bakimi", kosu)
             sahte_openai.assert_not_called()
             sahte_haiku.assert_not_called()
@@ -522,7 +522,7 @@ class BekciTesti(unittest.TestCase):
         yanit = json.dumps({"result": '{"karar":"kabul","gerekce":"temiz","ihlal_edilen_kural":null}'})
         with mock.patch.object(bekci.subprocess, "run",
                                return_value=mock.Mock(stdout=yanit, returncode=0)):
-            karar = bekci.haiku_sor("istem")
+            karar = bekci.yedek_sor("istem")
         self.assertEqual(karar["karar"], "kabul")
         self.assertIn(bekci.AYNI_AILE_UYARISI, karar["gerekce"])
 

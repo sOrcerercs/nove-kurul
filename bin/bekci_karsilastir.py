@@ -36,7 +36,7 @@ FIKSTURLER = [
 YOLLAR = {
     "nim": ("NVIDIA_API_KEY", lambda anahtar, istem: bekci.nim_sor(anahtar, istem)),
     "openai": ("OPENAI_API_KEY", lambda anahtar, istem: bekci.openai_sor(anahtar, istem)),
-    "haiku": (None, lambda anahtar, istem: bekci.haiku_sor(istem)),
+    "haiku": (None, lambda anahtar, istem: bekci.yedek_sor(istem, model="haiku")),
 }
 
 
