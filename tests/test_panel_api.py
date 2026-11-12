@@ -176,6 +176,14 @@ class ApiTesti(unittest.TestCase):
         self.assertEqual(self.uyg.istek("POST", "/api/soru", b'{"soru": 5}', c)[0], 400)
         self.assertEqual(self.uyg.istek("POST", "/api/soru", b'{"soru": "  "}', c)[0], 400)
 
+    def test_kodlanamayan_soru_400_kayit_birakmaz(self):
+        _, _, _, c = self.giris()
+        govde = ('{"soru": "geçen ay satış görüşmelerinde \\ud800 kalite nasıl gitti"}').encode()
+        kod, g, _ = self.uyg.istek("POST", "/api/soru", govde, c)
+        self.assertEqual(kod, 400)
+        self.yeni.assert_not_called()
+        self.assertEqual(list((self.kok / "sirket-log" / "sorular").glob("*")) if (self.kok / "sirket-log" / "sorular").exists() else [], [])
+
     def test_buyuk_govde_413(self):
         _, _, _, c = self.giris()
         govde = b'{"soru": "' + b"a" * panel.GOVDE_SINIRI + b'"}'

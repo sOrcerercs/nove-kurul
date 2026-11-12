@@ -125,6 +125,10 @@ class Uygulama:
         soru = self._json(govde).get("soru")
         if not isinstance(soru, str) or not soru.strip():
             raise _Hata(400, {"hata": "soru gerekli"})
+        try:
+            soru.encode("utf-8")
+        except UnicodeEncodeError:  # geçerlilik denetimi; metin yine olduğu gibi geçer
+            raise _Hata(400, {"hata": "soru geçersiz karakter içeriyor"})
         with self._soru_kilidi:
             s = self._yeni(self.kok, soru, o["eposta"])
         if s["sonuc"] == "reddedildi":
