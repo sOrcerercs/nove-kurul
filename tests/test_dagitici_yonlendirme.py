@@ -16,6 +16,7 @@ sys.path.insert(0, str(KOK / "bin"))
 import ayar  # noqa: E402
 import dagitici  # noqa: E402
 import soru_kaydi as sk  # noqa: E402
+import yanit_defteri  # noqa: E402
 
 TR = timezone(timedelta(hours=3))
 OGLEN = datetime(2026, 10, 12, 12, 0, tzinfo=TR)
@@ -128,8 +129,11 @@ class HaikuTesti(Kurulum):
                 sonuc = self.yonlendir(sid)
                 self.assertIsNone(sonuc["danisman"])
                 metin = self.kayit(sid)
-                self.assertEqual(sk.alan(metin, "durum"), "yönlendirilemedi")
+                self.assertEqual(sk.alan(metin, "durum"), "onaylanamadı")
                 self.assertTrue(sk.bolum_alani(metin, "## Dağıtım", "sebep"))
+                defter = yanit_defteri.yol(sid, self.kok).read_text(encoding="utf-8")
+                self.assertIn("## Gerekçe\nyönlendirilemedi — ", defter)
+                self.assertNotIn(dagitici.KURULMADI, defter)
                 for t in ("finans", "okr", "kalite"):
                     self.assertEqual(self.kuyruk(t), [], "tahminle gönderilmez")
 
@@ -141,6 +145,69 @@ class HaikuTesti(Kurulum):
         self.haiku.assert_not_called()
         self.assertIsNone(sonuc["danisman"])
         self.assertIn("aktif danışman yok", sk.bolum_alani(self.kayit(sid), "## Dağıtım", "sebep"))
+        self.assertIn(f"## Gerekçe\n{dagitici.KURULMADI} — aktif danışman yok",
+                      yanit_defteri.yol(sid, self.kok).read_text(encoding="utf-8"))
+
+
+class KurulmamisBolumTesti(Kurulum):
+    def _hicbiri(self, ad="hiçbiri"):
+        self.haiku.return_value = {"danisman": ad, "gerekce": "insan kaynakları sorusu", "oneri": None,
+                                   "maliyet": 0.01}
+
+    def _kontrol(self, sid, sonuc):
+        self.assertIsNone(sonuc["danisman"])
+        for t in ("finans", "okr", "kalite"):
+            self.assertEqual(self.kuyruk(t), [])
+        self.assertEqual(sk.alan(self.kayit(sid), "durum"), "onaylanamadı")
+        defter = yanit_defteri.yol(sid, self.kok).read_text(encoding="utf-8")
+        self.assertIn("- etiket: onaylanamadı", defter)
+        self.assertIn("- danışman: —", defter)
+        self.assertIn("## Gerekçe\nbu bölüm henüz kurulmadı — insan kaynakları sorusu", defter)
+
+    def test_haiku_hicbiri_derse_kosusuz_kapanir(self):
+        self._hicbiri()
+        sid = self.soru("Yeni işe alım süreci nasıl işliyor?")
+        self._kontrol(sid, self.yonlendir(sid))
+
+    def test_hicbiri_yazim_varyantlari(self):
+        for i, ad in enumerate(("Hiçbiri", " HİÇBİRİ ", "hicbiri")):
+            with self.subTest(ad=ad):
+                self._hicbiri(ad)
+                sid = self.soru("Yeni işe alım süreci nasıl işliyor?", soru_id=f"20261012-1200-{i}hbr")
+                self._kontrol(sid, self.yonlendir(sid))
+
+    def test_tek_aktif_danismanda_haikuya_hicbiri_sunulur(self):
+        for t in ("finans", "okr"):
+            (self.kok / "takimlar" / t / "takim.md").write_text(f"# {t}\n", encoding="utf-8")
+        self._hicbiri()
+        sid = self.soru("Yeni işe alım süreci nasıl işliyor?")
+        sonuc = self.yonlendir(sid)
+        self.haiku.assert_called_once()
+        self.assertIn("hiçbiri", dagitici._haiku_istemi("x", dagitici.aktif_danismanlar(self.kok)))
+        self.assertEqual(self.kuyruk("kalite"), [])
+        self.assertIsNone(sonuc["danisman"])
+
+    def test_anahtar_kelime_yolu_degismez(self):
+        sid = self.soru("Q3 bütçe sapmasının ana nedenleri neler?")
+        sonuc = self.yonlendir(sid)
+        self.haiku.assert_not_called()
+        self.assertEqual(sonuc["danisman"], "finans")
+        self.assertFalse((self.kok / "yanitlar").exists())
+
+    def test_kuru_deftere_yazmaz(self):
+        self._hicbiri()
+        sid = self.soru("Hastalar randevu sürecinden memnun mu?")
+        self.yonlendir(sid, kuru=True)
+        self.assertFalse((self.kok / "yanitlar").exists())
+        self.assertEqual(sk.alan(self.kayit(sid), "durum"), "alındı")
+
+    def test_defterde_zaten_varsa_durum_yonlendirilemedi_kalir(self):
+        self._hicbiri()
+        sid = self.soru("Yeni işe alım süreci nasıl işliyor?")
+        yanit_defteri.yaz(self.kok, sid, "# eski kayıt\n")
+        sonuc = self.yonlendir(sid)
+        self.assertEqual(sk.alan(self.kayit(sid), "durum"), "yönlendirilemedi")
+        self.assertIn("zaten var", sonuc["sebep"])
 
 
 class KuruVeTekrarTesti(Kurulum):

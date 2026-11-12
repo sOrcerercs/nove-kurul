@@ -42,12 +42,13 @@ Haiku'ya verdiğin: maskelenmiş soru metni ve **yalnız aktif** danışmanları
 anahtar kelimeler). Haiku'dan aldığın yalnız JSON:
 
 ```json
-{ "danisman": "<listeden bir ad>", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null" }
+{ "danisman": "<listeden bir ad> | hiçbiri", "gerekce": "tek cümle", "oneri": "<başka bir ad> | null" }
 ```
 
 - Haiku listede olmayan bir ad döndürürse ya da JSON bozuksa: soru **yönlendirilemedi** sayılır. Hiçbir danışmana
-  tahminle gönderilmez. Soru kaydına `durum: yönlendirilemedi` ve sebebi yazılır; yönetici (Kağan) bunu görür,
-  soranın panelinde "sorun inceleniyor" görünür *(öneri)*.
+  tahminle gönderilmez. Seçilemeyen soru koşu yapılmadan `onaylanamadı` etiketiyle Yanıt defterine girer
+  (gerekçe: "yönlendirilemedi — <sebep>"); Haiku soru hiçbir danışmanın alanına girmiyorsa `"danisman": "hiçbiri"`
+  diyebilir, gerekçe "bu bölüm henüz kurulmadı — …" olur. Defter yazılamazsa durum `yönlendirilemedi` kalır.
 - Haiku çağrısının maliyeti sorunun bütçesinden (`ayar.SORU_BUTCESI_USD`) düşer (§9). Çağrı başına tavan
   `ayar.DAGITIM_HAIKU_BUTCESI_USD` *(öneri)*.
 
