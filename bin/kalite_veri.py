@@ -39,7 +39,8 @@ SAYIM_KOSULU = ("(e.\"callClassification\" IS NULL OR e.\"callClassification\" =
 # İç JOIN liderlerin kayıtlarını sessizce düşürürdü; ekibi olmayan kayıt "Ekipsiz" olarak sayılır.
 EKIP_BAGLANTISI = ("LEFT JOIN public.\"Team\" tm ON tm.id = u.\"teamId\"\n"
                    "  LEFT JOIN public.\"Team\" tl ON tl.\"leaderId\" = u.id")
-EKIP_ADI = "COALESCE(tm.name, tl.name, 'Ekipsiz')"
+EKIPSIZ = "Ekipsiz"
+EKIP_ADI = "COALESCE(tm.name, tl.name, '%s')" % EKIPSIZ
 SAAT_DILIMI = "UTC gün sınırı (TR 03:00)"      # DB timezone UTC; panel (Vercel) de UTC günleri kullanır
 BOSLUK_DOSYASI = Path(__file__).resolve().parents[1] / "takimlar" / "kalite" / "veri-bosluklari.json"
 PUANLAMA_DEGISIM_TARIHI = datetime(2026, 9, 1)  # öncesinde puanlama farklı; karşılaştırma geçersiz
@@ -470,6 +471,22 @@ def ekipler_bas(baglanti):
     return 0
 
 
+def _ekip_dogrula(baglanti, args):
+    """`--ekip` geçerli mi: ekip listesi ya da "Ekipsiz" (ekibi olmayan kayıtlar). Değilse sebep yazılır."""
+    if not args.ekip:
+        return True
+    adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
+    if args.ekip in adlar or args.ekip == EKIPSIZ:
+        return True
+    print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
+                        % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar + [EKIPSIZ]))))
+    return False
+
+
+def _toplam_say(baglanti, bas, bit, args):
+    return int((_sorgula(baglanti, toplam_sorgusu(bas, bit, args.tip, args.ekip)) or [(0,)])[0][0])
+
+
 def ekip_ozet_bas(baglanti, args):
     try:
         bas, bit = gun_siniri(args.baslangic, args.bitis)
@@ -480,14 +497,15 @@ def ekip_ozet_bas(baglanti, args):
         print(hazirlanamadi("tarih geçersiz (%s)" % hata))
         return 1
     aralik = "%s..%s" % (args.baslangic, args.bitis)
-    if args.ekip:
-        adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
-        if args.ekip not in adlar and args.ekip != "Ekipsiz":
-            print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
-                                % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar) or "yok")))
-            return 1
+    if not _ekip_dogrula(baglanti, args):
+        return 1
     tablo = ekip_tablosu(_sorgula(baglanti, ekip_ozet_sorgusu(bas, bit, args.tip, args.ekip)))
     if not tablo:
+        toplam = _toplam_say(baglanti, bas, bit, args)
+        if toplam > 0:                           # nitelikli kayıt yok ama değerlendirme var: sayı gizlenmez
+            print("\n".join(sayim_blogu(toplam, 0, _sorgula(baglanti,
+                                                            fark_sorgusu(bas, bit, args.tip, args.ekip)))))
+            print()
         print(kayit_yok(args.baslangic, args.bitis))
         return 1
     filtre = {}
@@ -505,7 +523,7 @@ def ekip_ozet_bas(baglanti, args):
         filtre["not"] = "canlı Second Call formülü deploy bekliyor"
     print(kapsam_bolumu("ekip-ozet", args.baslangic, args.bitis, filtre, sum(t["kayit"] for t in tablo)))
     nitelikli = sum(t["kayit"] for t in tablo)
-    toplam = int((_sorgula(baglanti, toplam_sorgusu(bas, bit, args.tip, args.ekip)) or [(0,)])[0][0])
+    toplam = _toplam_say(baglanti, bas, bit, args)
     print()
     print("\n".join(sayim_blogu(toplam, nitelikli,
                                _sorgula(baglanti, fark_sorgusu(bas, bit, args.tip, args.ekip)))))
@@ -534,12 +552,8 @@ def _hazirla(baglanti, args):
     except ValueError as hata:
         print(hazirlanamadi("tarih geçersiz (%s)" % hata))
         return None
-    if args.ekip:
-        adlar = [r[0] for r in _sorgula(baglanti, ekipler_sorgusu())]
-        if args.ekip not in adlar:
-            print(hazirlanamadi("ekip bulunamadı: %s; mevcut ekipler: %s"
-                                % (_tek_satir(args.ekip), ", ".join(_tek_satir(a) for a in adlar) or "yok")))
-            return None
+    if not _ekip_dogrula(baglanti, args):
+        return None
     return bas, bit
 
 
