@@ -43,6 +43,7 @@ BEKCI_YEDEK_SURESI_SN = 240     # yedek denetim çağrısı zaman aşımı
 BEKCI_MAKS_RED = 2              # Denetçi reddinde aynı oturumda en fazla düzeltme
 CEO_ACIK = True                 # tasarımdaki `ceoSorgular`; üretimde açık ve kilitli
 CEO_MAKS_RED = 1                # CEO reddinden sonra en fazla bir düzeltme turu
+DUZELTME_EN_AZ_USD = 0.50       # kalan bütçe bunun altındaysa düzeltme turu açılmaz, soru kapanır (K11)
 CEO_BUTCESI_USD = 1.50          # CEO kontrolü başına — GEÇİCİ: Faz 4 beş gerçek soruda ölçülecek (N31)
 CEO_SURESI_SN = 5 * 60
 

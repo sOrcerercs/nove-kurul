@@ -23,6 +23,7 @@ Kullanım: python3 bin/dagitici.py --kuru     (kararları bas, hiçbir şey yazm
           python3 bin/dagitici.py --cakisma  (birden çok danışmanda geçen anahtar kelimeler)
 """
 import json
+import math
 import os
 import re
 import subprocess
@@ -416,6 +417,14 @@ def _bulgular(metin):
     return "\n".join(satirlar) or soru_kaydi.bolum_alani(metin, "## CEO — karar: red", "gerekçe") or ""
 
 
+def duzeltme_tavani(metin):
+    """Düzeltme koşusunun USD tavanı: zorluk tavanı ile kalan bütçenin (CEO ve yedek Denetçi payı ayrılmış) küçüğü, sente aşağı."""
+    kalan = (ayar.SORU_BUTCESI_USD - soru_kaydi.harcanan(metin)
+             - ayar.CEO_BUTCESI_USD - ayar.BEKCI_YEDEK_BUTCESI_USD)
+    tavan = min(ayar.ZORLUK_BUTCESI_USD.get(soru_kaydi.zorluk(metin), ayar.KOSU_BUTCESI_USD), kalan)
+    return math.floor(tavan * 100 + 1e-9) / 100
+
+
 def _sonraki_adim(kok, metin, simdi):
     """(adim, sebep) — adim: ceo | bekle | iletildi | düzeltme | onaylanamadı | None (yapılacak yok)."""
     gecmis = soru_kaydi.kararlar(metin)
@@ -452,7 +461,7 @@ def _sonraki_adim(kok, metin, simdi):
         return "onaylanamadı", f"CEO {redler}. kez reddetti — {gerekce}"
     if durum == "düzeltmede":
         return None, "danışman düzeltiyor"
-    if harcanan + ayar.KOSU_BUTCESI_USD > ayar.SORU_BUTCESI_USD:
+    if duzeltme_tavani(metin) < ayar.DUZELTME_EN_AZ_USD:
         return "onaylanamadı", f"soru bütçesi doldu: {harcanan:.2f} USD harcandı, düzeltme koşusuna yetmiyor"
     return "düzeltme", "CEO reddetti — bulgularla düzeltme"
 
@@ -485,7 +494,8 @@ def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
                 ilet(kok, yol.stem, onaylanamadi=sebep)
             elif adim == "düzeltme":
                 danisman = soru_kaydi.bolum_alani(metin, "## Dağıtım", "danışman")
-                kuyruga_yaz(kok, danisman, f"r-{yol.stem}", _bulgular(metin))
+                kuyruga_yaz(kok, danisman, f"r-{yol.stem}", _bulgular(metin),
+                            zorluk=soru_kaydi.zorluk(metin), butce_usd=duzeltme_tavani(metin))
                 soru_kaydi.durum_yaz(yol, "düzeltmede")
         except soru_kapisi.IletHatasi as exc:   # soru kaybolmaz: kayıtta kalır, sebep loga ve çıktıya
             adimlar[-1] = {**adimlar[-1], "adim": "hata", "sebep": str(exc)}
