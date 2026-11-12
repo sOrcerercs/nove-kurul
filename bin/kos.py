@@ -308,12 +308,13 @@ def soru_sonrasi(takim, madde, kosu, cozum, kok=None):
                  "kontrol": bekci_durumu.get("kontrol")}
     yol = soru_kaydi.yol(madde["soru_id"], kok or KOK)
     if yol.is_file():
-        soru_kaydi.bolum_ekle(yol, f"## Denetçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
-                                   f"- kontrol: {bekci._kontrol_satiri(karar.get('kontrol'))}\n"
-                                   f"- koşu: {_goreli(kosu, kok)} ({madde['id']})\n"
+        t = soru_kaydi.tek_satir
+        soru_kaydi.bolum_ekle(yol, f"## Denetçi\n- karar: **{t(karar['karar'])}**\n- gerekçe: {t(karar['gerekce'])}\n"
+                                   f"- kontrol: {t(bekci._kontrol_satiri(karar.get('kontrol')))}\n"
+                                   f"- koşu: {t(_goreli(kosu, kok))} ({t(madde['id'])})\n"
                                    f"- maliyet: {cozum['maliyet']:.3f} USD\n"
                                    f"- denetçi maliyeti: {bekci.denetim_maliyeti(kosu):.3f} USD\n")
-        soru_kaydi.durum_yaz(yol, f"Denetçi: {karar['karar']}")
+        soru_kaydi.durum_yaz(yol, f"Denetçi: {t(karar['karar'])}")
     _madde_durumu(takim, madde["id"], "kacti" if cozum["hata"] else "tamam", kok)
     return karar
 

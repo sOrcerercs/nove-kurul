@@ -16,6 +16,11 @@ BOLUM = re.compile(r"^## (Denetçi|CEO — karar: (onay|red)|CEO — kontrol yap
 DENETCI_KARARI = re.compile(r"^- karar: \*\*(\w+)\*\*", re.MULTILINE)
 
 
+def tek_satir(metin):
+    """Serbest metni tek satıra indirir (boşluklar tek boşluk): satır başı sahte `## …` başlığı üretemez."""
+    return " ".join(str(metin if metin is not None else "").split())
+
+
 def yol(soru_id, kok=None):
     return Path(kok or ayar.KOK) / "sirket-log" / "sorular" / f"{soru_id}.md"
 

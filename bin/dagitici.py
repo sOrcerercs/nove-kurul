@@ -322,22 +322,23 @@ def _karar(soru, danismanlar, haiku, kuru, zorluk_sor):
 
 
 def _dagitim_bolumu(karar):
+    t = soru_kaydi.tek_satir
     satirlar = ["## Dağıtım"]
     if karar["danisman"]:
-        satirlar.append(f"- danışman: {karar['danisman']}")
+        satirlar.append(f"- danışman: {t(karar['danisman'])}")
         if karar.get("zorluk"):
-            satirlar.append(f"- zorluk: {karar['zorluk']} · {karar.get('zorluk_gerekce') or '-'}")
-    satirlar.append(f"- yöntem: {karar['yontem']}")
+            satirlar.append(f"- zorluk: {t(karar['zorluk'])} · {t(karar.get('zorluk_gerekce')) or '-'}")
+    satirlar.append(f"- yöntem: {t(karar['yontem'])}")
     if karar.get("eslesen"):
-        satirlar.append(f"- eşleşen ifadeler: {', '.join(karar['eslesen'])}")
+        satirlar.append(f"- eşleşen ifadeler: {t(', '.join(karar['eslesen']))}")
     if karar.get("gerekce"):
-        satirlar.append(f"- gerekçe: {karar['gerekce']}")
+        satirlar.append(f"- gerekçe: {t(karar['gerekce'])}")
     if karar.get("guven"):
-        satirlar.append(f"- güven: {karar['guven']}")
+        satirlar.append(f"- güven: {t(karar['guven'])}")
     if karar.get("oneri"):
-        satirlar.append(f"- öneri: {karar['oneri']}")
+        satirlar.append(f"- öneri: {t(karar['oneri'])}")
     if karar.get("sebep"):
-        satirlar.append(f"- sebep: {karar['sebep']}")
+        satirlar.append(f"- sebep: {t(karar['sebep'])}")
     if karar.get("maliyet") is not None:
         satirlar.append(f"- maliyet: {karar['maliyet']:.3f} USD")
     return "\n".join(satirlar)
