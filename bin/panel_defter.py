@@ -27,6 +27,10 @@ KISA_SEBEPLER = {
 }
 _CEO_RED = re.compile(r"^CEO \d+\. kez reddetti")
 _CEO_SURE = re.compile(r"^CEO \d+ kez başlatıldı")
+ASAMA_SIRASI = ("qa_al", "dagit", "analiz", "denetim", "ceo_sorgu", "revize", "ceo_onay", "qa_ilet")
+TAKIM_DESENI = re.compile(r"^[a-z0-9-]{1,32}$")
+_DAGITIM_BASLIGI = re.compile(r"^## Dağıtım\n", re.MULTILINE)
+_DANISMAN_SATIRI = re.compile(r"^- danışman:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 
 
 # --- defter ayrıştırma -----------------------------------------------------
@@ -157,6 +161,40 @@ def _soru_yollari(kok):
     return sorted(dizin.glob("*.md")) if dizin.is_dir() else []
 
 
+def _dagitim_danismani(soru_metni):
+    """Son `## Dağıtım` bölümündeki (satır başı başlık) danışman; takım adı desenine uymazsa None."""
+    if not soru_metni:
+        return None
+    baslar = list(_DAGITIM_BASLIGI.finditer(soru_metni))
+    if not baslar:
+        return None
+    govde = re.split(r"^## ", soru_metni[baslar[-1].end():], maxsplit=1, flags=re.MULTILINE)[0]
+    e = _DANISMAN_SATIRI.search(govde)
+    return e.group(1) if e and TAKIM_DESENI.match(e.group(1)) else None
+
+
+def asamalar(soru_metni, etiket=None):
+    """Sahne aşamaları — yalnız sabit adlar, ASAMA_SIRASI sırasıyla; kayıttaki bölüm başlıklarından türer."""
+    var = {"qa_al"}
+    if soru_metni is not None:
+        kararlar = soru_kaydi.kararlar(soru_metni)
+        if "\n## Dağıtım\n" in soru_metni:
+            var.add("dagit")
+            if _dagitim_danismani(soru_metni):
+                var.add("analiz")
+        if ("denetci", "kabul") in kararlar:
+            var.add("denetim")
+        if ("ceo", "red") in kararlar:
+            sonrasi = len(kararlar) > kararlar.index(("ceo", "red")) + 1
+            if sonrasi or soru_kaydi.alan(soru_metni, "durum") == "düzeltmede":
+                var.update(("ceo_sorgu", "revize"))
+        if ("ceo", "onay") in kararlar:
+            var.add("ceo_onay")
+    if etiket and etiket != "onaylanamadı":
+        var.add("qa_ilet")
+    return [a for a in ASAMA_SIRASI if a in var]
+
+
 def durum(kok, soru_id, eposta, rol):
     """Soru durumu; None → 404 (geçersiz id, kayıt yok, göremez: ayırt edilmez)."""
     if not isinstance(soru_id, str) or not ID_DESENI.match(soru_id):
@@ -167,9 +205,13 @@ def durum(kok, soru_id, eposta, rol):
         d = defter_oku(defter_metni)
         if not gorebilir_mi(d["soran"], d["gorunurluk"], eposta, rol):
             return None
-        sonuc = {"soru_id": soru_id, "soru": d["soru"], "zaman": d["tarih"]}
+        sonuc = {"soru_id": soru_id, "soru": d["soru"], "zaman": d["tarih"],
+                 "asama": asamalar(soru_metni, d["etiket"])}
         if d["etiket"] == "onaylanamadı":
             sonuc["durum"] = "onaylanamadi"
+            takim = _dagitim_danismani(soru_metni)
+            if takim:
+                sonuc["danisman"] = takim
             sonuc["sebep"] = kisa_sebep(d["gerekce"])
             if rol == "yonetici":
                 sonuc["gerekce"] = d["gerekce"]
@@ -185,6 +227,10 @@ def durum(kok, soru_id, eposta, rol):
         return None
     sonuc = {"soru_id": soru_id, "soru": soru_kaydi.alan(soru_metni, "soru"),
              "zaman": soru_kaydi.alan(soru_metni, "zaman"), "durum": "arastiriliyor"}
+    sonuc["asama"] = asamalar(soru_metni)
+    takim = _dagitim_danismani(soru_metni)
+    if takim:
+        sonuc["danisman"] = takim
     kayit_durumu = soru_kaydi.alan(soru_metni, "durum")
     if kayit_durumu in BITMIS_DURUMLAR:  # iş bitmiş ama defterde yok: panel sonsuza dek beklemesin
         sonuc["durum"] = "onaylanamadi"

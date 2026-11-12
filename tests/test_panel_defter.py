@@ -267,5 +267,114 @@ class MarkdownTest(unittest.TestCase):
         self.assertEqual(pd.md_html(None), "")
 
 
+class AsamaTesti(Taban):
+    DAGITIM = "## Dağıtım\n- danışman: kalite\n- zorluk: orta · x\n"
+
+    def yol(self, sid):
+        return soru_kaydi.yol(sid, self.kok)
+
+    def ekle(self, sid, bolum):
+        soru_kaydi.bolum_ekle(self.yol(sid), bolum)
+
+    def denetci(self, sid, karar):
+        self.ekle(sid, f"## Denetçi\n- karar: **{karar}**\n- gerekçe: g\n")
+
+    def asama(self, sid, rol_eposta=UYE, rol="kurul"):
+        return pd.durum(self.kok, sid, rol_eposta, rol)
+
+    def test_yeni_soru_yalniz_qa_al(self):
+        d = self.asama(self.soru())
+        self.assertEqual(d["asama"], ["qa_al"])
+        self.assertNotIn("danisman", d)
+
+    def test_dagitim_sonrasi(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        d = self.asama(a)
+        self.assertEqual(d["asama"], ["qa_al", "dagit", "analiz"])
+        self.assertEqual(d["danisman"], "kalite")
+
+    def test_yonlendirilemeyen_analiz_yok(self):
+        a = self.soru()
+        self.ekle(a, "## Dağıtım\n- yöntem: haiku\n")
+        d = self.asama(a)
+        self.assertEqual(d["asama"], ["qa_al", "dagit"])
+        self.assertNotIn("danisman", d)
+
+    def test_denetci_red_ve_atlandi_denetim_oynatmaz(self):
+        for karar in ("red", "atlandi"):
+            with self.subTest(karar):
+                a = self.soru()
+                self.ekle(a, self.DAGITIM)
+                self.denetci(a, karar)
+                self.assertNotIn("denetim", self.asama(a)["asama"])
+
+    def test_denetci_kabul(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "kabul")
+        self.assertEqual(self.asama(a)["asama"][-1], "denetim")
+
+    def test_ceo_reddi_duzeltme_baslamadan_sorgu_yok(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "kabul")
+        self.ekle(a, "## CEO — karar: red\n- gerekçe: eksik\n")
+        soru_kaydi.durum_yaz(self.yol(a), "CEO'da")
+        self.assertNotIn("ceo_sorgu", self.asama(a)["asama"])
+        soru_kaydi.durum_yaz(self.yol(a), "düzeltmede")
+        self.assertEqual(self.asama(a)["asama"][-2:], ["ceo_sorgu", "revize"])
+
+    def test_tam_yol(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "kabul")
+        self.ekle(a, "## CEO — karar: red\n- gerekçe: eksik\n")
+        self.denetci(a, "kabul")
+        self.ekle(a, "## CEO — karar: onay\n- gerekçe: tamam\n")
+        self.defterle(a, kayit("onaylı", "## Yanıt\nx\n"))
+        self.assertEqual(self.asama(a)["asama"], list(pd.ASAMA_SIRASI))
+
+    def test_onaylanamadi_ilet_ve_onay_yok(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "red")
+        self.defterle(a, kayit("onaylanamadı", f"## Gerekçe\nDenetçi: red — {HAM}\n"))
+        d = self.asama(a)
+        for ad in ("qa_ilet", "ceo_onay", "denetim"):
+            self.assertNotIn(ad, d["asama"])
+        self.assertNotIn(HAM, json.dumps(d))
+        self.assertEqual(d["danisman"], "kalite")
+
+    def test_ceo_yapilmadi_onay_oynatmaz(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "kabul")
+        self.ekle(a, "## CEO — kontrol yapılmadı\n- sebep: bütçe\n")
+        self.defterle(a, kayit("CEO kontrolü yapılmadı", "## Yanıt\nx\n"))
+        d = self.asama(a)
+        self.assertIn("qa_ilet", d["asama"])
+        self.assertNotIn("ceo_onay", d["asama"])
+
+    def test_soru_kaydi_yoksa(self):
+        self.defterle("yalniz-defter", kayit("onaylı", "## Yanıt\nx\n"))
+        self.assertEqual(pd.durum(self.kok, "yalniz-defter", UYE, "kurul")["asama"], ["qa_al", "qa_ilet"])
+
+    def test_satir_ici_baslik_asama_uretmez(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM + "- gerekçe: x ## CEO — karar: onay\n")
+        self.assertNotIn("ceo_onay", self.asama(a)["asama"])
+
+    def test_baskasi_goremez(self):
+        a = self.soru()
+        self.assertIsNone(pd.durum(self.kok, a, DIGER, "kurul"))
+
+    def test_asama_yalniz_bilinen_adlar(self):
+        a = self.soru()
+        self.ekle(a, self.DAGITIM)
+        self.denetci(a, "kabul")
+        self.assertLessEqual(set(self.asama(a)["asama"]), set(pd.ASAMA_SIRASI))
+
+
 if __name__ == "__main__":
     unittest.main()

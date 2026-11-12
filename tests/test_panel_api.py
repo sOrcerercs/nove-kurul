@@ -96,6 +96,11 @@ class ApiTesti(unittest.TestCase):
         self.assertTrue(g["soru_id"])
         self.ilerletici.tetikle.assert_called_once()
 
+    def test_soru_yaniti_asama_tasir(self):
+        _, _, _, c = self.giris()
+        _, g, _ = self.soru(c)
+        self.assertEqual(g["asama"], ["qa_al"])
+
     def test_kisa_soru_reddedildi_tetiklemez(self):
         _, _, _, c = self.giris()
         kod, g, _ = self.soru(c, "ne oldu")
