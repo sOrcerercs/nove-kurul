@@ -1,8 +1,8 @@
 ---
-durum: yazildi
+durum: tamamlandi
 guncelleme: 2026-11-12
 dal: feature/panel-canli
-pr: 
+pr: 20
 bekleyen: -
 ---
 
