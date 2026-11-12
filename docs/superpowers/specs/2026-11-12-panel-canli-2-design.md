@@ -23,7 +23,7 @@ Kağan canlı paneli dev sunucusunda denedi (12.11, iki kalite sorusu). Üç şe
   Denetçi ve CEO (Opus) her yanıtı kontrol eder.
 - K9. **Zor (Opus) koşunun tavanı 4 USD**; kolay ve orta 2 USD kalır; soru tavanı 8 USD değişmez.
 - K11. **Zor sorunun düzeltme turu kalan bütçeyle koşar** (12.11.2026): model yine Opus; tavanı
-  `SORU_BUTCESI_USD − harcanan − CEO_BUTCESI_USD` (4 USD'yi geçmez). Bu tutar anlamlı bir koşuya yetmiyorsa
+  `SORU_BUTCESI_USD − harcanan − CEO_BUTCESI_USD − BEKCI_YEDEK_BUTCESI_USD` (4 USD'yi geçmez; Denetçi payı da düşülür — Kağan, 12.11). Bu tutar anlamlı bir koşuya yetmiyorsa
   (`< 0.50 USD`) düzeltme başlamaz, soru "soru bütçesi doldu" ile kapanır. Kolay/orta sorular için bugünkü kural
   (`harcanan + 2 USD > 8 USD` → kapat) aynı kalıp aynı formüle bağlanır.
 - K10. Gerçek modda sahne canlansın: soru gelince Q&A kalkar, dağıtıma götürür; İş Dağıtımcı danışmana götürür;
