@@ -252,6 +252,10 @@ def bolum_bul(depts, ad):
     return None
 
 
+OLCULEBILIR_YOK = "ölçülebilir KR yok"
+VERI_YOK = "kesime kadar aylık veri yok"
+
+
 def sayi_yaz(x):
     metin = ("%.2f" % x).rstrip("0").rstrip(".")
     return "0" if metin == "-0" else metin
@@ -261,10 +265,10 @@ def _agirlik_yaz(w):
     return sayi_yaz(w) if okr_hesap._is_set(w) else "yok"
 
 
-def cift_yaz(cift, olculebilir):
-    """O7: ana yüzde `status_pct` (StD varsa StD), yıllık yanında. Ölçülebilir KR yoksa `—` ve sebep (B7)."""
+def cift_yaz(cift, olculebilir, sebep=OLCULEBILIR_YOK):
+    """O7: ana yüzde `status_pct` (StD varsa StD), yıllık yanında. Ölçülmüş ölçülebilir KR yoksa `—` ve sebep (B7)."""
     if not olculebilir:
-        return "yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok"
+        return "yuzde=— std=yok yillik=— durum=— sebep=%s" % sebep
     return "yuzde=%s std=%s yillik=%s durum=%s std_kapsam=%d/%d" % (
         sayi_yaz(cift["status_pct"]), "yok" if cift["std"] is None else sayi_yaz(cift["std"]),
         sayi_yaz(cift["annual"]), okr_hesap.DURUM_ADLARI[okr_hesap.status_of(cift["status_pct"])],
@@ -276,8 +280,19 @@ def _olcumlu_olculebilir(krs):
     return [k for k in okr_hesap.measured_krs_of(krs) if okr_hesap.is_measurable(k)]
 
 
-def _bolum_olculebilir(dept):
-    return any(_olcumlu_olculebilir(o["krs"]) for o in dept["objectives"])
+def _sebep(krs):
+    """`None`: ölçülmüş ölçülebilir KR var. Yoksa B7 sebebi: ölçülebilir KR var ama hiçbiri kesime kadar ölçülmemiş
+    → `kesime kadar aylık veri yok`; hiç ölçülebilir KR yok → `ölçülebilir KR yok`."""
+    if _olcumlu_olculebilir(krs):
+        return None
+    if any(okr_hesap.is_measurable(k) for k in krs):
+        return VERI_YOK
+    return OLCULEBILIR_YOK
+
+
+def _cift_kapsamli(cift, krs):
+    sebep = _sebep(krs)
+    return cift_yaz(cift, sebep is None, sebep or OLCULEBILIR_YOK)
 
 
 def _kr_sayimi(krs):
@@ -320,14 +335,13 @@ def bolumler_bas(baglanti, args, bugun):
     if secim is None:
         return 1
     secilen, ek = secim
-    olcum = {d["id"]: d for d in okr_hesap.measured_only(secilen)}
     cikti = [kapsam_bolumu("bolumler", aralik, ek, len(secilen))]
     for d in secilen:
         kr_sayisi = 0
         for o in d["objectives"]:
             kr_sayisi = kr_sayisi + len(o["krs"])
         cikti.append("- %s: %s objective=%d kr=%d" % (
-            _tek_satir(d["name_tr"]), cift_yaz(okr_hesap.dept_pair(d), _bolum_olculebilir(olcum[d["id"]])),
+            _tek_satir(d["name_tr"]), _cift_kapsamli(okr_hesap.dept_pair(d), [k for o in d["objectives"] for k in o["krs"]]),
             len(d["objectives"]), kr_sayisi))
     print("\n".join(cikti))
     return 0
@@ -351,16 +365,16 @@ def objektifler_bas(baglanti, args, bugun):
             if dusuk is None:
                 dusuk_yazi = "yok"
             else:
-                dusuk_yazi = "%s (%%%s, agirlik=%s)" % (
+                dusuk_yazi = "%s (%%%s, agirlik=%s%s)" % (
                     _tek_satir(dusuk["title_tr"]), sayi_yaz(okr_hesap.kr_pair(dusuk)["status_pct"]),
-                    _agirlik_yaz(dusuk.get("weight")))
+                    _agirlik_yaz(dusuk.get("weight")), ", özetten" if dusuk["bridge"] else "")
             satirlar.append(
                 "- %s / %s %s: donem=%s agirlik=%s %s kr=%d olculmeyen=%d olculemeyen=%d sorumlu=%s en_dusuk_kr=%s"
                 % (_tek_satir(d["name_tr"]), _tek_satir(o["code"]), _tek_satir(o["title_tr"]),
                    _tek_satir(kod_by_period.get(o["period_id"], "yok")), _agirlik_yaz(o.get("weight")),
-                   cift_yaz(okr_hesap.obj_pair(o), bool(_olcumlu_olculebilir(o["krs"]))),
+                   _cift_kapsamli(okr_hesap.obj_pair(o), o["krs"]),
                    len(o["krs"]), olculmeyen, olculemeyen, _tek_satir(o["owner_name"]) or "yok", dusuk_yazi))
-    print("\n".join([kapsam_bolumu("objektifler", aralik, ek, len(satirlar))] + satirlar))
+    print("\n".join([kapsam_bolumu("objektifler", aralik, ek, len(satirlar))] + (satirlar or ["- objective yok"])))
     return 0
 
 
@@ -396,9 +410,8 @@ def sirket_bas(baglanti, args, bugun):
     ek = {"paylar": "betik hesabı; sitede sayım var, pay yok"}
     if checkin == 0:
         ek["checkin_notu"] = "Nove PYS'de check-in kaydı yok"
-    olculebilir_bolum = any(_bolum_olculebilir(d) for d in okr_hesap.measured_only(depts))
     cikti = [kapsam_bolumu("sirket", aralik, ek, len(krlar)),
-             "- sirket: %s" % cift_yaz(okr_hesap.company_pair(depts), olculebilir_bolum),
+             "- sirket: %s" % _cift_kapsamli(okr_hesap.company_pair(depts), krlar),
              "- sayim: bolum=%d objective=%d kr=%d olculebilir=%d olculmeyen=%d olculemeyen=%d ozetten=%d" % (
                  len(depts), len(objektifler), len(krlar), len(krlar) - olculemeyen, olculmeyen, olculemeyen,
                  len([k for k in krlar if k["bridge"]])),
