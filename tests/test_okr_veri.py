@@ -83,7 +83,7 @@ class SemaTesti(unittest.TestCase):
         self.assertEqual(tampon.getvalue().strip(), "**Hazırlanamadı:** OKR_READONLY_URL yok")
 
     def test_kullanim_hatasi_rc2(self):
-        with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as c:
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as c:
             okr_veri.main(["yok-boyle-komut"], ortam={})
         self.assertEqual(c.exception.code, 2)
 
@@ -326,6 +326,196 @@ class DonemlerKomutuTesti(unittest.TestCase):
         self.assertEqual(alt[2], "- Ç2: 2026-12-01..2027-02-28")
         self.assertEqual(len([a for a in alt if a.startswith("- Ç")]), 4)
         self.assertTrue(alt[-1].startswith("not=dönemler yıllıktır;"))
+
+
+DEPT_SUTUN = ["id", "slug", "name_tr"]
+USER_SUTUN = ["id", "name"]
+OBJ_SUTUN = ["id", "code", "department_id", "period_id", "title_tr", "owner_user_id", "weight"]
+AYLIK_SUTUN = ["key_result_id", "month", "value"]
+KR2_BASLIK = "Satış KR iki deneme oranı"
+
+
+def _okr_baglantisi(agirliklar=(None, None), yalniz_finans=False, checkin=0):
+    """Task 7 fikstürü — adlar uydurmadır (B4). Satış O1: KR1 sum, KR2 avg %; Finans O1: ölçülemez KR; Pazarlama boş."""
+    q = okr_veri.TABLO_SORGULARI
+    krlar = [("k3", "of", "Finans KR deneme", 5.0, 5.0, 5.0, "adet", "last", None, "u2")]
+    aylik = [("k3", "2026-09", 5.0), ("k3", "2026-10", 5.0)]
+    objler = [("of", "O1", "dfin", "b", "Finans deneme hedefi", "u2", None)]
+    if not yalniz_finans:
+        krlar = [("k1", "os", "Satış KR bir deneme cirosu", 0.0, 0.0, 1200.0, "TL", "sum", agirliklar[0], "u1"),
+                 ("k2", "os", KR2_BASLIK, 50.0, 50.0, 90.0, "%", "avg", agirliklar[1], "u1")] + krlar
+        aylik = [("k1", "2026-09", 100.0), ("k1", "2026-10", 100.0),
+                 ("k2", "2026-09", 70.0), ("k2", "2026-10", 80.0)] + aylik
+        objler = objler + [("os", "O1", "dsat", "b", "Satış deneme hedefi", "u1", None)]
+    sonuc = {q["periods"]: [("a", "p-2025-fy", "fiscal_year", "closed", "2025-09-01", "2026-08-31"),
+                            ("b", "p-2026-fy", "fiscal_year", "active", "2026-09-01", "2027-08-31")],
+             q["departments"]: [("dfin", "finans", "Finans"), ("dpaz", "pazarlama", "Pazarlama"),
+                                ("dsat", "satis", "Satış")],
+             q["users"]: [("u1", "Deniz Örnek"), ("u2", "Ada Deneme")],
+             q["objectives"]: objler,
+             q["key_results"]: krlar,
+             q["monthly"]: aylik,
+             "SELECT count(*) FROM public.checkins": [(checkin,)]}
+    sutun = {q["periods"]: PERIOD_SUTUN, q["departments"]: DEPT_SUTUN, q["users"]: USER_SUTUN,
+             q["objectives"]: OBJ_SUTUN, q["key_results"]: KR_SUTUNLARI, q["monthly"]: AYLIK_SUTUN}
+    return _SahteBaglanti(_SahteImlec(sonuc, sutunlar=sutun))
+
+
+def _satir(cikti, bas):
+    bulunan = [s for s in cikti.splitlines() if s.startswith(bas)]
+    if len(bulunan) != 1:
+        raise AssertionError("%r ile başlayan tek satır yok:\n%s" % (bas, cikti))
+    return bulunan[0]
+
+
+class YardimciTesti(unittest.TestCase):
+    def test_sayi_yaz(self):
+        self.assertEqual(okr_veri.sayi_yaz(57500), "57500")
+        self.assertEqual(okr_veri.sayi_yaz(99.2), "99.2")
+        self.assertEqual(okr_veri.sayi_yaz(4.4666), "4.47")
+        self.assertEqual(okr_veri.sayi_yaz(0.0), "0")
+        self.assertEqual(okr_veri.sayi_yaz(-0.001), "0")
+
+    def test_cift_yaz(self):
+        cift = {"annual": 40, "std": None, "status_pct": 40, "with_std": 0, "measurable": 2}
+        self.assertEqual(okr_veri.cift_yaz(cift, True),
+                         "yuzde=40 std=yok yillik=40 durum=Gelişime Açık std_kapsam=0/2")
+        self.assertEqual(okr_veri.cift_yaz(cift, False),
+                         "yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok")
+
+
+class BolumlerKomutuTesti(unittest.TestCase):
+    def test_bolumler_cli(self):
+        kod, c = _kos(["bolumler", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        self.assertIn("komut=bolumler", c.splitlines())
+        self.assertIn("kayit=3", c.splitlines())
+        self.assertEqual(_satir(c, "- Satış:"),
+                         "- Satış: yuzde=82 std=82 yillik=40 durum=Beklenen std_kapsam=2/2 objective=1 kr=2")
+
+    def test_bolumler_olculemez_bolum_tire(self):
+        kod, c = _kos(["bolumler", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertEqual(_satir(c, "- Finans:"),
+                         "- Finans: yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok objective=1 kr=1")
+        self.assertEqual(_satir(c, "- Pazarlama:"),
+                         "- Pazarlama: yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok objective=0 kr=0")
+
+    def test_bolum_adi_buyuk_kucuk_ve_slug(self):
+        beklenen = "- Satış: yuzde=82 std=82 yillik=40 durum=Beklenen std_kapsam=2/2 objective=1 kr=2"
+        for ad in ("satış", "SATIŞ", "satis", "Satış"):
+            with self.subTest(ad=ad):
+                kod, c = _kos(["bolumler", "--donem", "p-2026-fy", "--bolum", ad], _okr_baglantisi())
+                self.assertEqual(kod, 0)
+                self.assertEqual([s for s in c.splitlines() if s.startswith("- ")], [beklenen])
+                self.assertIn("bolum=Satış", c.splitlines())
+                self.assertIn("kayit=1", c.splitlines())
+
+    def test_bolum_bulunamaz(self):
+        kod, c = _kos(["bolumler", "--donem", "p-2026-fy", "--bolum", "Lojistik"], _okr_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertEqual(c.strip(),
+                         "**Hazırlanamadı:** bölüm bulunamadı: Lojistik (geçerli: Finans, Pazarlama, Satış)")
+
+    def test_bos_bolum_tum_bolumlere_dusmez(self):
+        kod, c = _kos(["bolumler", "--donem", "p-2026-fy", "--bolum", ""], _okr_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** bölüm bulunamadı: ", c)
+
+    def test_aralik_bayraklari_dogrulanir(self):
+        for komut in ("bolumler", "objektifler", "sirket"):
+            with self.subTest(komut=komut), redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit) as e:
+                _kos([komut, "--baslangic", "2026-09-01"], _okr_baglantisi())
+            self.assertEqual(e.exception.code, 2)
+
+    def test_bolum_bul_turkce_harf(self):
+        depts = [{"name_tr": "İnsan Kaynakları", "slug": "ik"}, {"name_tr": "Satış", "slug": "satis"}]
+        with redirect_stdout(io.StringIO()):
+            self.assertIs(okr_veri.bolum_bul(depts, "insan kaynakları"), depts[0])
+            self.assertIs(okr_veri.bolum_bul(depts, "İNSAN KAYNAKLARI"), depts[0])
+            self.assertIs(okr_veri.bolum_bul(depts, "IK"), None)       # I → ı: "ık" ≠ "ik"
+            self.assertIs(okr_veri.bolum_bul(depts, "ik"), depts[0])
+
+
+class ObjektiflerKomutuTesti(unittest.TestCase):
+    def test_objektifler_en_dusuk_kr(self):
+        kod, c = _kos(["objektifler", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        self.assertIn("kayit=2", c.splitlines())
+        self.assertEqual(
+            _satir(c, "- Satış / O1 "),
+            "- Satış / O1 Satış deneme hedefi: donem=p-2026-fy agirlik=yok yuzde=82 std=82 yillik=40 "
+            "durum=Beklenen std_kapsam=2/2 kr=2 olculmeyen=0 olculemeyen=0 sorumlu=Deniz Örnek "
+            "en_dusuk_kr=%s (%%63, agirlik=yok)" % KR2_BASLIK)
+        self.assertEqual(
+            _satir(c, "- Finans / O1 "),
+            "- Finans / O1 Finans deneme hedefi: donem=p-2026-fy agirlik=yok yuzde=— std=yok yillik=— durum=— "
+            "sebep=ölçülebilir KR yok kr=1 olculmeyen=0 olculemeyen=1 sorumlu=Ada Deneme en_dusuk_kr=yok")
+
+    def test_objektifler_agirlikli(self):
+        kod, c = _kos(["objektifler", "--donem", "p-2026-fy", "--bolum", "satis"],
+                      _okr_baglantisi(agirliklar=(75.0, 25.0)))
+        self.assertEqual(kod, 0)
+        satir = _satir(c, "- Satış / O1 ")
+        self.assertIn(" yuzde=91 std=91 ", satir)
+        self.assertTrue(satir.endswith("en_dusuk_kr=%s (%%63, agirlik=25)" % KR2_BASLIK))
+        self.assertNotIn("- Finans", c)
+
+    def test_en_dusuk_kr_esitlikte_buyuk_agirlik(self):
+        def kr(id_, pct_current, w):
+            return {"id": id_, "title_tr": id_, "start": 0, "current": pct_current, "target": 100,
+                    "rollup": "last", "weight": w, "measured_by_cutoff": True, "std": None}
+        o = {"krs": [kr("a", 40, 10.0), kr("b", 40, 30.0), kr("c", 40, None), kr("d", 90, 60.0)]}
+        self.assertEqual(okr_veri.en_dusuk_kr(o)["id"], "b")
+        o = {"krs": [kr("a", 40, None), kr("b", 40, None)]}
+        self.assertEqual(okr_veri.en_dusuk_kr(o)["id"], "a")
+        o = {"krs": [dict(kr("a", 10, 5.0), measured_by_cutoff=False), kr("b", 50, None)]}
+        self.assertEqual(okr_veri.en_dusuk_kr(o)["id"], "b")
+        self.assertIsNone(okr_veri.en_dusuk_kr({"krs": []}))
+
+
+class SirketKomutuTesti(unittest.TestCase):
+    def test_sirket_cli(self):
+        kod, c = _kos(["sirket", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        satirlar = c.splitlines()
+        self.assertIn("paylar=betik hesabı; sitede sayım var, pay yok", satirlar)
+        self.assertIn("checkin_notu=Nove PYS'de check-in kaydı yok", satirlar)
+        govde = satirlar[satirlar.index("kayit=3") + 1:]
+        self.assertEqual(govde, [
+            "- sirket: yuzde=82 std=82 yillik=40 durum=Beklenen std_kapsam=2/2",
+            "- sayim: bolum=3 objective=2 kr=3 olculebilir=2 olculmeyen=0 olculemeyen=1 ozetten=0",
+            "- kr_dagilimi (n=2): Beklenenin Üzerinde=0 (%0) · Beklenen=1 (%50) · Beklenenin Altında=1 (%50) · "
+            "Gelişime Açık=0 (%0) · Başlamadı=0 (%0)",
+            "- objective_dagilimi (n=1): Beklenenin Üzerinde=0 (%0) · Beklenen=1 (%100) · "
+            "Beklenenin Altında=0 (%0) · Gelişime Açık=0 (%0) · Başlamadı=0 (%0)",
+            "- gelisime_acik_kr=0 (%59 ve altı; Başlamadı dahil)",
+            "- checkin=0",
+        ])
+
+    def test_sirket_checkin_varsa_not_yok(self):
+        _, c = _kos(["sirket", "--donem", "p-2026-fy"], _okr_baglantisi(checkin=4))
+        self.assertNotIn("checkin_notu=", c)
+        self.assertIn("- checkin=4", c.splitlines())
+
+    def test_sirket_bos_dagilim_pay_tire(self):
+        kod, c = _kos(["sirket", "--donem", "p-2026-fy"], _okr_baglantisi(yalniz_finans=True))
+        self.assertEqual(kod, 0)
+        self.assertEqual(_satir(c, "- sirket:"),
+                         "- sirket: yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok")
+        self.assertEqual(_satir(c, "- kr_dagilimi"),
+                         "- kr_dagilimi (n=0): Beklenenin Üzerinde=0 (—) · Beklenen=0 (—) · "
+                         "Beklenenin Altında=0 (—) · Gelişime Açık=0 (—) · Başlamadı=0 (—)")
+        self.assertTrue(_satir(c, "- objective_dagilimi").startswith("- objective_dagilimi (n=0): "))
+
+    def test_sirket_bolum_almaz(self):
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
+            _kos(["sirket", "--bolum", "Satış"], _okr_baglantisi())
+        self.assertEqual(e.exception.code, 2)
 
 
 class IzinDosyasiTesti(unittest.TestCase):

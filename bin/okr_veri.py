@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
 import okr_hesap  # noqa: E402
-from kalite_veri import _tek_satir, baglanti_ac, guvenli_hata, hazirlanamadi  # noqa: E402
+from kalite_veri import _tek_satir, baglanti_ac, guvenli_hata, hazirlanamadi, js_yuvarla  # noqa: E402
 
 KAYNAK = "Nove PYS Postgres (okr_okuyucu, salt okunur)"
 
@@ -237,16 +237,205 @@ def donemler_bas(baglanti, bugun):
     return 0
 
 
+def _turkce_kucuk(metin):
+    return metin.replace("İ", "i").replace("I", "ı").lower()
+
+
+def bolum_bul(depts, ad):
+    """`name_tr` ya da `slug` ile (Türkçe küçük harf); bulunamazsa sebep basılır, `None` döner."""
+    aranan = _turkce_kucuk(ad)
+    for d in depts:
+        if aranan in (_turkce_kucuk(d["name_tr"]), _turkce_kucuk(d["slug"])):
+            return d
+    gecerli = ", ".join(_tek_satir(d["name_tr"]) for d in depts)
+    print(hazirlanamadi("bölüm bulunamadı: %s (geçerli: %s)" % (_tek_satir(ad), gecerli)))
+    return None
+
+
+def sayi_yaz(x):
+    metin = ("%.2f" % x).rstrip("0").rstrip(".")
+    return "0" if metin == "-0" else metin
+
+
+def _agirlik_yaz(w):
+    return sayi_yaz(w) if okr_hesap._is_set(w) else "yok"
+
+
+def cift_yaz(cift, olculebilir):
+    """O7: ana yüzde `status_pct` (StD varsa StD), yıllık yanında. Ölçülebilir KR yoksa `—` ve sebep (B7)."""
+    if not olculebilir:
+        return "yuzde=— std=yok yillik=— durum=— sebep=ölçülebilir KR yok"
+    return "yuzde=%s std=%s yillik=%s durum=%s std_kapsam=%d/%d" % (
+        sayi_yaz(cift["status_pct"]), "yok" if cift["std"] is None else sayi_yaz(cift["std"]),
+        sayi_yaz(cift["annual"]), okr_hesap.DURUM_ADLARI[okr_hesap.status_of(cift["status_pct"])],
+        cift["with_std"], cift["measurable"])
+
+
+def _olcumlu_olculebilir(krs):
+    """Ölçülmüş ağaçta ölçülebilir KR'lar (`progress.ts:73` + `tree.ts:331-333`)."""
+    return [k for k in okr_hesap.measured_krs_of(krs) if okr_hesap.is_measurable(k)]
+
+
+def _bolum_olculebilir(dept):
+    return any(_olcumlu_olculebilir(o["krs"]) for o in dept["objectives"])
+
+
+def _kr_sayimi(krs):
+    """`(olculmeyen, olculemeyen)` — ayrık: ölçülemeyen KR ölçülmeyen sayılmaz."""
+    olculemeyen = len([k for k in krs if not okr_hesap.is_measurable(k)])
+    olculmeyen = len([k for k in krs if okr_hesap.is_measurable(k) and not k["measured_by_cutoff"]])
+    return olculmeyen, olculemeyen
+
+
+def en_dusuk_kr(obj):
+    """Planın kuralı (sitede karşılığı yok; Kağan 13.11 teyit): ölçülmüş ve ölçülebilir KR'lar içinde en küçük
+    `status_pct`; eşitlikte ağırlığı büyük olan (ağırlıksız en sonda), sonra `id`. Aday yoksa `None`."""
+    adaylar = _olcumlu_olculebilir(obj["krs"])
+    if not adaylar:
+        return None
+
+    def anahtar(k):
+        w = k.get("weight")
+        agirlikli = okr_hesap._is_set(w)
+        return (okr_hesap.kr_pair(k)["status_pct"], 0 if agirlikli else 1, -w if agirlikli else 0, str(k["id"]))
+    return min(adaylar, key=anahtar)
+
+
+def _bolum_ek(args, depts):
+    """`--bolum` verildiyse tek bölüm ve kapsam `ek`i; bulunamazsa `None` (sebep basılmıştır)."""
+    if args.bolum is None:
+        return depts, {}
+    d = bolum_bul(depts, args.bolum)
+    if d is None:
+        return None
+    return [d], {"bolum": d["name_tr"]}
+
+
+def bolumler_bas(baglanti, args, bugun):
+    hazir = agac_hazirla(baglanti, args, bugun)
+    if hazir is None:
+        return 1
+    aralik, _, depts, _ = hazir
+    secim = _bolum_ek(args, depts)
+    if secim is None:
+        return 1
+    secilen, ek = secim
+    olcum = {d["id"]: d for d in okr_hesap.measured_only(secilen)}
+    cikti = [kapsam_bolumu("bolumler", aralik, ek, len(secilen))]
+    for d in secilen:
+        kr_sayisi = 0
+        for o in d["objectives"]:
+            kr_sayisi = kr_sayisi + len(o["krs"])
+        cikti.append("- %s: %s objective=%d kr=%d" % (
+            _tek_satir(d["name_tr"]), cift_yaz(okr_hesap.dept_pair(d), _bolum_olculebilir(olcum[d["id"]])),
+            len(d["objectives"]), kr_sayisi))
+    print("\n".join(cikti))
+    return 0
+
+
+def objektifler_bas(baglanti, args, bugun):
+    hazir = agac_hazirla(baglanti, args, bugun)
+    if hazir is None:
+        return 1
+    aralik, periods, depts, _ = hazir
+    secim = _bolum_ek(args, depts)
+    if secim is None:
+        return 1
+    secilen, ek = secim
+    kod_by_period = {p["id"]: p["code"] for p in periods}
+    satirlar = []
+    for d in secilen:
+        for o in d["objectives"]:
+            olculmeyen, olculemeyen = _kr_sayimi(o["krs"])
+            dusuk = en_dusuk_kr(o)
+            if dusuk is None:
+                dusuk_yazi = "yok"
+            else:
+                dusuk_yazi = "%s (%%%s, agirlik=%s)" % (
+                    _tek_satir(dusuk["title_tr"]), sayi_yaz(okr_hesap.kr_pair(dusuk)["status_pct"]),
+                    _agirlik_yaz(dusuk.get("weight")))
+            satirlar.append(
+                "- %s / %s %s: donem=%s agirlik=%s %s kr=%d olculmeyen=%d olculemeyen=%d sorumlu=%s en_dusuk_kr=%s"
+                % (_tek_satir(d["name_tr"]), _tek_satir(o["code"]), _tek_satir(o["title_tr"]),
+                   _tek_satir(kod_by_period.get(o["period_id"], "yok")), _agirlik_yaz(o.get("weight")),
+                   cift_yaz(okr_hesap.obj_pair(o), bool(_olcumlu_olculebilir(o["krs"]))),
+                   len(o["krs"]), olculmeyen, olculemeyen, _tek_satir(o["owner_name"]) or "yok", dusuk_yazi))
+    print("\n".join([kapsam_bolumu("objektifler", aralik, ek, len(satirlar))] + satirlar))
+    return 0
+
+
+_DURUM_SIRASI = ("above", "expected", "below", "open", "none")
+
+
+def _dagilim_yaz(ad, yuzdeler):
+    """Beş bant (`status.ts:3-24`); pay `js_yuvarla(100 * n / N)` betik hesabıdır, `N == 0` ise `—`."""
+    sayim = {k: 0 for k in _DURUM_SIRASI}
+    for pct in yuzdeler:
+        sayim[okr_hesap.status_of(pct)] += 1
+    n_top = len(yuzdeler)
+    parcalar = []
+    for k in _DURUM_SIRASI:
+        pay = "—" if n_top == 0 else "%%%d" % js_yuvarla(100 * sayim[k] / n_top)
+        parcalar.append("%s=%d (%s)" % (okr_hesap.DURUM_ADLARI[k], sayim[k], pay))
+    return "- %s (n=%d): %s" % (ad, n_top, " · ".join(parcalar))
+
+
+def sirket_bas(baglanti, args, bugun):
+    hazir = agac_hazirla(baglanti, args, bugun)
+    if hazir is None:
+        return 1
+    aralik, _, depts, checkin = hazir
+    objektifler = [o for d in depts for o in d["objectives"]]
+    krlar = [k for o in objektifler for k in o["krs"]]
+    olculmeyen, olculemeyen = _kr_sayimi(krlar)
+    # Halka kümesi: ölçülmüş ve ölçülebilir KR'lar, KR'ın status_pct'si (overview.ts:202-215,253-257)
+    halka = _olcumlu_olculebilir(krlar)
+    kr_yuzdeleri = [okr_hesap.kr_pair(k)["status_pct"] for k in halka]
+    obj_yuzdeleri = [okr_hesap.obj_pair(o)["status_pct"] for o in objektifler if _olcumlu_olculebilir(o["krs"])]
+    gelisime_acik = len([p for p in kr_yuzdeleri if okr_hesap.is_open_to_development(p)])  # overview.ts:231-234
+    ek = {"paylar": "betik hesabı; sitede sayım var, pay yok"}
+    if checkin == 0:
+        ek["checkin_notu"] = "Nove PYS'de check-in kaydı yok"
+    olculebilir_bolum = any(_bolum_olculebilir(d) for d in okr_hesap.measured_only(depts))
+    cikti = [kapsam_bolumu("sirket", aralik, ek, len(krlar)),
+             "- sirket: %s" % cift_yaz(okr_hesap.company_pair(depts), olculebilir_bolum),
+             "- sayim: bolum=%d objective=%d kr=%d olculebilir=%d olculmeyen=%d olculemeyen=%d ozetten=%d" % (
+                 len(depts), len(objektifler), len(krlar), len(krlar) - olculemeyen, olculmeyen, olculemeyen,
+                 len([k for k in krlar if k["bridge"]])),
+             _dagilim_yaz("kr_dagilimi", kr_yuzdeleri),
+             _dagilim_yaz("objective_dagilimi", obj_yuzdeleri),
+             "- gelisime_acik_kr=%d (%%59 ve altı; Başlamadı dahil)" % gelisime_acik,
+             "- checkin=%d" % checkin]
+    print("\n".join(cikti))
+    return 0
+
+
+_ARALIKLI_KOMUTLAR = {
+    "bolumler": ("bölüm yüzdeleri", bolumler_bas),
+    "objektifler": ("objective yüzdeleri ve en düşük KR", objektifler_bas),
+    "sirket": ("şirket yüzdesi, sayım ve durum dağılımı", sirket_bas),
+}
+
+
 def _komutlar():
     ap = argparse.ArgumentParser(description="OKR veri okuyucusu — salt okunur")
     alt = ap.add_subparsers(dest="komut", required=True)
     alt.add_parser("sema", help="yapı, sayım ve izin ölçümü (içerik basmaz)")
     alt.add_parser("donemler", help="dönemler ve mali çeyrekler")
-    return ap
+    aralikli = {}
+    for ad, (yardim, _) in _ARALIKLI_KOMUTLAR.items():
+        aralikli[ad] = alt.add_parser(ad, help=yardim)
+        aralik_bayraklari_ekle(aralikli[ad])
+    return ap, aralikli
 
 
 def main(argv, ortam=None, baglan=None, bugun=None):
-    args = _komutlar().parse_args(argv)            # kullanım hatası: SystemExit(2)
+    ap, aralikli = _komutlar()
+    args = ap.parse_args(argv)                     # kullanım hatası: SystemExit(2)
+    if args.komut in aralikli:
+        aralik_bayraklari_dogrula(aralikli[args.komut], args)
+        if args.komut == "sirket" and args.bolum is not None:
+            aralikli["sirket"].error("sirket --bolum almaz; bölüm için: bolumler --bolum <ad>")
     if bugun is None:
         bugun = okr_hesap.today_in_istanbul()
     elif not (isinstance(bugun, str) and okr_hesap.is_valid_iso_date(bugun)):
@@ -269,6 +458,8 @@ def main(argv, ortam=None, baglan=None, bugun=None):
             return 0
         if args.komut == "donemler":
             return donemler_bas(baglanti, bugun)
+        if args.komut in _ARALIKLI_KOMUTLAR:
+            return _ARALIKLI_KOMUTLAR[args.komut][1](baglanti, args, bugun)
         return 0
     except Exception as hata:                      # noqa: BLE001
         print(hazirlanamadi("sorgu başarısız (%s)" % guvenli_hata(hata, url)))
