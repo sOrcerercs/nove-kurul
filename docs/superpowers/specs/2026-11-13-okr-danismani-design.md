@@ -32,7 +32,7 @@ zorluğa göre model → Denetçi → CEO → panel).
   doğrulandı (13.11): oturum `default_transaction_read_only = on`, `statement_timeout = 15s`; okuma izni
   `departments, periods, objectives, key_results, checkins, kr_monthly_values` ve `users`'ta yalnız
   `id, name, role, department_id, manager_id, title, state`; e-posta, parola özeti, `login_attempts`,
-  `help_articles` kapalı; `app_settings`'te yalnız `default_range_start` satırı (O8). Tablolarda RLS açık; yalnız bu role `okr_okuyucu_okur` SELECT politikası.
+  `help_articles` kapalı; `app_settings`'te yalnız `default_range_start` satırı — **bu izin henüz verilmedi**, O8'deki SQL'i Kağan çalıştırır. Tablolarda RLS açık; yalnız bu role `okr_okuyucu_okur` SELECT politikası.
   Bağlantı `.env`'de **`OKR_READONLY_URL`** (Session pooler). Ölçüm 13.11: 11 bölüm, 3 dönem, 55 objective,
   118 KR, 439 aylık değer, 105 kişi, **0 check-in**.
 - O2. **Görünürlük:** kurul üyeleri bütün departmanları sorabilir; departman kısıtı yok. Panelin mevcut kuralı
@@ -65,14 +65,15 @@ zorluğa göre model → Denetçi → CEO → panel).
   aynı girdi aynı sayıyı vermek zorunda. Yuvarlama JS `Math.round` ile aynı olmalı (Python `round` banker
   yuvarlaması yapar — farklı; `bin/kalite_veri.py`'deki `js_yuvarla` kullanılır).
   Taşınacaklara `lib/queries/tree.ts` ve `lib/queries/std.ts` de dahildir (inceleme, 13.11): kesim tarihi
-  `min(aralık sonu, bugün İstanbul)` (`dates.ts:823-826`); KR'ın kendi döneminde aylık satırı yoksa saklı
+  `min(aralık sonu, bugün İstanbul)` (`lib/domain/dates.ts:56-59`, `asOfCutoff`); KR'ın kendi döneminde aylık satırı yoksa saklı
   `key_results.current`'a düşüş (`tree.ts:209-256`); kesime kadar ölçülmemiş KR'ların dışlanması
   (`tree.ts:331-356`). Sayılar ve testleri bu dosyalardan da kopyalanır.
 - B1a. **Site değişirse (onay 13.11):** taşınan her hesap bloğunun başında sitedeki karşılığı yazar — dosya yolu,
   satır aralığı ve Nove Performance deposunun taşındığı andaki commit kısaltması. Danışmanın `kurallar.md`'sine ve
   Nove Performance tarafına not düşülür: sitenin `lib/domain` ya da `lib/queries/{tree,std,range}.ts` hesabı
   değişirse `okr_veri.py` de güncellenir. Otomatik eşitleme kontrolü yok; bunun yerine Kağan'ın üç sayılık
-  karşılaştırması (Doğrulama 3) her site hesap değişikliğinden sonra yinelenir.
+  karşılaştırması (Doğrulama 3) her site hesap değişikliğinden sonra yinelenir. `kurallar.md` ve Nove Performance
+  ajana kapalı: not forma (§4) yazılır, Nove Performance notunu Kağan düşer.
 - B2. **Komutlar** (Kalite'deki `kalite_veri.py` deseni, her biri tablo basar, içerik değil hesap):
   `sema` (tablo/izin/satır sayısı ölçümü), `donemler`, `bolumler` (bölüm başına ilerleme), `objektifler`
   (bölüm/dönem filtresiyle objective ilerlemesi ve onu en çok aşağı çeken KR), `kr` (KR başına hedef / şu an /
@@ -84,8 +85,8 @@ zorluğa göre model → Denetçi → CEO → panel).
   ilk ayından birikir (`tree.ts:121-123,242`). "Bu çeyrek" sorusunda danışman bunu söyler: sayı mali yıl başından
   çeyrek sonuna (ya da bugüne) kadardır. **Onay 13.11:** yanıt bu birikmiş sayıdır; yalnız çeyrek dilimi
   hesaplanmaz (siteyle karşılaştırılamaz).
-- B2b. **"Geride / yolunda":** sitenin kendi durum bantları kullanılır (`lib/domain/status.ts:18-27`: ≤59
-  Gelişime Açık, 60–79, 80–100, 101+), `statusPct` üzerinden. Betik her KR/objective için bandı basar; danışman
+- B2b. **"Geride / yolunda":** sitenin kendi durum bantları kullanılır (`lib/domain/status.ts:18-24`: 0 Başlamadı,
+  1–59 Gelişime Açık, 60–79, 80–100, 101+), `statusPct` üzerinden. Betik her KR/objective için bandı basar; danışman
   kendi eşiğini koymaz. (Hedef dışındaki "başarı skalası" kişiye puan vermektir; KR durumu değil.)
 - B3. **Check-in:** tablo boş (O1). Betik check-in sayısını basar; 0 ise danışman check-in'e dayanan soruya
   "Nove PYS'de check-in kaydı yok" der, tahmin yürütmez.
@@ -100,7 +101,7 @@ zorluğa göre model → Denetçi → CEO → panel).
   `Bash(python3 bin/okr_veri.py:*)`, gerekli anahtar `OKR_READONLY_URL`. Sahne anahtarı `okr` (panelde ve 3D
   sahnede zaten var). Zorluk sınıflaması ve model seçimi bugünkü hattan aynen gelir.
 - B7. **Yanıt biçimi** (form §5): önce tek cümlelik cevap; sonra dönem kodu ve son dolu ay; KR başına hedef / şu an
-  / kalan tablosu; sonda "Ölçülemeyenler" (`—` ve sebebi). `—` ile `0` karışmaz.
+  / kalan tablosu; sonda "Ölçülemeyenler" (`—` ve sebebi) — form hattının `kurul-yaniti` düzeninde **Bilinmeyenler** bölümüne yazılır. `—` ile `0` karışmaz.
 
 ## Hedef dışı
 
