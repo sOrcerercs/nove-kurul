@@ -275,3 +275,36 @@ def is_valid_iso_date(value):
     if ay < 1 or ay > 12:
         return False
     return 1 <= gun <= calendar.monthrange(yil, ay)[1]
+
+
+# KAYNAK: Nove Performance lib/domain/std.ts:15-21 @ d5d0e5d
+def last_completed_month(as_of):
+    yil, ay, gun = (int(x) for x in as_of.split("-"))
+    son_gun = calendar.monthrange(yil, ay)[1]
+    if gun == son_gun:
+        return as_of[:7]
+    onceki_yil, onceki_ay = (yil, ay - 1) if ay > 1 else (yil - 1, 12)
+    return f"{onceki_yil:04d}-{onceki_ay:02d}"
+
+
+# KAYNAK: Nove Performance lib/domain/monthly-table.ts:14-16 @ d5d0e5d
+def monthly_target(rule, target, month_count):
+    return target / month_count if rule == "sum" and month_count > 0 else target
+
+
+# KAYNAK: Nove Performance lib/domain/std.ts:44-47,55-68 @ d5d0e5d
+def std_figure(rollup, target, period_months, by_month, as_of):
+    kesim = last_completed_month(as_of)
+    sayilan = [m for m in period_months if m <= kesim]
+    k = len(sayilan)
+    if k == 0:
+        return None
+    deger = value_for_range(rollup, sayilan, by_month, period_months)["value"]
+    if deger is None:
+        return None
+    return {
+        "current": deger,
+        "target": monthly_target("sum", target, len(period_months)) * k if rollup == "sum" else target,
+        "months_counted": k,
+        "months_filled": len([m for m in sayilan if m in by_month]),
+    }

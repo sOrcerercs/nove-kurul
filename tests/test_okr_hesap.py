@@ -163,6 +163,11 @@ class AyTesti(unittest.TestCase):
         for kural in ("sum", "avg", "last"):
             self.assertIsNone(h.rollup(kural, []))
 
+    def test_rollup_bilinmeyen_kural(self):
+        # Sitedeki sessiz düşüşten bilerek ayrılır: bilinmeyen kural hata verir
+        with self.assertRaises(ValueError):
+            h.rollup("median", [1, 2])
+
     def test_value_for_range_tasima(self):
         donem = ["2025-09", "2025-10", "2025-11", "2025-12"]
         s = h.value_for_range("last", ["2025-11", "2025-12"], {"2025-09": 42}, donem)
@@ -236,6 +241,48 @@ class TarihTesti(unittest.TestCase):
             self.assertTrue(h.is_valid_iso_date(d))
         for d in ("2026-02-30", "2026-13-01", "2026-8-10", "yarın", "", "2026-08-10\n", "٢٠٢٦-08-10"):
             self.assertFalse(h.is_valid_iso_date(d), d)
+
+
+class StdTesti(unittest.TestCase):
+    FY = h.months_of_period("2026-09-01", "2027-08-31")
+
+    def _std(self, kural, hedef, by, as_of):
+        return h.std_figure(kural, hedef, self.FY, by, as_of)
+
+    def test_last_completed_month(self):
+        for as_of, beklenen in [("2026-11-04", "2026-10"), ("2026-11-30", "2026-11"),
+                                ("2026-12-31", "2026-12"), ("2026-09-15", "2026-08"),
+                                ("2027-08-31", "2027-08"), ("2028-02-28", "2028-01"),
+                                ("2028-02-29", "2028-02"), ("2027-02-28", "2027-02")]:
+            self.assertEqual(h.last_completed_month(as_of), beklenen, as_of)
+
+    def test_monthly_target(self):
+        self.assertEqual(h.monthly_target("sum", 3000, 12), 250)
+        self.assertEqual(h.monthly_target("sum", 3000, 0), 3000)
+        self.assertEqual(h.monthly_target("avg", 90, 12), 90)
+        self.assertEqual(h.monthly_target("last", 90, 12), 90)
+
+    def test_std_sum(self):
+        by = {"2026-09": 200, "2026-10": 250, "2026-11": 200, "2026-12": 250}
+        self.assertEqual(self._std("sum", 3000, by, "2026-12-31"),
+                         {"current": 900, "target": 1000, "months_counted": 4, "months_filled": 4})
+
+    def test_std_avg(self):
+        self.assertEqual(self._std("avg", 90, {"2026-09": 95, "2026-10": 80}, "2026-11-04"),
+                         {"current": 87.5, "target": 90, "months_counted": 2, "months_filled": 2})
+
+    def test_icinde_bulunulan_ay_sayilmaz(self):
+        self.assertEqual(self._std("sum", 3000, {"2026-09": 200, "2026-11": 999}, "2026-11-04"),
+                         {"current": 200, "target": 500, "months_counted": 2, "months_filled": 1})
+
+    def test_std_none(self):
+        self.assertIsNone(self._std("sum", 3000, {"2026-09": 1}, "2026-09-15"))
+        self.assertIsNone(self._std("sum", 3000, {"2026-11": 1}, "2026-11-04"))
+
+    def test_kapali_donem(self):
+        by = {m: 250 for m in self.FY}
+        self.assertEqual(self._std("sum", 3000, by, "2027-08-31"),
+                         {"current": 3000, "target": 3000, "months_counted": 12, "months_filled": 12})
 
 
 class KaynakBasliklariTesti(unittest.TestCase):
