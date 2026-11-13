@@ -132,15 +132,15 @@ def aralik_bayraklari_ekle(ap):
 
 def aralik_bayraklari_dogrula(ap, args):
     """Kullanım hatası (çıkış 2): `--donem` ile tarih birlikte ya da tarihin tek ucu."""
-    if args.donem and (args.baslangic or args.bitis):
+    if args.donem is not None and (args.baslangic is not None or args.bitis is not None):
         ap.error("--donem ile --baslangic/--bitis birlikte verilmez")
-    if bool(args.baslangic) != bool(args.bitis):
+    if (args.baslangic is None) != (args.bitis is None):
         ap.error("--baslangic ve --bitis birlikte verilir")
 
 
 def aralik_coz(args, rows, baglanti, bugun):
     """Aralık sözlüğü ya da `None` (sebep basılmıştır). Geçersiz girdi sessizce varsayılana düşmez."""
-    if args.baslangic:
+    if args.baslangic is not None:
         if not (okr_hesap.is_valid_iso_date(args.baslangic) and okr_hesap.is_valid_iso_date(args.bitis)):
             print(hazirlanamadi("tarih geçersiz: %s..%s (YYYY-MM-DD, gerçek bir gün)"
                                 % (_tek_satir(args.baslangic), _tek_satir(args.bitis))))
@@ -149,7 +149,7 @@ def aralik_coz(args, rows, baglanti, bugun):
             print(hazirlanamadi("aralık ters: başlangıç %s bitişten %s sonra" % (args.baslangic, args.bitis)))
             return None
         from_, to, kaynak = args.baslangic, args.bitis, "verilen tarih"            # range.ts:156-158
-    elif args.donem:
+    elif args.donem is not None:
         donem = next((p for p in rows["periods"] if p["code"] == args.donem), None)  # range.ts:160-162
         if donem is None:
             gecerli = ", ".join(p["code"] for p in rows["periods"])

@@ -274,6 +274,20 @@ class AralikTesti(unittest.TestCase):
                 _aralik_kos(argv, _aralik_baglantisi())
             self.assertEqual(c.exception.code, 2)
 
+    def test_bos_bayrak_sessizce_varsayilana_dusmez(self):
+        kod, c = _aralik_kos(["--donem", ""], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** dönem bulunamadı: ", c)
+        kod, c = _aralik_kos(["--baslangic", "", "--bitis", ""], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** tarih geçersiz", c)
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
+            _aralik_kos(["--baslangic", "", "--bitis", "2026-01-01"], _aralik_baglantisi())
+        self.assertEqual(e.exception.code, 2)
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
+            _aralik_kos(["--donem", "", "--bitis", "2026-01-01"], _aralik_baglantisi())
+        self.assertEqual(e.exception.code, 2)
+
     def test_araliga_donem_dusmuyor(self):
         kod, c = _aralik_kos(["--baslangic", "2020-01-01", "--bitis", "2020-12-31"], _aralik_baglantisi())
         self.assertEqual(kod, 1)
