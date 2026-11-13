@@ -596,6 +596,10 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
 - `sirket` (varsayılan aralık 2025-09-01..2026-11-13, iki dönem birleşik): yuzde=60 std=60 yillik=28,
   Beklenenin Altında; std_kapsam 62/116; kr=118, ölçülemeyen 2, özetten 55.
 - `bolumler --donem 2026-FY`: 11 bölüm; 3'ünde objective yok (`—`, ölçülebilir KR yok); 3'ü 0 / Başlamadı.
+- **Doğrulama 3 (Task 11 Step 2, 13.11):** `app_settings` izni verildi (ADIM 4 tek satır; `sema` 1 satır görüyor) — varsayılan
+  aralık artık sitenin ayarı 2026-09-01; `sirket` %69. Kağan 2026-FY'de bir bölüm (%60), bir objective (O4, %123) ve
+  o objective'in bir KR'ını (%95) sitedeki rozetle karşılaştırdı: **üçü de aynı.** Tam çıktı git dışı
+  `takimlar/okr/cikti/dogrulama-2026-11-13.md`.
 
 ## Spec kusurları — devredildi
 
