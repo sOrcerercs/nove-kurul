@@ -525,9 +525,9 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
   `checkins 0`; `eposta_izni` `False`; `oturum` `on` ve `15s`. `app_settings_okunur` Kağan SQL'i çalıştırana kadar
   `okunamadı` olabilir — hata değildir. Çıktıyı bu planın `## Ölçüm` bölümüne yaz (bağlantı adresi yok).
   `**Hazırlanamadı:** OKR_READONLY_URL yok` gelirse dur ve Kağan'a bildir; `.env`'e bakma.
-- [ ] **Step 2 (canlı):** Run `python3 bin/okr_veri.py sirket` ve `python3 bin/okr_veri.py bolumler --donem p-2026-fy`
-  → çıkış 0, `## kapsam` başta. Oran notu sayımı: `python3 bin/okr_veri.py kr --donem p-2025-fy` çıktısında
-  `oran_notu=evet` taşıyan satır **17**, `--donem p-2026-fy`'de **1** (spec O3). Tutmazsa dur, farkı `## Ölçüm`'e yaz.
+- [ ] **Step 2 (canlı):** Run `python3 bin/okr_veri.py sirket` ve `python3 bin/okr_veri.py bolumler --donem 2026-FY`
+  → çıkış 0, `## kapsam` başta. Oran notu sayımı: `python3 bin/okr_veri.py kr --donem 2025-FY` çıktısında
+  `oran_notu=evet` taşıyan satır **17**, `--donem 2026-FY`'de **1** (spec O3). Tutmazsa dur, farkı `## Ölçüm`'e yaz.
 - [ ] **Step 3:** `formlar/gelen/okr.md`'yi düzelt (yalnız bu satırlar; §7 "İzinli komut"a **dokunma** — yalnız Kağan):
   - §3 tablo, "Nerede" hücresi: `` `okr_veri.py sirket, bolumler, objektifler, kr, eksik-veri, donemler` (Nove PYS veritabanı, `okr_okuyucu`, salt okunur) ``
   - §4 "ASLA" listesinde `Nove PYS'nin toplama sonucunu yeniden hesaplamak (olduğu gibi aktarır)` satırı yerine:
@@ -570,9 +570,9 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
 ### Task 11: Doğrulama (Kağan)
 
 - [ ] **Step 1 (ajan, canlı):** aynı dönem için üç komutun çıktısını `## Ölçüm`'e yaz:
-  `python3 bin/okr_veri.py bolumler --donem p-2026-fy` · `objektifler --donem p-2026-fy --bolum <Kağan'ın seçtiği bölüm>` ·
-  `kr --donem p-2026-fy --bolum <aynı bölüm>`.
-- [ ] **Step 2 (Kağan) — spec Doğrulama 3:** sitede `?period=p-2026-fy` ile **bir bölüm yüzdesi, bir objective, bir KR**
+  `python3 bin/okr_veri.py bolumler --donem 2026-FY` · `objektifler --donem 2026-FY --bolum <Kağan'ın seçtiği bölüm>` ·
+  `kr --donem 2026-FY --bolum <aynı bölüm>`.
+- [ ] **Step 2 (Kağan) — spec Doğrulama 3:** sitede `?period=2026-FY` ile **bir bölüm yüzdesi, bir objective, bir KR**
   rozetini betik çıktısındaki `yuzde=` ile yan yana koyar. Üçü de aynı olmalı. Fark varsa görev kapanmaz:
   fark `## Ölçüm`'e yazılır, `superpowers:systematic-debugging` ile kaynağı bulunur (yuvarlama, kesim günü, köprü).
 - [ ] **Step 3 (Kağan) — spec Doğrulama 4:** `python3 -u bin/panel.py --port 8780`; dev panelde üç soru: kolay
@@ -582,6 +582,19 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
 - [ ] **Step 4 (Kağan):** Nove Performance tarafına not (B1a): o deponun `CLAUDE.md`'sine tek satır —
   "`lib/domain` ya da `lib/queries/{tree,std,range}.ts` hesabı değişirse Nove AI `bin/okr_hesap.py` de güncellenir".
   Ajan o depoya yazmaz.
+
+## Ölçüm (Task 9, 13.11.2026 — canlı, salt okunur)
+
+- `sema`: periods 3 · departments 11 · users 105 · objectives 55 · key_results 118 · kr_monthly_values 439 ·
+  checkins 0; `users` izinleri yalnız 7 sütun; `eposta_izni` False; `oturum` on | 15s;
+  `app_settings_okunur` okunamadı (InsufficientPrivilege) — Kağan `docs/okr-veri-izin.sql`'i çalıştırana kadar
+  beklenen. Spec O1 ölçümüyle birebir.
+- **Dönem kodları `2024-FY`, `2025-FY`, `2026-FY`** (plan `p-2026-fy` id'sini kod sanmıştı; site de `code` ile
+  eşler, `range.ts:160`). Task 9+ adımları ve spec düzeltildi; birim test fikstürleri uydurma kodla kaldı.
+- Oran notu: `kr --donem 2025-FY` → 17, `kr --donem 2026-FY` → 1 (spec O3 ile aynı).
+- `sirket` (varsayılan aralık 2025-09-01..2026-11-13, iki dönem birleşik): yuzde=60 std=60 yillik=28,
+  Beklenenin Altında; std_kapsam 62/116; kr=118, ölçülemeyen 2, özetten 55.
+- `bolumler --donem 2026-FY`: 11 bölüm; 3'ünde objective yok (`—`, ölçülebilir KR yok); 3'ü 0 / Başlamadı.
 
 ## Spec kusurları — devredildi
 

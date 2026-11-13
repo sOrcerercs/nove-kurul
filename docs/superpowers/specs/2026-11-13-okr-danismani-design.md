@@ -42,7 +42,7 @@ zorluğa göre model → Denetçi → CEO → panel).
   **sitedeki sayıyı verir** ve yanına not düşer: *"aylık oranların ortalaması; ayların hacmi farklıysa gerçek
   orandan sapabilir"*. Gerçek oranı hesaplamaya çalışmaz (veri yok).
   **Tanıma kuralı (benim kararım, 13.11):** Excel satır numaraları veritabanında yok. Not, `rollup = 'avg'` ve
-  `unit = '%'` olan **her** KR'a düşülür (13.11'de p-2025-fy'de 17, p-2026-fy'de 1 KR). Fazla eşleşme zararsızdır:
+  `unit = '%'` olan **her** KR'a düşülür (13.11'de 2025-FY'de 17, 2026-FY'de 1 KR; canlı ölçümle teyit). Fazla eşleşme zararsızdır:
   aylık yüzdelerin düz ortalaması her bu tür KR'da aynı sapmayı taşır; eksik eşleşme ise anti-hedeftir.
 - O4. **Tempo yok:** şimdilik yalnız sorulara yanıt; zamanlanmış rapor kurulmaz.
 - O5. **Sahip ve teyit:** Kağan. Formda yönetici ve "sayıyı kim teyit eder" Kağan.
@@ -80,7 +80,7 @@ zorluğa göre model → Denetçi → CEO → panel).
   yüzde / son dolu ay / ölçülemiyor / oran notu), `eksik-veri` (dönemde hiç ya da son ayda verisi olmayan KR'lar),
   `sirket` (şirket geneli özet). Filtreler: dönem (kod ya da tarih aralığı), bölüm (ad). Kesin komut adları ve
   bayrakları plana bırakılır; bu liste sınırdır.
-- B2a. **Dönemler yıllık:** veritabanında yalnız mali yıllar var (`p-2024-fy`, `p-2025-fy` kapalı; `p-2026-fy`
+- B2a. **Dönemler yıllık:** veritabanında yalnız mali yıllar var (kodlar `2024-FY`, `2025-FY` kapalı; `2026-FY`
   aktif, 01.09.2026–31.08.2027); çeyrek dönemi yok. Sitede aralık bir *kesimdir*, pencere değil: değerler dönemin
   ilk ayından birikir (`tree.ts:121-123,242`). "Bu çeyrek" sorusunda danışman bunu söyler: sayı mali yıl başından
   çeyrek sonuna (ya da bugüne) kadardır. **Onay 13.11:** yanıt bu birikmiş sayıdır; yalnız çeyrek dilimi
