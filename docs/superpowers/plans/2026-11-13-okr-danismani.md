@@ -585,7 +585,7 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
 
 ## Spec kusurları — devredildi
 
-Spec onaylıdır. 1, 2, 3, 5 ve 7 spec'te düzeltildi (13.11, plan incelemesi). 6 Task 9 Step 3'te. **4 Kağan'ın teyidini bekliyor.**
+Spec onaylıdır. 1, 2, 3, 5 ve 7 spec'te düzeltildi (13.11, plan incelemesi). 6 Task 9 Step 3'te. 4 Kağan onayladı (13.11: en düşük `status_pct`'li ölçülmüş KR, eşitlikte büyük ağırlık).
 
 1. **B1, satır atfı yanlış:** `dates.ts:823-826` yok (dosya 67 satır). Doğrusu `lib/domain/dates.ts:56-59` (`asOfCutoff`). Plan doğrusunu kullandı.
 2. **B1a, yazılamayan iki yer:** not "danışmanın `kurallar.md`'sine" ve "Nove Performance tarafına" düşülecek deniyor.
