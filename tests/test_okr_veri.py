@@ -2,11 +2,12 @@
 
 python3 -m unittest discover -s tests
 """
+import argparse
 import io
 import re
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -170,6 +171,147 @@ class SemaTesti(unittest.TestCase):
         sql = "SELECT count(*) FROM public.checkins"
         b = _SahteBaglanti(_SahteImlec({sql: [(42,)]}))
         self.assertEqual(okr_veri.checkin_sayisi(b), 42)
+
+
+PERIOD_SUTUN = ["id", "code", "kind", "state", "starts_on", "ends_on"]
+AYAR_SQL = "SELECT value FROM public.app_settings WHERE key = 'default_range_start'"
+BUGUN = "2026-11-13"
+
+
+def _aralik_baglantisi(ayar=None, hata_adi=None):
+    q = okr_veri.TABLO_SORGULARI
+    sonuc = {q["periods"]: [("a", "p-2025-fy", "fiscal_year", "closed", "2025-09-01", "2026-08-31"),
+                            ("b", "p-2026-fy", "fiscal_year", "active", "2026-09-01", "2027-08-31")],
+             q["objectives"]: [("o1", "S1", "d1", "b", "x", None, None)],
+             "SELECT count(*) FROM public.checkins": [(0,)]}
+    sutun = {q["periods"]: PERIOD_SUTUN,
+             q["objectives"]: ["id", "code", "department_id", "period_id", "title_tr", "owner_user_id", "weight"]}
+    if ayar is not None:
+        sonuc[AYAR_SQL] = ayar
+    return _SahteBaglanti(_SahteImlec(sonuc, hata_adi=hata_adi, sutunlar=sutun))
+
+
+def _aralik_kos(argv, baglanti, ek=None):
+    """Task 7 komutlarının yaptığı: bayrak → doğrula → agac_hazirla → kapsam. (Kod, çıktı) döner."""
+    ap = argparse.ArgumentParser()
+    okr_veri.aralik_bayraklari_ekle(ap)
+    args = ap.parse_args(argv)
+    okr_veri.aralik_bayraklari_dogrula(ap, args)
+    tampon = io.StringIO()
+    with redirect_stdout(tampon):
+        sonuc = okr_veri.agac_hazirla(baglanti, args, BUGUN)
+        if sonuc is None:
+            return 1, tampon.getvalue()
+        aralik = sonuc[0]
+        print(okr_veri.kapsam_bolumu("deneme", aralik, ek, 0))
+    return 0, tampon.getvalue()
+
+
+class AralikTesti(unittest.TestCase):
+    def test_varsayilan_aralik_iki_donemi_birlestirir(self):
+        kod, c = _aralik_kos([], _aralik_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        for satir in ("aralik=2025-09-01..2026-11-13", "donemler=p-2025-fy,p-2026-fy",
+                      "birlesik=evet — aralık 2 dönemi kapsıyor; site gibi birleştirildi",
+                      "kesim=2026-11-13 (aralık sonu ile bugünün küçüğü; Europe/Istanbul)",
+                      "son_tamamlanan_ay=2026-10"):
+            self.assertIn(satir, c.splitlines())
+        self.assertIn("aralik_kaynagi=varsayılan (yerleşik varsayılan — app_settings satırı yok)", c)
+
+    def test_app_settings_degeri_kullanilir(self):
+        kod, c = _aralik_kos([], _aralik_baglantisi(ayar=[("2026-09-01",)]))
+        self.assertEqual(kod, 0)
+        self.assertIn("aralik=2026-09-01..2026-11-13", c)
+        self.assertIn("aralik_kaynagi=varsayılan (app_settings.default_range_start)", c)
+        self.assertNotIn("birlesik=", c)
+
+    def test_app_settings_okunamazsa_dusus_gorunur(self):
+        b = _aralik_baglantisi(hata_adi="app_settings")
+        kod, c = _aralik_kos([], b)
+        self.assertEqual(kod, 0)
+        self.assertIn("aralik_kaynagi=varsayılan (yerleşik varsayılan — app_settings okunamadı (PermissionError))", c)
+        self.assertIn("aralik=2025-09-01..2026-11-13", c)
+        self.assertGreaterEqual(b.rollback_sayisi, 1)
+        self.assertIn("SELECT count(*) FROM public.checkins", b.imlec.sql)      # sonraki sorgu çalıştı
+
+    def test_app_settings_yok_ve_gecersiz_deger(self):
+        _, c = _aralik_kos([], _aralik_baglantisi(ayar=[("2026-02-30",)]))
+        self.assertIn("(yerleşik varsayılan — app_settings değeri geçersiz)", c)
+        self.assertIn("aralik=2025-09-01..", c)
+        _, c = _aralik_kos([], _aralik_baglantisi(ayar=[]))
+        self.assertIn("(yerleşik varsayılan — app_settings satırı yok)", c)
+
+    def test_donem_bayragi(self):
+        _, c = _aralik_kos(["--donem", "p-2026-fy"], _aralik_baglantisi())
+        self.assertIn("aralik=2026-09-01..2027-08-31", c)
+        self.assertIn("kesim=2026-11-13 ", c)
+        self.assertIn("aralik_kaynagi=dönem p-2026-fy", c)
+
+    def test_gecmis_aralik_kesilmez(self):
+        _, c = _aralik_kos(["--baslangic", "2025-09-01", "--bitis", "2026-02-28"], _aralik_baglantisi())
+        self.assertIn("kesim=2026-02-28 ", c)
+        self.assertIn("son_tamamlanan_ay=2026-02", c)
+        self.assertIn("aralik_kaynagi=verilen tarih", c)
+
+    def test_bilinmeyen_donem_sebepli_durur(self):
+        kod, c = _aralik_kos(["--donem", "p-2030-fy"], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertEqual(c.strip(), "**Hazırlanamadı:** dönem bulunamadı: p-2030-fy (geçerli: p-2025-fy, p-2026-fy)")
+
+    def test_gecersiz_tarih_sebepli_durur(self):
+        kod, c = _aralik_kos(["--baslangic", "2026-01-01", "--bitis", "2026-02-30"], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** tarih geçersiz", c)
+        kod, c = _aralik_kos(["--baslangic", "2026-03-01", "--bitis", "2026-02-01"], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** aralık ters", c)
+
+    def test_tek_uc_ve_cifte_bayrak_kullanim_hatasi(self):
+        for argv in (["--baslangic", "2026-01-01"], ["--bitis", "2026-01-01"],
+                     ["--donem", "p-2026-fy", "--baslangic", "2026-01-01", "--bitis", "2026-02-01"]):
+            with self.subTest(argv=argv), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as c:
+                _aralik_kos(argv, _aralik_baglantisi())
+            self.assertEqual(c.exception.code, 2)
+
+    def test_araliga_donem_dusmuyor(self):
+        kod, c = _aralik_kos(["--baslangic", "2020-01-01", "--bitis", "2020-12-31"], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** 2020-01-01..2020-12-31 aralığına düşen dönem yok", c)
+
+    def test_varsayilan_baslangic_bugunden_sonraysa_durur(self):
+        kod, c = _aralik_kos([], _aralik_baglantisi(ayar=[("2027-01-01",)]))
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:**", c)
+
+    def test_kapsam_satir_sahteciligi_olmaz(self):
+        _, c = _aralik_kos([], _aralik_baglantisi(), ek={"bolum": "x\nkayit=999"})
+        self.assertNotIn("kayit=999", c.splitlines())
+        self.assertIn("bolum=x kayit=999", c.splitlines())
+        self.assertEqual(c.splitlines()[-1], "kayit=0")
+
+    def test_bugun_gecersizse_sebepli_durur(self):
+        tampon = io.StringIO()
+        with redirect_stdout(tampon):
+            kod = okr_veri.main(["donemler"], ortam=ORTAM, baglan=lambda u: _aralik_baglantisi(), bugun="2026-13-40")
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** bugün geçersiz", tampon.getvalue())
+
+
+class DonemlerKomutuTesti(unittest.TestCase):
+    def test_donemler_cli(self):
+        kod, c = _kos(["donemler"], _aralik_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        self.assertNotIn("birlesik=", c)
+        satirlar = c.splitlines()
+        self.assertIn("- p-2025-fy: tur=fiscal_year durum=closed aralik=2025-09-01..2026-08-31 objective=0", satirlar)
+        self.assertIn("- p-2026-fy: tur=fiscal_year durum=active aralik=2026-09-01..2027-08-31 objective=1", satirlar)
+        alt = satirlar[satirlar.index("## mali ceyrekler"):]
+        self.assertEqual(alt[1], "- Ç1: 2026-09-01..2026-11-30 (bugün)")
+        self.assertEqual(alt[2], "- Ç2: 2026-12-01..2027-02-28")
+        self.assertEqual(len([a for a in alt if a.startswith("- Ç")]), 4)
+        self.assertTrue(alt[-1].startswith("not=dönemler yıllıktır;"))
 
 
 class IzinDosyasiTesti(unittest.TestCase):
