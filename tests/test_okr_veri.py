@@ -336,7 +336,7 @@ KR2_BASLIK = "Satış KR iki deneme oranı"
 
 
 def _okr_baglantisi(agirliklar=(None, None), yalniz_finans=False, checkin=0, kesimden_sonra=False,
-                    kopru_k2=False):
+                    kopru_k2=False, ek_krlar=(), ek_aylik=()):
     """Task 7 fikstürü — adlar uydurmadır (B4). Satış O1: KR1 sum, KR2 avg %; Finans O1: ölçülemez KR; Pazarlama boş."""
     q = okr_veri.TABLO_SORGULARI
     krlar = [("k3", "of", "Finans KR deneme", 5.0, 5.0, 5.0, "adet", "last", None, "u2")]
@@ -349,6 +349,8 @@ def _okr_baglantisi(agirliklar=(None, None), yalniz_finans=False, checkin=0, kes
         aylik = [("k1", "2026-09", 100.0), ("k1", "2026-10", 100.0),
                  ("k2", "2026-09", 70.0), ("k2", "2026-10", 80.0)] + aylik
         objler = objler + [("os", "O1", "dsat", "b", "Satış deneme hedefi", "u1", None)]
+        krlar = krlar + list(ek_krlar)                    # Task 8: Satış O1'e ek KR'lar
+        aylik = aylik + list(ek_aylik)
     if kopru_k2:                                          # k2: aylık satırı yok → saklı özet (köprü)
         aylik = [x for x in aylik if x[0] != "k2"]
     if kesimden_sonra:                                    # tüm aylık satırlar kesimden (2026-11-13) sonra
@@ -565,6 +567,182 @@ class SebepTesti(unittest.TestCase):
         satirlar = c.splitlines()
         self.assertEqual(satirlar[-1], "- objective yok")
         self.assertEqual(satirlar[-2], "kayit=0")
+
+
+# Task 8: "Satış" O1'e üç KR (adlar uydurmadır, B4). K3 aylık satırsız saklı `current 0` (köprü); K4 yalnız
+# kesimden sonraki ayda dolu (ölçülmemiş); K5 iki ayı gerçek `0` (ölçülmüş sıfır).
+K3_BASLIK, K4_BASLIK, K5_BASLIK, K6_BASLIK = "Satış K3 deneme", "Satış K4 deneme", "Satış K5 deneme", "Satış K6 deneme"
+UC_KR = [("s3", "os", K3_BASLIK, 0.0, 0.0, 10.0, "adet", "last", None, "u1"),
+         ("s4", "os", K4_BASLIK, 0.0, 0.0, 100.0, "adet", "sum", None, None),
+         ("s5", "os", K5_BASLIK, 0.0, 0.0, 100.0, "adet", "sum", None, "u1")]
+UC_AYLIK = [("s4", "2026-12", 5.0), ("s5", "2026-09", 0.0), ("s5", "2026-10", 0.0)]
+
+
+def _uc_kr_baglantisi(ek_krlar=(), ek_aylik=()):
+    return _okr_baglantisi(ek_krlar=UC_KR + list(ek_krlar), ek_aylik=UC_AYLIK + list(ek_aylik))
+
+
+def _alt_bolum(cikti, baslik):
+    """`baslik` satırından sonraki `- ` satırları (sonraki `## ` başlığına kadar)."""
+    satirlar = cikti.splitlines()
+    i = satirlar.index(baslik)
+    out = []
+    for s in satirlar[i + 1:]:
+        if s.startswith("## "):
+            break
+        out.append(s)
+    return out
+
+
+class KrKomutuTesti(unittest.TestCase):
+    def test_kr_dort_durum_ayri(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _uc_kr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        self.assertEqual(
+            _satir(c, "- Finans / O1 / Finans KR deneme: hedef="),
+            "- Finans / O1 / Finans KR deneme: hedef=5 su_an=5 kalan=0 birim=adet kural=last "
+            "yuzde=— std=yok yillik=— durum=— sebep=ölçülemiyor (hedef = başlangıç) son_dolu_ay=2026-10 "
+            "agirlik=yok sorumlu=Ada Deneme")
+        self.assertEqual(
+            _satir(c, "- Satış / O1 / %s: hedef=" % K4_BASLIK),
+            "- Satış / O1 / %s: hedef=100 su_an=— kalan=— birim=adet kural=sum "
+            "yuzde=— std=yok yillik=— durum=— sebep=kesime kadar aylık veri yok son_dolu_ay=yok "
+            "agirlik=yok sorumlu=yok" % K4_BASLIK)
+        self.assertEqual(
+            _satir(c, "- Satış / O1 / %s: hedef=" % K3_BASLIK),
+            "- Satış / O1 / %s: hedef=10 su_an=0 kalan=10 birim=adet kural=last "
+            "yuzde=0 std=yok yillik=0 durum=Başlamadı son_dolu_ay=yok agirlik=yok sorumlu=Deniz Örnek "
+            "not=aylık satır yok; saklı özet değer" % K3_BASLIK)
+        k5 = _satir(c, "- Satış / O1 / %s: hedef=" % K5_BASLIK)
+        self.assertEqual(
+            k5, "- Satış / O1 / %s: hedef=100 su_an=0 kalan=100 birim=adet kural=sum "
+            "yuzde=0 std=0 yillik=0 durum=Başlamadı son_dolu_ay=2026-10 agirlik=yok sorumlu=Deniz Örnek"
+            % K5_BASLIK)
+        self.assertNotIn("—", k5)
+        self.assertNotIn("not=", k5)
+
+    def test_kr_oran_notu(self):
+        ek = [("s7", "os", "Satış puan deneme", 0.0, 0.0, 10.0, "puan", "avg", None, "u1"),
+              ("s8", "os", "Satış boşluklu oran deneme", 0.0, 0.0, 50.0, " % ", "avg", None, "u1")]
+        aylik = [("s7", "2026-09", 4.0), ("s8", "2026-09", 20.0)]
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _okr_baglantisi(ek_krlar=ek, ek_aylik=aylik))
+        self.assertEqual(kod, 0)
+        self.assertTrue(_satir(c, "- Satış / O1 / %s: hedef=" % KR2_BASLIK).endswith(" oran_notu=evet"))
+        self.assertTrue(
+            _satir(c, "- Satış / O1 / Satış boşluklu oran deneme: hedef=").endswith(" oran_notu=evet"))
+        self.assertNotIn("oran_notu", _satir(c, "- Satış / O1 / Satış puan deneme: hedef="))
+        self.assertNotIn("oran_notu", _satir(c, "- Satış / O1 / Satış KR bir deneme cirosu: hedef="))
+        self.assertIn("oran_notu=aylık oranların ortalaması; ayların hacmi farklıysa gerçek orandan sapabilir",
+                      c.splitlines())
+        self.assertEqual(okr_veri.ORAN_NOTU,
+                         "aylık oranların ortalaması; ayların hacmi farklıysa gerçek orandan sapabilir")
+
+    def test_oran_kr_mi(self):
+        self.assertTrue(okr_veri.oran_kr_mi({"rollup": "avg", "unit": "%"}))
+        self.assertTrue(okr_veri.oran_kr_mi({"rollup": "avg", "unit": " % "}))
+        self.assertFalse(okr_veri.oran_kr_mi({"rollup": "avg", "unit": "puan"}))
+        self.assertFalse(okr_veri.oran_kr_mi({"rollup": "sum", "unit": "%"}))
+        self.assertFalse(okr_veri.oran_kr_mi({"rollup": "avg", "unit": None}))
+
+    def test_kr_oran_kr_yoksa_kapsamda_not_yok(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy", "--bolum", "Finans"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertIn("bolum=Finans", c.splitlines())
+        self.assertFalse(any(s.startswith("oran_notu=") for s in c.splitlines()))
+        self.assertNotIn("oran_notu", c)
+
+    def test_kr_son_dolu_ay_ve_kalan(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        kr1 = _satir(c, "- Satış / O1 / Satış KR bir deneme cirosu: hedef=")
+        self.assertIn(": hedef=1200 su_an=200 kalan=1000 birim=TL kural=sum ", kr1)
+        self.assertIn(" son_dolu_ay=2026-10 ", kr1)
+        satirlar = c.splitlines()
+        self.assertIn("son_dolu_ay=2026-10", satirlar)
+        self.assertIn("kalan=hedef − şu an (betik hesabı)", satirlar)
+        self.assertIn("kayit=3", satirlar)
+
+    def test_kr_kapsam_son_dolu_ay_yok(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _okr_baglantisi(kesimden_sonra=True))
+        self.assertEqual(kod, 0)
+        self.assertIn("son_dolu_ay=yok", c.splitlines())
+
+    def test_kr_olculemeyenler_bolumu(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _uc_kr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertEqual(_alt_bolum(c, "## olculemeyenler"), [
+            "- Finans / O1 / Finans KR deneme: ölçülemiyor (hedef = başlangıç)",
+            "- Satış / O1 / %s: kesime kadar aylık veri yok" % K4_BASLIK,
+        ])
+        kod, c = _kos(["kr", "--donem", "p-2026-fy", "--bolum", "Satış"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertEqual(_alt_bolum(c, "## olculemeyenler"), ["- yok"])
+
+    def test_kr_bolum_filtresi(self):
+        kod, c = _kos(["kr", "--donem", "p-2026-fy", "--bolum", "Satış"], _uc_kr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertNotIn("Finans", c)
+        self.assertIn("kayit=5", c.splitlines())
+        self.assertEqual(len([s for s in c.splitlines() if s.startswith("- Satış / ") and ": hedef=" in s]), 5)
+
+    def test_kr_aralik_bayraklari_dogrulanir(self):
+        for komut in ("kr", "eksik-veri"):
+            with self.subTest(komut=komut), redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit) as e:
+                _kos([komut, "--bitis", "2026-09-01"], _okr_baglantisi())
+            self.assertEqual(e.exception.code, 2)
+
+
+class EksikVeriKomutuTesti(unittest.TestCase):
+    BASLIKLAR = ("## hic aylik verisi yok", "## kesime kadar verisi yok", "## son tamamlanan ayda verisi yok")
+
+    def test_eksik_veri_uc_grup(self):
+        k6 = [("s6", "os", K6_BASLIK, 0.0, 0.0, 100.0, "adet", "sum", 20.0, "u1")]
+        kod, c = _kos(["eksik-veri", "--donem", "p-2026-fy"],
+                      _uc_kr_baglantisi(ek_krlar=k6, ek_aylik=[("s6", "2026-09", 10.0)]))
+        self.assertEqual(kod, 0)
+        self.assertTrue(c.startswith("## kapsam\n"))
+        hic, kesime, son_ay = (_alt_bolum(c, b) for b in self.BASLIKLAR)
+        self.assertEqual(hic, ["- Satış / O1 / %s: kural=last son_dolu_ay=yok sorumlu=Deniz Örnek" % K3_BASLIK])
+        self.assertEqual(kesime, ["- Satış / O1 / %s: kural=sum son_dolu_ay=yok sorumlu=yok" % K4_BASLIK])
+        self.assertEqual(son_ay,
+                         ["- Satış / O1 / %s: kural=sum son_dolu_ay=2026-09 sorumlu=Deniz Örnek" % K6_BASLIK])
+        satirlar = c.splitlines()
+        for s in ("hic=1", "kesime_kadar=1", "son_ay=1", "kayit=3"):
+            self.assertIn(s, satirlar)
+
+    def test_eksik_veri_bos(self):
+        kod, c = _kos(["eksik-veri", "--donem", "p-2026-fy"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        for b in self.BASLIKLAR:
+            with self.subTest(baslik=b):
+                self.assertEqual(_alt_bolum(c, b), ["- yok"])
+        for s in ("hic=0", "kesime_kadar=0", "son_ay=0", "kayit=0"):
+            self.assertIn(s, c.splitlines())
+
+    def test_eksik_veri_kapali_donem_son_aya_bakmaz(self):
+        # Varsayılan aralık iki dönemi birleştirir; p-2025-fy KR'ının dönemi 2026-10'u içermez (Review Focus 2).
+        kod, c = _kos(["eksik-veri"], _okr_baglantisi())
+        self.assertEqual(kod, 0)
+        self.assertEqual(_alt_bolum(c, "## son tamamlanan ayda verisi yok"), ["- yok"])
+
+    def test_load_tree_tasiyici_alanlar(self):
+        b = _okr_baglantisi(ek_krlar=[("s6", "os", K6_BASLIK, 0.0, 0.0, 100.0, "adet", "sum", None, "u1")],
+                            ek_aylik=[("s6", "2026-10", 1.0), ("s6", "2026-09", 2.0)])
+        rows = okr_veri.tablolari_oku(b)
+        _, depts = okr_veri.okr_hesap.load_tree(rows, ["b"], "2026-11-13")
+        krlar = {k["id"]: k for d in depts for o in d["objectives"] for k in o["krs"]}
+        self.assertEqual(krlar["s6"]["filled_months"], ["2026-09", "2026-10"])
+        self.assertEqual(krlar["s6"]["period_months"][0], "2026-09")
+        self.assertEqual(len(krlar["s6"]["period_months"]), 12)
+
+
+class FiksturTesti(unittest.TestCase):
+    def test_fikstur_adlari_uydurma(self):
+        b = _uc_kr_baglantisi()
+        adlar = {ad for _, ad in b.imlec.sonuclar[okr_veri.TABLO_SORGULARI["users"]]}
+        self.assertEqual(adlar, {"Deniz Örnek", "Ada Deneme"})
 
 
 class IzinDosyasiTesti(unittest.TestCase):

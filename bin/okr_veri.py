@@ -5,7 +5,14 @@ Nove PYS Postgres'e `okr_okuyucu` rolüyle bağlanır; yalnız SELECT. Bağlant�
 (`ayar.ortam_yukle()`); adres hiçbir çıktıya girmez. Kullanıcıdan yalnız `id, name` okunur; e-posta, parola,
 not sütunları hiçbir sorguda yoktur. Hesap `okr_hesap.py`'dedir.
 
-Kullanım: python3 bin/okr_veri.py sema
+Kullanım:
+  python3 bin/okr_veri.py sema           # yapı, sayım ve izin ölçümü — içerik basmaz
+  python3 bin/okr_veri.py donemler       # dönemler ve mali çeyrekler
+  python3 bin/okr_veri.py bolumler|objektifler|kr|eksik-veri
+        [--donem <kod> | --baslangic YYYY-MM-DD --bitis YYYY-MM-DD] [--bolum <ad|slug>]
+  python3 bin/okr_veri.py sirket [--donem <kod> | --baslangic .. --bitis ..]
+Aralık verilmezse `app_settings.default_range_start` → bugün (okunamazsa 2025-09-01; kapsamda yazılır).
+Çıkış: 0 tamam · 1 durdu (`**Hazırlanamadı:** <sebep>`) · 2 kullanım hatası
 """
 import argparse
 import sys
@@ -423,10 +430,121 @@ def sirket_bas(baglanti, args, bugun):
     return 0
 
 
+def oran_kr_mi(kr):
+    """O3: aylık oranların ortalaması alınan KR (`avg` ve birim `%`)."""
+    return kr["rollup"] == "avg" and (kr["unit"] or "").strip() == "%"
+
+
+OLCULEMIYOR = "ölçülemiyor (hedef = başlangıç)"
+KOPRU_NOTU = "aylık satır yok; saklı özet değer"
+
+
+def _kr_listesi(secilen):
+    """`(bölüm, objective, KR)` üçlüleri; bölüm → objective → KR sırası ağaçtaki gibi."""
+    return [(d, o, k) for d in secilen for o in d["objectives"] for k in o["krs"]]
+
+
+def _kr_adi(d, o, k):
+    return "%s / %s / %s" % (_tek_satir(d["name_tr"]), _tek_satir(o["code"]), _tek_satir(k["title_tr"]))
+
+
+def _kr_sebebi(k):
+    """`—` taşıyan KR'ın sebebi (B7), yoksa `None`. Ölçülemeyen KR ölçülmeyen sayılmaz (`_kr_sayimi` gibi)."""
+    if not okr_hesap.is_measurable(k):
+        return OLCULEMIYOR
+    if not k["measured_by_cutoff"]:
+        return VERI_YOK
+    return None
+
+
+def kr_satiri(d, o, k):
+    """Tek KR satırı. Dört durum ayrı (B7): ölçülemiyor · kesime kadar veri yok · saklı özet (not) · gerçek değer."""
+    olculmus = k["measured_by_cutoff"]
+    sebep = _kr_sebebi(k)
+    su_an = sayi_yaz(k["current"]) if olculmus else "—"
+    kalan = sayi_yaz(k["target"] - k["current"]) if olculmus else "—"
+    if sebep is None:
+        cift = okr_hesap.kr_pair(k)
+        yuzde = "yuzde=%s std=%s yillik=%s durum=%s" % (
+            sayi_yaz(cift["status_pct"]), "yok" if cift["std"] is None else sayi_yaz(cift["std"]),
+            sayi_yaz(cift["annual"]), okr_hesap.DURUM_ADLARI[okr_hesap.status_of(cift["status_pct"])])
+    else:
+        yuzde = "yuzde=— std=yok yillik=— durum=— sebep=%s" % sebep
+    satir = "- %s: hedef=%s su_an=%s kalan=%s birim=%s kural=%s %s son_dolu_ay=%s agirlik=%s sorumlu=%s" % (
+        _kr_adi(d, o, k), sayi_yaz(k["target"]), su_an, kalan, _tek_satir(k["unit"] or "") or "yok",
+        _tek_satir(k["rollup"]), yuzde, _tek_satir(k["latest_month"] or "yok"), _agirlik_yaz(k.get("weight")),
+        _tek_satir(k["owner_name"]) or "yok")
+    if k["bridge"]:
+        satir += " not=%s" % KOPRU_NOTU
+    if oran_kr_mi(k):
+        satir += " oran_notu=evet"
+    return satir
+
+
+def kr_bas(baglanti, args, bugun):
+    hazir = agac_hazirla(baglanti, args, bugun)
+    if hazir is None:
+        return 1
+    aralik, _, depts, _ = hazir
+    secim = _bolum_ek(args, depts)
+    if secim is None:
+        return 1
+    secilen, ek = secim
+    krlar = _kr_listesi(secilen)
+    aylar = [k["latest_month"] for _, _, k in krlar if k["latest_month"]]
+    ek["son_dolu_ay"] = max(aylar) if aylar else "yok"
+    ek["kalan"] = "hedef − şu an (betik hesabı)"
+    if any(oran_kr_mi(k) for _, _, k in krlar):
+        ek["oran_notu"] = ORAN_NOTU
+    cikti = [kapsam_bolumu("kr", aralik, ek, len(krlar))]
+    cikti += [kr_satiri(d, o, k) for d, o, k in krlar] or ["- kr yok"]
+    cikti.append("## olculemeyenler")
+    olculemeyen = ["- %s: %s" % (_kr_adi(d, o, k), _kr_sebebi(k)) for d, o, k in krlar if _kr_sebebi(k)]
+    cikti += olculemeyen or ["- yok"]
+    print("\n".join(cikti))
+    return 0
+
+
+def eksik_veri_bas(baglanti, args, bugun):
+    hazir = agac_hazirla(baglanti, args, bugun)
+    if hazir is None:
+        return 1
+    aralik, _, depts, _ = hazir
+    secim = _bolum_ek(args, depts)
+    if secim is None:
+        return 1
+    secilen, ek = secim
+    son_ay = okr_hesap.last_completed_month(aralik["as_of"])
+    gruplar = {"hic": [], "kesime_kadar": [], "son_ay": []}
+    for d, o, k in _kr_listesi(secilen):
+        if k["bridge"]:
+            grup = "hic"
+        elif not k["measured_by_cutoff"]:
+            grup = "kesime_kadar"
+        elif son_ay in k["period_months"] and son_ay not in k["filled_months"]:
+            grup = "son_ay"
+        else:
+            continue
+        gruplar[grup].append("- %s: kural=%s son_dolu_ay=%s sorumlu=%s" % (
+            _kr_adi(d, o, k), _tek_satir(k["rollup"]), _tek_satir(k["latest_month"] or "yok"),
+            _tek_satir(k["owner_name"]) or "yok"))
+    for ad, satirlar in gruplar.items():
+        ek[ad] = str(len(satirlar))
+    cikti = [kapsam_bolumu("eksik-veri", aralik, ek, sum(len(v) for v in gruplar.values()))]
+    for ad, baslik in (("hic", "## hic aylik verisi yok"), ("kesime_kadar", "## kesime kadar verisi yok"),
+                       ("son_ay", "## son tamamlanan ayda verisi yok")):
+        cikti.append(baslik)
+        cikti += gruplar[ad] or ["- yok"]
+    print("\n".join(cikti))
+    return 0
+
+
 _ARALIKLI_KOMUTLAR = {
     "bolumler": ("bölüm yüzdeleri", bolumler_bas),
     "objektifler": ("objective yüzdeleri ve en düşük KR", objektifler_bas),
     "sirket": ("şirket yüzdesi, sayım ve durum dağılımı", sirket_bas),
+    "kr": ("KR başına hedef, şu an, yüzde ve ölçülemeyenler", kr_bas),
+    "eksik-veri": ("aylık verisi eksik KR'lar", eksik_veri_bas),
 }
 
 

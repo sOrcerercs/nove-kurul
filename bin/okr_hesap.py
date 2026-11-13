@@ -317,6 +317,7 @@ def periods_in_range(periods, from_, to):
 
 
 # KAYNAK: Nove Performance lib/queries/tree.ts:139-314 @ d5d0e5d
+# ek alan: okr_veri eksik-veri için — KR düğümünde `period_months`, `filled_months` (sitede yok; hesap değiştirmez)
 def load_tree(rows, period_ids, as_of):
     """Kesimle okunan ağaç. Sitenin kesimsiz dalı (tree.ts:201-203) taşınmaz: `as_of` zorunludur.
 
@@ -384,6 +385,8 @@ def load_tree(rows, period_ids, as_of):
             "measured_by_cutoff": measured_by_cutoff,
             "std": std,
             "bridge": bridge,
+            "period_months": list(period_months),                 # ek alan: okr_veri eksik-veri için
+            "filled_months": sorted(by_month) if by_month else [],  # ek alan: okr_veri eksik-veri için
         }
         krs_by_objective.setdefault(k["objective_id"], []).append(node)
 
