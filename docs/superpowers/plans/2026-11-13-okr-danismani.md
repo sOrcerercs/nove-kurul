@@ -569,7 +569,8 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
 
 ### Task 11: Doğrulama (Kağan)
 
-- [ ] **Step 1 (ajan, canlı):** aynı dönem için üç komutun çıktısını `## Ölçüm`'e yaz:
+- [ ] **Step 1 (ajan, canlı):** aynı dönem için üç komutu koştur; çıktılar KR başlığı ve sorumlu adı taşır, depo herkese
+  açık (B4) — tam çıktı yalnız git dışı `takimlar/okr/cikti/`'ya; `## Ölçüm`'e yalnız üç yüzde (bölüm, objective kodu, KR sırası) yazılır:
   `python3 bin/okr_veri.py bolumler --donem 2026-FY` · `objektifler --donem 2026-FY --bolum <Kağan'ın seçtiği bölüm>` ·
   `kr --donem 2026-FY --bolum <aynı bölüm>`.
 - [ ] **Step 2 (Kağan) — spec Doğrulama 3:** sitede `?period=2026-FY` ile **bir bölüm yüzdesi, bir objective, bir KR**

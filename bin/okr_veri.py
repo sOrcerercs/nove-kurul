@@ -131,7 +131,7 @@ def varsayilan_baslangic(baglanti):
 
 
 def aralik_bayraklari_ekle(ap):
-    ap.add_argument("--donem", help="dönem kodu (ör. p-2026-fy)")
+    ap.add_argument("--donem", help="dönem kodu (ör. 2026-FY; liste: donemler)")
     ap.add_argument("--baslangic", help="YYYY-MM-DD (--bitis ile birlikte)")
     ap.add_argument("--bitis", help="YYYY-MM-DD (--baslangic ile birlikte)")
     ap.add_argument("--bolum", help="bölüm adı ya da slug")
