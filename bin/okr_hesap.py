@@ -10,7 +10,11 @@ Yuvarlama `kalite_veri.js_yuvarla` ile (JS `Math.round`, yarımlar yukarı). Top
 
 KR bir sözlüktür: `start, current, target` zorunlu; `weight`, `rollup` yoksa `None`.
 """
+import calendar
 import math
+import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from kalite_veri import js_yuvarla
 
@@ -152,3 +156,122 @@ def dept_pct(objectives):
 def company_pct(depts):
     return _mean([dept_pct(d["objectives"]) for d in depts
                   if any(_has_measurable_kr(o) for o in d["objectives"])])
+
+
+# KAYNAK: Nove Performance lib/domain/monthly.ts:27-45 @ d5d0e5d
+def months_in_range(from_, to):
+    yil, ay = int(from_.split("-")[0]), int(from_.split("-")[1])
+    son = to[:7]
+    aylar = []
+    while True:
+        ay_dizgi = f"{yil:04d}-{ay:02d}"
+        if ay_dizgi > son:
+            break
+        aylar.append(ay_dizgi)
+        ay += 1
+        if ay > 12:
+            ay = 1
+            yil += 1
+    return aylar
+
+
+# KAYNAK: Nove Performance lib/domain/monthly.ts:52-54 @ d5d0e5d
+def months_of_period(starts_on, ends_on):
+    return months_in_range(starts_on, ends_on)
+
+
+# KAYNAK: Nove Performance lib/domain/monthly.ts:66-76 @ d5d0e5d
+def rollup(rule, values):
+    if len(values) == 0:
+        return None
+    if rule == "sum":
+        toplam = 0
+        for v in values:
+            toplam = toplam + v
+        return toplam
+    if rule == "avg":
+        toplam = 0
+        for v in values:
+            toplam = toplam + v
+        return toplam / len(values)
+    if rule == "last":
+        return values[-1]
+    raise ValueError(f"bilinmeyen toplama kuralı: {rule}")
+
+
+# KAYNAK: Nove Performance lib/domain/monthly.ts:97-134 @ d5d0e5d
+def value_for_range(rule, months, by_month, period_months):
+    bos = {"value": None, "carried_from": None, "latest_month": None}
+    ordered = sorted(months)
+    dolu_aylar = [m for m in ordered if m in by_month]
+    dolu = [by_month[m] for m in dolu_aylar]
+    value = rollup(rule, dolu)
+    if value is not None:
+        return {"value": value, "carried_from": None, "latest_month": dolu_aylar[-1]}
+    if rule != "last":
+        return bos
+    if len(ordered) == 0:
+        return bos
+    aralik_basi = ordered[0]
+    for aday in reversed(period_months):
+        if aday >= aralik_basi:
+            continue
+        tasinan = by_month.get(aday)
+        if tasinan is not None:
+            return {"value": tasinan, "carried_from": aday, "latest_month": aday}
+    return bos
+
+
+# KAYNAK: Nove Performance lib/domain/fiscal.ts:14 @ d5d0e5d
+FISCAL_START_MONTH = 9
+
+
+# KAYNAK: Nove Performance lib/domain/fiscal.ts:19-24 @ d5d0e5d
+def fiscal_year_of(date):
+    parcalar = date.split("-")
+    yil, ay = int(parcalar[0]), int(parcalar[1])
+    return yil if ay >= FISCAL_START_MONTH else yil - 1
+
+
+# KAYNAK: Nove Performance lib/domain/fiscal.ts:33-42 @ d5d0e5d
+def fiscal_quarter_range(fiscal_year, quarter):
+    baslangic_ay_indeksi = FISCAL_START_MONTH - 1 + 3 * (quarter - 1)
+    # Ay taşması tam sayı aritmetiğiyle: indeks 12 = gelecek yılın Ocak'ı
+    bas_yil, bas_ay = fiscal_year + baslangic_ay_indeksi // 12, baslangic_ay_indeksi % 12 + 1
+    son_indeks = baslangic_ay_indeksi + 2
+    son_yil, son_ay = fiscal_year + son_indeks // 12, son_indeks % 12 + 1
+    son_gun = calendar.monthrange(son_yil, son_ay)[1]
+    return {
+        "starts_on": f"{bas_yil:04d}-{bas_ay:02d}-01",
+        "ends_on": f"{son_yil:04d}-{son_ay:02d}-{son_gun:02d}",
+    }
+
+
+# KAYNAK: Nove Performance lib/domain/fiscal.ts:45-50 @ d5d0e5d
+def fiscal_year_range(fiscal_year):
+    return {
+        "starts_on": fiscal_quarter_range(fiscal_year, 1)["starts_on"],
+        "ends_on": fiscal_quarter_range(fiscal_year, 4)["ends_on"],
+    }
+
+
+# KAYNAK: Nove Performance lib/domain/dates.ts:23-32 @ d5d0e5d
+def today_in_istanbul(now=None):
+    if now is None:
+        now = datetime.now(ZoneInfo("UTC"))
+    return now.astimezone(ZoneInfo("Europe/Istanbul")).strftime("%Y-%m-%d")
+
+
+# KAYNAK: Nove Performance lib/domain/dates.ts:56-59 @ d5d0e5d
+def as_of_cutoff(to, today):
+    return to if to < today else today
+
+
+# KAYNAK: Nove Performance lib/domain/dates.ts:34,62-67 @ d5d0e5d
+def is_valid_iso_date(value):
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        return False
+    yil, ay, gun = (int(x) for x in value.split("-"))
+    if ay < 1 or ay > 12:
+        return False
+    return 1 <= gun <= calendar.monthrange(yil, ay)[1]

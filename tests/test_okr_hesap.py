@@ -141,6 +141,103 @@ class DurumTesti(unittest.TestCase):
             "open": "Gelişime Açık", "none": "Başlamadı"})
 
 
+class AyTesti(unittest.TestCase):
+    def test_months_in_range(self):
+        self.assertEqual(h.months_in_range("2026-03-12", "2026-05-20"), ["2026-03", "2026-04", "2026-05"])
+        self.assertEqual(h.months_in_range("2026-03-28", "2026-04-02"), ["2026-03", "2026-04"])
+        self.assertEqual(h.months_in_range("2026-03-15", "2026-03-15"), ["2026-03"])
+        self.assertEqual(h.months_in_range("2025-11-20", "2026-02-03"),
+                         ["2025-11", "2025-12", "2026-01", "2026-02"])
+        self.assertEqual(h.months_in_range("2026-05-01", "2026-03-01"), [])
+
+    def test_months_of_period(self):
+        ay = h.months_of_period("2025-09-01", "2026-08-31")
+        self.assertEqual(len(ay), 12)
+        self.assertEqual((ay[0], ay[-1]), ("2025-09", "2026-08"))
+        self.assertEqual(h.months_of_period("2028-02-01", "2028-02-29"), ["2028-02"])
+
+    def test_rollup(self):
+        self.assertEqual(h.rollup("sum", [10, 20, 30]), 60)
+        self.assertEqual(h.rollup("avg", [90, 100, 80]), 90)
+        self.assertEqual(h.rollup("last", [10, 20, 30]), 30)
+        for kural in ("sum", "avg", "last"):
+            self.assertIsNone(h.rollup(kural, []))
+
+    def test_value_for_range_tasima(self):
+        donem = ["2025-09", "2025-10", "2025-11", "2025-12"]
+        s = h.value_for_range("last", ["2025-11", "2025-12"], {"2025-09": 42}, donem)
+        self.assertEqual(s, {"value": 42, "carried_from": "2025-09", "latest_month": "2025-09"})
+        for kural in ("sum", "avg"):
+            self.assertEqual(h.value_for_range(kural, ["2025-11", "2025-12"], {"2025-09": 42}, donem),
+                             {"value": None, "carried_from": None, "latest_month": None})
+
+    def test_tasima_donem_disina_cikmaz(self):
+        s = h.value_for_range("last", ["2025-10"], {"2025-08": 99}, ["2025-09", "2025-10"])
+        self.assertEqual(s, {"value": None, "carried_from": None, "latest_month": None})
+
+    def test_dolu_ay_tasinani_yener(self):
+        s = h.value_for_range("last", ["2025-10", "2025-11"], {"2025-09": 42, "2025-11": 7},
+                              ["2025-09", "2025-10", "2025-11", "2025-12"])
+        self.assertEqual(s, {"value": 7, "carried_from": None, "latest_month": "2025-11"})
+
+    def test_sirasiz_aylar(self):
+        by = {"2025-10": 10, "2025-11": 20, "2025-12": 30}
+        donem = ["2025-10", "2025-11", "2025-12"]
+        s = h.value_for_range("last", ["2025-11", "2025-12", "2025-10"], by, donem)
+        self.assertEqual((s["value"], s["latest_month"]), (30, "2025-12"))
+        for kural in ("sum", "avg", "last"):
+            self.assertEqual(h.value_for_range(kural, ["2025-12", "2025-10", "2025-11"], by, donem),
+                             h.value_for_range(kural, donem, by, donem))
+
+    def test_donem_sonunu_asan_aralik(self):
+        donem = ["2026-06", "2026-07", "2026-08"]
+        s = h.value_for_range("last", ["2026-08", "2026-09"], {"2026-07": 15}, donem)
+        self.assertEqual(s, {"value": 15, "carried_from": "2026-07", "latest_month": "2026-07"})
+        self.assertEqual(h.value_for_range("sum", ["2026-08", "2026-09"], {"2026-07": 15}, donem),
+                         {"value": None, "carried_from": None, "latest_month": None})
+
+    def test_latest_month(self):
+        donem = ["2025-09", "2025-10", "2025-11"]
+        for kural in ("sum", "avg", "last"):
+            s = h.value_for_range(kural, donem, {"2025-09": 10, "2025-11": 30}, donem)
+            self.assertEqual(s["latest_month"], "2025-11")
+        self.assertEqual(h.value_for_range("last", donem, {"2025-09": 10}, donem)["latest_month"], "2025-09")
+        s = h.value_for_range("last", donem, {"2025-09": 10, "2025-10": 0}, donem)
+        self.assertEqual((s["value"], s["latest_month"]), (0, "2025-10"))
+
+
+class MaliTakvimTesti(unittest.TestCase):
+    def test_fiscal(self):
+        self.assertEqual(h.FISCAL_START_MONTH, 9)
+        for t in ("2025-09-01", "2025-12-31", "2026-08-31", "2026-01-01"):
+            self.assertEqual(h.fiscal_year_of(t), 2025)
+        self.assertEqual(h.fiscal_year_of("2026-09-01"), 2026)
+        beklenen = [("2025-09-01", "2025-11-30"), ("2025-12-01", "2026-02-28"),
+                    ("2026-03-01", "2026-05-31"), ("2026-06-01", "2026-08-31")]
+        for q, (a, b) in enumerate(beklenen, 1):
+            self.assertEqual(h.fiscal_quarter_range(2025, q), {"starts_on": a, "ends_on": b})
+        self.assertEqual(h.fiscal_quarter_range(2027, 2)["ends_on"], "2028-02-29")
+        self.assertEqual(h.fiscal_year_range(2025), {"starts_on": "2025-09-01", "ends_on": "2026-08-31"})
+
+
+class TarihTesti(unittest.TestCase):
+    def test_today_in_istanbul(self):
+        from datetime import datetime, timezone
+        self.assertEqual(h.today_in_istanbul(datetime(2026, 8, 9, 22, 30, tzinfo=timezone.utc)), "2026-08-10")
+        self.assertEqual(h.today_in_istanbul(datetime(2026, 8, 9, 20, 0, tzinfo=timezone.utc)), "2026-08-09")
+
+    def test_as_of_cutoff(self):
+        self.assertEqual(h.as_of_cutoff("2026-08-31", "2026-03-15"), "2026-03-15")
+        self.assertEqual(h.as_of_cutoff("2025-11-30", "2026-03-15"), "2025-11-30")
+        self.assertEqual(h.as_of_cutoff("2026-08-10", "2026-08-10"), "2026-08-10")
+
+    def test_is_valid_iso_date(self):
+        for d in ("2026-08-10", "2028-02-29"):
+            self.assertTrue(h.is_valid_iso_date(d))
+        for d in ("2026-02-30", "2026-13-01", "2026-8-10", "yarın", "", "2026-08-10\n", "٢٠٢٦-08-10"):
+            self.assertFalse(h.is_valid_iso_date(d), d)
+
+
 class KaynakBasliklariTesti(unittest.TestCase):
     def test_kaynak_basliklari(self):
         satirlar = (KOK / "bin" / "okr_hesap.py").read_text(encoding="utf-8").splitlines()
