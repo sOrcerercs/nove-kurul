@@ -281,9 +281,9 @@ class AralikTesti(unittest.TestCase):
         kod, c = _aralik_kos(["--baslangic", "", "--bitis", ""], _aralik_baglantisi())
         self.assertEqual(kod, 1)
         self.assertIn("**Hazırlanamadı:** tarih geçersiz", c)
-        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
-            _aralik_kos(["--baslangic", "", "--bitis", "2026-01-01"], _aralik_baglantisi())
-        self.assertEqual(e.exception.code, 2)
+        kod, c = _aralik_kos(["--baslangic", "", "--bitis", "2026-01-01"], _aralik_baglantisi())
+        self.assertEqual(kod, 1)
+        self.assertIn("**Hazırlanamadı:** tarih geçersiz", c)
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
             _aralik_kos(["--donem", "", "--bitis", "2026-01-01"], _aralik_baglantisi())
         self.assertEqual(e.exception.code, 2)
