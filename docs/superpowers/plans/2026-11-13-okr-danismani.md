@@ -573,10 +573,10 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
   açık (B4) — tam çıktı yalnız git dışı `takimlar/okr/cikti/`'ya; `## Ölçüm`'e yalnız üç yüzde (bölüm, objective kodu, KR sırası) yazılır:
   `python3 bin/okr_veri.py bolumler --donem 2026-FY` · `objektifler --donem 2026-FY --bolum <Kağan'ın seçtiği bölüm>` ·
   `kr --donem 2026-FY --bolum <aynı bölüm>`.
-- [ ] **Step 2 (Kağan) — spec Doğrulama 3:** sitede `?period=2026-FY` ile **bir bölüm yüzdesi, bir objective, bir KR**
+- [x] **Step 2 (Kağan) — spec Doğrulama 3:** sitede `?period=2026-FY` ile **bir bölüm yüzdesi, bir objective, bir KR**
   rozetini betik çıktısındaki `yuzde=` ile yan yana koyar. Üçü de aynı olmalı. Fark varsa görev kapanmaz:
   fark `## Ölçüm`'e yazılır, `superpowers:systematic-debugging` ile kaynağı bulunur (yuvarlama, kesim günü, köprü).
-- [ ] **Step 3 (Kağan) — spec Doğrulama 4:** `python3 -u bin/panel.py --port 8780`; dev panelde üç soru: kolay
+- [x] **Step 3 (Kağan) — spec Doğrulama 4:** `python3 -u bin/panel.py --port 8780`; dev panelde üç soru: kolay
   ("Şirket geneli OKR durumu ne?"), orta ("Hangi bölümün objective ilerlemesi en düşük, onu en çok hangi KR aşağı çekiyor?"),
   oran KR'ı içeren (17 KR'dan birinin bölümü). Üçüncü yanıt oran notunu taşır; üçü de dönem kodu, son dolu ay ve
   `—` sebeplerini yazar. Ajan tarayıcıyla panele girmez.
@@ -600,6 +600,12 @@ SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public'
   aralık artık sitenin ayarı 2026-09-01; `sirket` %69. Kağan 2026-FY'de bir bölüm (%60), bir objective (O4, %123) ve
   o objective'in bir KR'ını (%95) sitedeki rozetle karşılaştırdı: **üçü de aynı.** Tam çıktı git dışı
   `takimlar/okr/cikti/dogrulama-2026-11-13.md`.
+- **Doğrulama 4 (Task 11 Step 3, 13.11):** dev panelde dört soru, dördü de iki imzayla iletildi. Kolay soru
+  (şirket geneli) ilk denemede Denetçi'den döndü (objective sayımı 13/14 tutmadı); yeniden sorulunca CEO bir tur
+  düzeltme istedi ("Başlamadı" = veri yok + ölçülmüş %0 ayrımı), sonra onay. Orta soru (en düşük bölüm + KR) ve
+  2025-FY'de iki bölüm sorusu ilk turda onay. Oran KR'lı bölüm yanıtı oran notunu taşıyor; dördü de dönem kodu,
+  son dolu ay ve `—` sebebini yazıyor. Maliyet 0,03–0,70 USD/koşu. Not: Denetçi dört koşuda da yedek modelle
+  (aynı aile — uyarı) koştu; NIM kapalıydı.
 
 ## Spec kusurları — devredildi
 
