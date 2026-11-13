@@ -308,3 +308,177 @@ def std_figure(rollup, target, period_months, by_month, as_of):
         "months_counted": k,
         "months_filled": len([m for m in sayilan if m in by_month]),
     }
+
+
+# KAYNAK: Nove Performance lib/queries/range.ts:40-47 @ d5d0e5d
+def periods_in_range(periods, from_, to):
+    return sorted([p for p in periods if p["starts_on"] <= to and p["ends_on"] >= from_],
+                  key=lambda p: p["starts_on"])
+
+
+# KAYNAK: Nove Performance lib/queries/tree.ts:139-314 @ d5d0e5d
+def load_tree(rows, period_ids, as_of):
+    """Kesimle okunan ağaç. Sitenin kesimsiz dalı (tree.ts:201-203) taşınmaz: `as_of` zorunludur.
+
+    `bridge`: KR'ın kendi döneminin aylarında hiç aylık satırı yok (tree.ts:240-241 koşulunun değili);
+    `current` saklı özettir, ölçülmüş sayılır.
+    """
+    wanted = set(period_ids)
+    periods = [{"id": p["id"], "code": p["code"]} for p in rows["periods"] if p["id"] in wanted]
+    if len(periods) == 0:
+        return [], []
+
+    obj_rows = [o for o in rows["objectives"] if o["period_id"] in wanted]
+    name_by_id = {u["id"]: u["name"] for u in rows["users"]}
+
+    period_by_id = {p["id"]: p for p in rows["periods"]}
+    period_id_by_objective = {o["id"]: o["period_id"] for o in rows["objectives"]}
+    period_months_cache = {}
+
+    def period_months_of(period_id):
+        if period_id not in period_months_cache:
+            period = period_by_id.get(period_id)
+            period_months_cache[period_id] = (
+                months_of_period(period["starts_on"], period["ends_on"]) if period else [])
+        return period_months_cache[period_id]
+
+    by_month_by_kr = {}
+    as_of_month = as_of[:7]
+    for row in rows["monthly"]:
+        by_month_by_kr.setdefault(row["key_result_id"], {})[row["month"]] = row["value"]
+
+    def owner_name(user_id):
+        return name_by_id.get(user_id, "") if user_id else ""
+
+    krs_by_objective = {}
+    for k in rows["key_results"]:
+        current = k["current"]
+        latest_month = None
+        measured_by_cutoff = True
+        std = None
+
+        by_month = by_month_by_kr.get(k["id"])
+        period_id = period_id_by_objective.get(k["objective_id"])
+        period_months = period_months_of(period_id) if period_id else []
+        measurable = any(m in by_month for m in period_months) if by_month else False
+        bridge = not (by_month and measurable)
+        if not bridge:
+            months = [m for m in period_months if m <= as_of_month]
+            resolved = value_for_range(k["rollup"], months, by_month, period_months)
+            current = resolved["value"] if resolved["value"] is not None else effective_start(k)
+            measured_by_cutoff = resolved["value"] is not None
+            latest_month = resolved["latest_month"]
+            std = std_figure(k["rollup"], k["target"], period_months, by_month, as_of)
+
+        node = {
+            "id": k["id"],
+            "title_tr": k["title_tr"],
+            "start": k["start"],
+            "current": current,
+            "target": k["target"],
+            "unit": k["unit"],
+            "rollup": k["rollup"],
+            "weight": k["weight"],
+            "owner_name": owner_name(k["owner_user_id"]),
+            "latest_month": latest_month,
+            "measured_by_cutoff": measured_by_cutoff,
+            "std": std,
+            "bridge": bridge,
+        }
+        krs_by_objective.setdefault(k["objective_id"], []).append(node)
+
+    objs_by_dept = {}
+    for o in obj_rows:
+        node = {
+            "id": o["id"],
+            "code": o["code"],
+            "title_tr": o["title_tr"],
+            "owner_name": owner_name(o["owner_user_id"]),
+            "department_id": o["department_id"],
+            "period_id": o["period_id"],
+            "weight": o["weight"],
+            "krs": krs_by_objective.get(o["id"], []),
+        }
+        objs_by_dept.setdefault(o["department_id"], []).append(node)
+
+    depts = [{"id": d["id"], "slug": d["slug"], "name_tr": d["name_tr"],
+              "objectives": objs_by_dept.get(d["id"], [])} for d in rows["departments"]]
+    return periods, depts
+
+
+# KAYNAK: Nove Performance lib/queries/tree.ts:331-333 @ d5d0e5d
+def measured_krs_of(krs):
+    return [kr for kr in krs if kr["measured_by_cutoff"]]
+
+
+# KAYNAK: Nove Performance lib/queries/tree.ts:351-356 @ d5d0e5d
+def measured_only(depts):
+    return [{**d, "objectives": [{**o, "krs": measured_krs_of(o["krs"])} for o in d["objectives"]]}
+            for d in depts]
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:33-39 @ d5d0e5d
+def std_krs_of(krs):
+    out = []
+    for kr in krs:
+        if kr["std"] is None:
+            continue
+        swapped = {**kr, "current": kr["std"]["current"], "target": kr["std"]["target"]}
+        if is_measurable(swapped):
+            out.append(swapped)
+    return out
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:41 @ d5d0e5d
+def _measurable_count(krs):
+    return len([k for k in krs if is_measurable(k)])
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:16-25,43-48 @ d5d0e5d
+def _build(annual, std, with_std, measurable):
+    return {"annual": annual, "std": std, "status_pct": std if std is not None else annual,
+            "with_std": with_std, "measurable": measurable}
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:50-51 @ d5d0e5d
+def _std_objectives(objectives):
+    return [{**o, "krs": std_krs_of(o["krs"])} for o in objectives]
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:53-56 @ d5d0e5d
+def kr_pair(kr):
+    swapped = std_krs_of([kr])
+    return _build(kr_pct(kr), kr_pct(swapped[0]) if swapped else None,
+                  1 if swapped else 0, 1 if is_measurable(kr) else 0)
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:58-66 @ d5d0e5d
+def obj_pair(obj):
+    std_krs = std_krs_of(obj["krs"])
+    return _build(obj_pct(measured_krs_of(obj["krs"])),
+                  obj_pct(std_krs) if len(std_krs) > 0 else None,
+                  len(std_krs), _measurable_count(obj["krs"]))
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:68-76 @ d5d0e5d
+def dept_pair(dept):
+    std_krs = [k for o in dept["objectives"] for k in std_krs_of(o["krs"])]
+    measurable = 0
+    for o in dept["objectives"]:
+        measurable = measurable + _measurable_count(o["krs"])
+    return _build(dept_pct([{**o, "krs": measured_krs_of(o["krs"])} for o in dept["objectives"]]),
+                  dept_pct(_std_objectives(dept["objectives"])) if len(std_krs) > 0 else None,
+                  len(std_krs), measurable)
+
+
+# KAYNAK: Nove Performance lib/queries/std.ts:78-89 @ d5d0e5d
+def company_pair(depts):
+    objectives = [o for d in depts for o in d["objectives"]]
+    std_krs = [k for o in objectives for k in std_krs_of(o["krs"])]
+    measurable = 0
+    for o in objectives:
+        measurable = measurable + _measurable_count(o["krs"])
+    return _build(company_pct(measured_only(depts)),
+                  company_pct([{"objectives": _std_objectives(d["objectives"])} for d in depts])
+                  if len(std_krs) > 0 else None,
+                  len(std_krs), measurable)

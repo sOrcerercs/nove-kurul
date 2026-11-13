@@ -285,6 +285,271 @@ class StdTesti(unittest.TestCase):
                          {"current": 3000, "target": 3000, "months_counted": 12, "months_filled": 12})
 
 
+# --- Task 4: ağaç, kesim, çiftler (site tree/std/range testlerinin bellek içi karşılığı) ---
+
+M1, M2, M3, M4 = "2026-09", "2026-10", "2026-11", "2026-12"
+
+
+def _tkr(id_, objective_id="o1", start=0, current=0, target=100, rollup="sum", unit="", weight=None):
+    return {"id": id_, "objective_id": objective_id, "title_tr": f"KR {id_}", "start": start,
+            "current": current, "target": target, "unit": unit, "rollup": rollup, "weight": weight,
+            "owner_user_id": "u1"}
+
+
+def _ay(kr_id, month, value):
+    return {"key_result_id": kr_id, "month": month, "value": value}
+
+
+def _satirlar(**ek):
+    rows = {
+        "periods": [
+            {"id": "p26", "code": "p-2026-fy", "kind": "fiscal_year", "state": "active",
+             "starts_on": "2026-09-01", "ends_on": "2027-08-31"},
+            {"id": "p25", "code": "p-2025-fy", "kind": "fiscal_year", "state": "closed",
+             "starts_on": "2025-09-01", "ends_on": "2026-08-31"},
+        ],
+        "departments": [{"id": "d-sat", "slug": "satis", "name_tr": "Satış"}],
+        "users": [{"id": "u1", "name": "Deniz Örnek"}],
+        "objectives": [{"id": "o1", "code": "O1", "department_id": "d-sat", "period_id": "p26",
+                        "title_tr": "Örnek hedef", "owner_user_id": "u1", "weight": None}],
+        "key_results": [],
+        "monthly": [],
+    }
+    for anahtar, ekler in ek.items():
+        rows[anahtar] = rows[anahtar] + list(ekler)
+    return rows
+
+
+def _kr_bul(depts, kr_id):
+    for d in depts:
+        for ob in d["objectives"]:
+            for k in ob["krs"]:
+                if k["id"] == kr_id:
+                    return k
+    raise AssertionError(f"KR yok: {kr_id}")
+
+
+def _kr_idleri(depts):
+    return [k["id"] for d in depts for ob in d["objectives"] for k in ob["krs"]]
+
+
+class AgacTesti(unittest.TestCase):
+    def _yukle(self, rows, as_of, period_ids=("p26",)):
+        return h.load_tree(rows, list(period_ids), as_of)
+
+    def test_aylik_satiri_olmayan_ozetini_korur(self):
+        _, depts = self._yukle(_satirlar(key_results=[_tkr("k1", current=42)]), f"{M1}-15")
+        k = _kr_bul(depts, "k1")
+        self.assertEqual(k["current"], 42)
+        self.assertTrue(k["measured_by_cutoff"])
+        self.assertIsNone(k["latest_month"])
+        self.assertIsNone(k["std"])
+        self.assertTrue(k["bridge"])
+
+    def test_dugum_alanlari(self):
+        periods, depts = self._yukle(_satirlar(key_results=[_tkr("k1")]), f"{M1}-15")
+        self.assertEqual(periods, [{"id": "p26", "code": "p-2026-fy"}])
+        self.assertEqual(depts[0]["id"], "d-sat")
+        self.assertEqual(depts[0]["slug"], "satis")
+        self.assertEqual(depts[0]["name_tr"], "Satış")
+        ob = depts[0]["objectives"][0]
+        self.assertEqual((ob["code"], ob["owner_name"], ob["period_id"], ob["department_id"]),
+                         ("O1", "Deniz Örnek", "p26", "d-sat"))
+        self.assertEqual(ob["krs"][0]["owner_name"], "Deniz Örnek")
+
+    def test_kesim_dahil_toplar(self):
+        rows = _satirlar(key_results=[_tkr("k1")],
+                         monthly=[_ay("k1", M1, 20), _ay("k1", M2, 40), _ay("k1", M4, 500)])
+        k = _kr_bul(self._yukle(rows, f"{M2}-15")[1], "k1")
+        self.assertEqual(k["current"], 60)
+        self.assertEqual(k["latest_month"], M2)
+        self.assertTrue(k["measured_by_cutoff"])
+        self.assertFalse(k["bridge"])
+
+    def test_ay_ortasi_kesim_tum_ayi_alir(self):
+        rows = _satirlar(key_results=[_tkr("k1")], monthly=[_ay("k1", M1, 40)])
+        self.assertEqual(_kr_bul(self._yukle(rows, f"{M1}-01")[1], "k1")["current"], 40)
+        self.assertEqual(_kr_bul(self._yukle(rows, f"{M1}-28")[1], "k1")["current"], 40)
+
+    def test_kesime_kadar_veri_yoksa_olculmemis(self):
+        rows = _satirlar(key_results=[_tkr("k1", start=73, current=73, target=80, rollup="avg")],
+                         monthly=[_ay("k1", M3, 60)])
+        k = _kr_bul(self._yukle(rows, f"{M1}-15")[1], "k1")
+        self.assertEqual(k["current"], 73)
+        self.assertFalse(k["measured_by_cutoff"])
+        self.assertIsNone(k["latest_month"])
+        self.assertFalse(k["bridge"])
+
+    def test_sum_kesimden_sonra_sifir_okur(self):
+        rows = _satirlar(key_results=[_tkr("k1", start=51500, target=60000)],
+                         monthly=[_ay("k1", M3, 4000)])
+        k = _kr_bul(self._yukle(rows, f"{M1}-15")[1], "k1")
+        self.assertEqual(k["current"], 0)
+        self.assertFalse(k["measured_by_cutoff"])
+        self.assertEqual(h.kr_pct(k), 0)
+
+    def test_measured_only(self):
+        rows = _satirlar(key_results=[_tkr("k1"), _tkr("k2", current=42)], monthly=[_ay("k1", M3, 60)])
+        _, depts = self._yukle(rows, f"{M1}-15")
+        once = _kr_idleri(depts)
+        sonra = _kr_idleri(h.measured_only(depts))
+        self.assertIn("k1", once)
+        self.assertNotIn("k1", sonra)
+        self.assertEqual(sonra, ["k2"])
+        self.assertEqual(_kr_idleri(depts), once)  # girdi değişmez
+
+    def test_her_kr_kendi_doneminin_aylari(self):
+        rows = _satirlar(
+            objectives=[{"id": "o25", "code": "OC1", "department_id": "d-sat", "period_id": "p25",
+                         "title_tr": "Kesit hedefi", "owner_user_id": None, "weight": None}],
+            key_results=[_tkr("k25", objective_id="o25"), _tkr("k26", current=42)],
+            monthly=[_ay("k25", "2025-10", 10), _ay("k26", "2025-09", 70)])
+        _, depts = self._yukle(rows, "2025-10-15", period_ids=("p25", "p26"))
+        self.assertEqual(_kr_bul(depts, "k25")["current"], 10)
+        k26 = _kr_bul(depts, "k26")
+        self.assertEqual(k26["current"], 42)
+        self.assertTrue(k26["measured_by_cutoff"])
+        self.assertTrue(k26["bridge"])
+
+    def test_donem_disi_satir_kopruye_duser(self):
+        rows = _satirlar(key_results=[_tkr("k1", current=42)], monthly=[_ay("k1", "2027-09", 70)])
+        _, depts = self._yukle(rows, f"{M1}-15")
+        k = _kr_bul(depts, "k1")
+        self.assertEqual(k["current"], 42)
+        self.assertTrue(k["measured_by_cutoff"])
+        self.assertIsNone(k["latest_month"])
+        self.assertIn("k1", _kr_idleri(h.measured_only(depts)))
+
+    def test_avg_dolu_aylar(self):
+        rows = _satirlar(key_results=[_tkr("k1", start=4.25, current=4.25, target=5.3, rollup="avg")],
+                         monthly=[_ay("k1", M1, 4.4), _ay("k1", M2, 4.5), _ay("k1", M3, 5.0)])
+        k = _kr_bul(self._yukle(rows, f"{M3}-15")[1], "k1")
+        self.assertAlmostEqual(k["current"], (4.4 + 4.5 + 5.0) / 3)
+        self.assertTrue(k["measured_by_cutoff"])
+
+    def test_last_bayat_ay(self):
+        rows = _satirlar(key_results=[_tkr("k1", start=4.04, current=4.04, target=4.8, rollup="last")],
+                         monthly=[_ay("k1", M1, 4.1), _ay("k1", M2, 4.2)])
+        k = _kr_bul(self._yukle(rows, f"{M4}-15")[1], "k1")
+        self.assertEqual(k["current"], 4.2)
+        self.assertEqual(k["latest_month"], M2)
+        self.assertTrue(k["measured_by_cutoff"])
+
+    def test_kesit_uc_kural(self):
+        rows = _satirlar(
+            key_results=[_tkr("ks"), _tkr("ka", start=98.87, current=98.87, target=99.5, rollup="avg"),
+                         _tkr("kl", rollup="last")],
+            monthly=[_ay("ks", M1, 20), _ay("ks", M2, 20), _ay("ks", M3, 500),
+                     _ay("ka", M1, 99), _ay("ka", M2, 99.4), _ay("ka", M3, 10),
+                     _ay("kl", M1, 30), _ay("kl", M2, 45), _ay("kl", M3, 99)])
+        _, depts = self._yukle(rows, f"{M2}-15")
+        self.assertEqual(_kr_bul(depts, "ks")["current"], 40)
+        self.assertAlmostEqual(_kr_bul(depts, "ka")["current"], 99.2, places=5)
+        self.assertEqual(_kr_bul(depts, "kl")["current"], 45)
+        for kid in ("ks", "ka", "kl"):
+            self.assertEqual(_kr_bul(depts, kid)["latest_month"], M2)
+
+    def test_std_tamamlanan_aylar(self):
+        rows = _satirlar(key_results=[_tkr("k1", target=200)],
+                         monthly=[_ay("k1", M1, 20), _ay("k1", M2, 30), _ay("k1", M3, 40)])
+        std = _kr_bul(self._yukle(rows, f"{M3}-15")[1], "k1")["std"]
+        self.assertEqual(std["months_counted"], 2)
+        self.assertEqual(std["months_filled"], 2)
+        self.assertEqual(std["current"], 50)
+        self.assertAlmostEqual(std["target"], 200 / 12 * 2)
+
+    def test_std_yalniz_kesim_ayi_doluysa_none(self):
+        rows = _satirlar(key_results=[_tkr("k1", target=200)], monthly=[_ay("k1", M3, 40)])
+        self.assertIsNone(_kr_bul(self._yukle(rows, f"{M3}-15")[1], "k1")["std"])
+
+    def test_iki_donem_std(self):
+        aylar = h.months_of_period("2025-09-01", "2026-08-31")
+        rows = _satirlar(
+            objectives=[{"id": "o25", "code": "OS1", "department_id": "d-sat", "period_id": "p25",
+                         "title_tr": "StD hedefi", "owner_user_id": None, "weight": None}],
+            key_results=[_tkr("k25", objective_id="o25", target=120)],
+            monthly=[_ay("k25", m, 10) for m in aylar])
+        _, depts = self._yukle(rows, "2026-11-15", period_ids=("p25", "p26"))
+        std = _kr_bul(depts, "k25")["std"]
+        self.assertEqual(std["months_counted"], 12)
+        self.assertAlmostEqual(std["target"], 120)
+        self.assertEqual(std["current"], 120)
+
+    def test_bos_ya_da_bilinmeyen_donem(self):
+        rows = _satirlar(key_results=[_tkr("k1")])
+        self.assertEqual(h.load_tree(rows, [], f"{M1}-15"), ([], []))
+        self.assertEqual(h.load_tree(rows, ["yok"], f"{M1}-15"), ([], []))
+
+
+def _pkr(**ek):
+    d = {"id": "k", "title_tr": "", "start": 0, "current": 900, "target": 3000, "unit": "", "rollup": "sum",
+         "weight": None, "owner_name": "", "latest_month": None, "measured_by_cutoff": True, "std": None,
+         "bridge": False}
+    d.update(ek)
+    return d
+
+
+def _pstd(**ek):
+    return _pkr(std={"current": 900, "target": 1000, "months_counted": 4, "months_filled": 4}, **ek)
+
+
+def _pobj(krs, weight=None):
+    return {"id": "o", "code": "O1", "title_tr": "", "owner_name": "", "department_id": "d", "period_id": "p",
+            "weight": weight, "krs": krs}
+
+
+def _pdept(objectives):
+    return {"id": "d", "slug": "d", "name_tr": "", "objectives": objectives}
+
+
+class CiftTesti(unittest.TestCase):
+    def test_kr_pair(self):
+        p = h.kr_pair(_pstd())
+        self.assertEqual((p["annual"], p["std"], p["status_pct"]), (30, 90, 90))
+        duz = h.kr_pair(_pkr())
+        self.assertIsNone(duz["std"])
+        self.assertEqual(duz["status_pct"], duz["annual"])
+        self.assertEqual((duz["with_std"], duz["measurable"]), (0, 1))
+
+    def test_obj_pair(self):
+        p = h.obj_pair(_pobj([_pkr(id="a", weight=60), _pstd(id="b", weight=40)]))
+        self.assertEqual(p["std"], 90)
+        self.assertEqual((p["with_std"], p["measurable"]), (1, 2))
+
+    def test_dept_pair(self):
+        p = h.dept_pair(_pdept([_pobj([_pkr()])]))
+        self.assertIsNone(p["std"])
+        self.assertEqual(p["status_pct"], p["annual"])
+        self.assertEqual((p["with_std"], p["measurable"]), (0, 1))
+
+    def test_company_pair(self):
+        p = h.company_pair([_pdept([_pobj([_pkr()])]), _pdept([_pobj([_pstd()])])])
+        self.assertEqual(p["std"], 90)
+        self.assertEqual((p["with_std"], p["measurable"]), (1, 2))
+
+    def test_std_krs_of(self):
+        out = h.std_krs_of([_pkr(), _pstd()])
+        self.assertEqual(len(out), 1)
+        self.assertEqual((out[0]["current"], out[0]["target"]), (900, 1000))
+
+
+class DonemAraligiTesti(unittest.TestCase):
+    def test_periods_in_range(self):
+        def p(id_, s, e):
+            return {"id": id_, "code": "X", "kind": "quarter", "state": "planned", "starts_on": s, "ends_on": e}
+        periods = [p("before", "2025-01-01", "2025-08-31"), p("ends-on-from", "2025-06-01", "2025-09-01"),
+                   p("inside", "2025-10-01", "2025-12-31"), p("starts-on-to", "2026-08-10", "2026-10-31"),
+                   p("after", "2026-08-11", "2026-12-31")]
+        hit = h.periods_in_range(periods, "2025-09-01", "2026-08-10")
+        self.assertEqual([x["id"] for x in hit], ["ends-on-from", "inside", "starts-on-to"])
+
+    def test_eskiden_yeniye(self):
+        periods = [{"id": "b", "starts_on": "2025-12-01", "ends_on": "2026-02-28"},
+                   {"id": "a", "starts_on": "2025-09-01", "ends_on": "2025-11-30"}]
+        hit = h.periods_in_range(periods, "2025-09-01", "2026-08-10")
+        self.assertEqual([x["id"] for x in hit], ["a", "b"])
+
+
 class KaynakBasliklariTesti(unittest.TestCase):
     def test_kaynak_basliklari(self):
         satirlar = (KOK / "bin" / "okr_hesap.py").read_text(encoding="utf-8").splitlines()
