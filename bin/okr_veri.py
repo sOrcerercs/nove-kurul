@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ayar  # noqa: E402
-import okr_hesap  # noqa: E402,F401
-from kalite_veri import baglanti_ac, guvenli_hata, hazirlanamadi  # noqa: E402,F401
+import okr_hesap  # noqa: E402
+from kalite_veri import baglanti_ac, guvenli_hata, hazirlanamadi  # noqa: E402
 
 KAYNAK = "Nove PYS Postgres (okr_okuyucu, salt okunur)"
 

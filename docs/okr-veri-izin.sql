@@ -24,6 +24,11 @@
 -- ===========================================================================
 SELECT relrowsecurity FROM pg_class WHERE oid = 'public.app_settings'::regclass;
 
+-- ADIM 1b — mevcut politikalar (salt okunur). Beklenen: rolleri public ya da okr_okuyucu içeren satır yok.
+-- Varsa DUR, bu dosyayı çalıştırma, Claude'a bildir: izin veren (permissive) bir politika bizimkiyle OR'lanır
+-- ve GRANT'tan sonra her satırı açar.
+SELECT policyname, roles, cmd, qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_settings';
+
 
 -- ===========================================================================
 -- ADIM 2
@@ -38,6 +43,9 @@ CREATE POLICY okr_okuyucu_aralik ON public.app_settings FOR SELECT TO okr_okuyuc
 
 
 -- ===========================================================================
--- ADIM 4 — doğrulama (salt okunur). Beklenen: tek satır, okr_okuyucu_aralik, SELECT.
+-- ADIM 4 — doğrulama (salt okunur). Beklenen: tek satır, okr_okuyucu_aralik, SELECT
+-- (başka rollerin politikaları süzüldü; onlar bu sonucu etkilemez).
 -- ===========================================================================
-SELECT policyname, cmd, roles, qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_settings';
+SELECT policyname, cmd, roles, qual FROM pg_policies
+ WHERE schemaname = 'public' AND tablename = 'app_settings'
+   AND (policyname = 'okr_okuyucu_aralik' OR 'okr_okuyucu' = ANY (roles::text[]));

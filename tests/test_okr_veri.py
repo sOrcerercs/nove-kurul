@@ -93,7 +93,7 @@ class SemaTesti(unittest.TestCase):
         self.assertEqual(kod, 0)
         self.assertIs(b.read_only, True)
         self.assertTrue(b.kapandi)
-        self.assertFalse(any("statement_timeout" in s and "current_setting" not in s for s in imlec.sql))
+        self.assertFalse(any(re.search(r"\bSET\b|set_config", s, re.I) for s in imlec.sql))
 
     def test_baglanti_hatasi_urli_sizdirmaz(self):
         def baglan(url):
@@ -106,7 +106,7 @@ class SemaTesti(unittest.TestCase):
 
     def test_sorgu_hatasi_hazirlanamadi_rc1(self):
         # sema her sorguyu yakalar; main'in dış yakalayıcısı sema_bas dışına çıkan hatayı (ör. kopan bağlantı) maskeler
-        b = _SahteBaglanti(_SahteImlec(hata=RuntimeError("fail " + URL)))
+        b = _SahteBaglanti(_SahteImlec())
         with mock.patch.object(okr_veri, "sema_bas", side_effect=RuntimeError("fail " + URL)):
             kod, cikti = _kos(["sema"], b)
         self.assertEqual(kod, 1)
@@ -183,7 +183,7 @@ class IzinDosyasiTesti(unittest.TestCase):
     def test_dosya_var_ve_ifadeler_dar(self):
         self.assertTrue(self.YOL.exists())
         ifadeler = self._ifadeler()
-        self.assertEqual(len(ifadeler), 4)
+        self.assertEqual(len(ifadeler), 5)
         for i in ifadeler:
             with self.subTest(ifade=i[:40]):
                 self.assertRegex(i, r"^(SELECT\b|GRANT SELECT ON public\.app_settings TO okr_okuyucu$|"
