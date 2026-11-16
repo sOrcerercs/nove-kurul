@@ -130,11 +130,14 @@ def varsayilan_baslangic(baglanti):
     return VARSAYILAN_BASLANGIC, "yerleşik varsayılan — app_settings değeri geçersiz"
 
 
-def aralik_bayraklari_ekle(ap):
+def aralik_bayraklari_ekle(ap, bolum=True):
     ap.add_argument("--donem", help="dönem kodu (ör. 2026-FY; liste: donemler)")
     ap.add_argument("--baslangic", help="YYYY-MM-DD (--bitis ile birlikte)")
     ap.add_argument("--bitis", help="YYYY-MM-DD (--baslangic ile birlikte)")
-    ap.add_argument("--bolum", help="bölüm adı ya da slug")
+    if bolum:
+        ap.add_argument("--bolum", help="bölüm adı ya da slug")
+    else:
+        ap.set_defaults(bolum=None)
 
 
 def aralik_bayraklari_dogrula(ap, args):
@@ -237,7 +240,7 @@ def donemler_bas(baglanti, bugun):
         for c in range(1, 5):
             r = okr_hesap.fiscal_quarter_range(fy, c)
             isaret = " (bugün)" if r["starts_on"] <= bugun <= r["ends_on"] else ""
-            cikti.append("- Ç%d: %s..%s%s" % (c, r["starts_on"], r["ends_on"], isaret))
+            cikti.append("- %d-FY Ç%d: %s..%s%s" % (fy, c, r["starts_on"], r["ends_on"], isaret))
     cikti.append("not=dönemler yıllıktır; çeyrek sorusunda --baslangic <mali yıl başı> --bitis <çeyrek sonu> "
                  "kullanılır, sayı birikmiştir")
     print("\n".join(cikti))
@@ -269,7 +272,7 @@ def sayi_yaz(x):
 
 
 def _agirlik_yaz(w):
-    return sayi_yaz(w) if okr_hesap._is_set(w) else "yok"
+    return sayi_yaz(w) if okr_hesap.is_set(w) else "yok"
 
 
 def cift_yaz(cift, olculebilir, sebep=OLCULEBILIR_YOK):
@@ -318,7 +321,7 @@ def en_dusuk_kr(obj):
 
     def anahtar(k):
         w = k.get("weight")
-        agirlikli = okr_hesap._is_set(w)
+        agirlikli = okr_hesap.is_set(w)
         return (okr_hesap.kr_pair(k)["status_pct"], 0 if agirlikli else 1, -w if agirlikli else 0, str(k["id"]))
     return min(adaylar, key=anahtar)
 
@@ -457,6 +460,9 @@ def _kr_sebebi(k):
     return None
 
 
+GERIDE_NOTU = "şu an başlangıcın gerisinde; yüzde 0'a kırpılır"
+
+
 def kr_satiri(d, o, k):
     """Tek KR satırı. Dört durum ayrı (B7): ölçülemiyor · kesime kadar veri yok · saklı özet (not) · gerçek değer."""
     olculmus = k["measured_by_cutoff"]
@@ -470,15 +476,24 @@ def kr_satiri(d, o, k):
             sayi_yaz(cift["annual"]), okr_hesap.DURUM_ADLARI[okr_hesap.status_of(cift["status_pct"])])
     else:
         yuzde = "yuzde=— std=yok yillik=— durum=— sebep=%s" % sebep
-    satir = "- %s: hedef=%s su_an=%s kalan=%s birim=%s kural=%s %s son_dolu_ay=%s agirlik=%s sorumlu=%s" % (
-        _kr_adi(d, o, k), sayi_yaz(k["target"]), su_an, kalan, _tek_satir(k["unit"] or "") or "yok",
+    satir = ("- %s: hedef=%s baslangic=%s su_an=%s kalan=%s birim=%s kural=%s %s son_dolu_ay=%s agirlik=%s "
+             "sorumlu=%s") % (
+        _kr_adi(d, o, k), sayi_yaz(k["target"]), sayi_yaz(okr_hesap.effective_start(k)), su_an, kalan, _tek_satir(k["unit"] or "") or "yok",
         _tek_satir(k["rollup"]), yuzde, _tek_satir(k["latest_month"] or "yok"), _agirlik_yaz(k.get("weight")),
         _tek_satir(k["owner_name"]) or "yok")
     if k["bridge"]:
         satir += " not=%s" % KOPRU_NOTU
     if oran_kr_mi(k):
         satir += " oran_notu=evet"
+    if sebep is None and _baslangicin_gerisinde(k):
+        satir += " ilerleme_notu=%s" % GERIDE_NOTU
     return satir
+
+
+def _baslangicin_gerisinde(k):
+    """Şu an, başlangıçtan hedefin ters yönünde mi? Site bu ilerlemeyi 0'a kırpar (progress.ts:25-31)."""
+    bas = okr_hesap.effective_start(k)
+    return (k["current"] - bas) * (k["target"] - bas) < 0
 
 
 def kr_bas(baglanti, args, bugun):
@@ -556,7 +571,7 @@ def _komutlar():
     aralikli = {}
     for ad, (yardim, _) in _ARALIKLI_KOMUTLAR.items():
         aralikli[ad] = alt.add_parser(ad, help=yardim)
-        aralik_bayraklari_ekle(aralikli[ad])
+        aralik_bayraklari_ekle(aralikli[ad], bolum=(ad != "sirket"))
     return ap, aralikli
 
 
@@ -565,8 +580,6 @@ def main(argv, ortam=None, baglan=None, bugun=None):
     args = ap.parse_args(argv)                     # kullanım hatası: SystemExit(2)
     if args.komut in aralikli:
         aralik_bayraklari_dogrula(aralikli[args.komut], args)
-        if args.komut == "sirket" and args.bolum is not None:
-            aralikli["sirket"].error("sirket --bolum almaz; bölüm için: bolumler --bolum <ad>")
     if bugun is None:
         bugun = okr_hesap.today_in_istanbul()
     elif not (isinstance(bugun, str) and okr_hesap.is_valid_iso_date(bugun)):
