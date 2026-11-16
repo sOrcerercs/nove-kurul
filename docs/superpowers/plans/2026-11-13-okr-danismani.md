@@ -1,9 +1,9 @@
 ---
-durum: yazildi
-guncelleme: 2026-11-13
+durum: acik
+guncelleme: 2026-11-16
 dal: feature/okr-danismani
-pr: -
-bekleyen: -
+pr: 21
+bekleyen: kullanici
 ---
 
 # OKR Danışmanı — Implementation Plan
