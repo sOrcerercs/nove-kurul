@@ -322,9 +322,9 @@ class DonemlerKomutuTesti(unittest.TestCase):
         self.assertIn("- p-2025-fy: tur=fiscal_year durum=closed aralik=2025-09-01..2026-08-31 objective=0", satirlar)
         self.assertIn("- p-2026-fy: tur=fiscal_year durum=active aralik=2026-09-01..2027-08-31 objective=1", satirlar)
         alt = satirlar[satirlar.index("## mali ceyrekler"):]
-        self.assertEqual(alt[1], "- Ç1: 2026-09-01..2026-11-30 (bugün)")
-        self.assertEqual(alt[2], "- Ç2: 2026-12-01..2027-02-28")
-        self.assertEqual(len([a for a in alt if a.startswith("- Ç")]), 4)
+        self.assertEqual(alt[1], "- 2026-FY Ç1: 2026-09-01..2026-11-30 (bugün)")
+        self.assertEqual(alt[2], "- 2026-FY Ç2: 2026-12-01..2027-02-28")
+        self.assertEqual(len([a for a in alt if a.startswith("- 2026-FY Ç")]), 4)
         self.assertTrue(alt[-1].startswith("not=dönemler yıllıktır;"))
 
 
@@ -525,6 +525,13 @@ class SirketKomutuTesti(unittest.TestCase):
             _kos(["sirket", "--bolum", "Satış"], _okr_baglantisi())
         self.assertEqual(e.exception.code, 2)
 
+    def test_sirket_yardimi_bolum_gostermez(self):
+        yardim = io.StringIO()
+        with redirect_stdout(yardim), self.assertRaises(SystemExit):
+            okr_veri.main(["sirket", "-h"])
+        self.assertNotIn("--bolum", yardim.getvalue())
+        self.assertIn("--donem", yardim.getvalue())
+
 
 class SebepTesti(unittest.TestCase):
     """B7: ölçülebilir KR var ama kesime kadar ölçülmemişse sebep `kesime kadar aylık veri yok`'tur."""
@@ -601,26 +608,39 @@ class KrKomutuTesti(unittest.TestCase):
         self.assertTrue(c.startswith("## kapsam\n"))
         self.assertEqual(
             _satir(c, "- Finans / O1 / Finans KR deneme: hedef="),
-            "- Finans / O1 / Finans KR deneme: hedef=5 su_an=5 kalan=0 birim=adet kural=last "
+            "- Finans / O1 / Finans KR deneme: hedef=5 baslangic=5 su_an=5 kalan=0 birim=adet kural=last "
             "yuzde=— std=yok yillik=— durum=— sebep=ölçülemiyor (hedef = başlangıç) son_dolu_ay=2026-10 "
             "agirlik=yok sorumlu=Ada Deneme")
         self.assertEqual(
             _satir(c, "- Satış / O1 / %s: hedef=" % K4_BASLIK),
-            "- Satış / O1 / %s: hedef=100 su_an=— kalan=— birim=adet kural=sum "
+            "- Satış / O1 / %s: hedef=100 baslangic=0 su_an=— kalan=— birim=adet kural=sum "
             "yuzde=— std=yok yillik=— durum=— sebep=kesime kadar aylık veri yok son_dolu_ay=yok "
             "agirlik=yok sorumlu=yok" % K4_BASLIK)
         self.assertEqual(
             _satir(c, "- Satış / O1 / %s: hedef=" % K3_BASLIK),
-            "- Satış / O1 / %s: hedef=10 su_an=0 kalan=10 birim=adet kural=last "
+            "- Satış / O1 / %s: hedef=10 baslangic=0 su_an=0 kalan=10 birim=adet kural=last "
             "yuzde=0 std=yok yillik=0 durum=Başlamadı son_dolu_ay=yok agirlik=yok sorumlu=Deniz Örnek "
             "not=aylık satır yok; saklı özet değer" % K3_BASLIK)
         k5 = _satir(c, "- Satış / O1 / %s: hedef=" % K5_BASLIK)
         self.assertEqual(
-            k5, "- Satış / O1 / %s: hedef=100 su_an=0 kalan=100 birim=adet kural=sum "
+            k5, "- Satış / O1 / %s: hedef=100 baslangic=0 su_an=0 kalan=100 birim=adet kural=sum "
             "yuzde=0 std=0 yillik=0 durum=Başlamadı son_dolu_ay=2026-10 agirlik=yok sorumlu=Deniz Örnek"
             % K5_BASLIK)
         self.assertNotIn("—", k5)
         self.assertNotIn("not=", k5)
+
+    def test_kr_baslangicin_gerisinde_notu(self):
+        ek = [("s9", "os", "Satış geri giden deneme", 90.0, 0.0, 99.5, "puan", "avg", None, "u1"),
+              ("s10", "os", "Satış ilerleyen deneme", 50.0, 0.0, 100.0, "puan", "avg", None, "u1")]
+        aylik = [("s9", "2026-09", 81.4), ("s10", "2026-09", 75.0)]
+        kod, c = _kos(["kr", "--donem", "p-2026-fy"], _okr_baglantisi(ek_krlar=ek, ek_aylik=aylik))
+        self.assertEqual(kod, 0)
+        geri = _satir(c, "- Satış / O1 / Satış geri giden deneme: hedef=")
+        self.assertIn(": hedef=99.5 baslangic=90 su_an=81.4 ", geri)
+        self.assertIn(" yuzde=0 ", geri)
+        self.assertTrue(geri.endswith(" ilerleme_notu=%s" % okr_veri.GERIDE_NOTU))
+        self.assertEqual(okr_veri.GERIDE_NOTU, "şu an başlangıcın gerisinde; yüzde 0'a kırpılır")
+        self.assertNotIn("ilerleme_notu", _satir(c, "- Satış / O1 / Satış ilerleyen deneme: hedef="))
 
     def test_kr_oran_notu(self):
         ek = [("s7", "os", "Satış puan deneme", 0.0, 0.0, 10.0, "puan", "avg", None, "u1"),
@@ -656,7 +676,7 @@ class KrKomutuTesti(unittest.TestCase):
         kod, c = _kos(["kr", "--donem", "p-2026-fy"], _okr_baglantisi())
         self.assertEqual(kod, 0)
         kr1 = _satir(c, "- Satış / O1 / Satış KR bir deneme cirosu: hedef=")
-        self.assertIn(": hedef=1200 su_an=200 kalan=1000 birim=TL kural=sum ", kr1)
+        self.assertIn(": hedef=1200 baslangic=0 su_an=200 kalan=1000 birim=TL kural=sum ", kr1)
         self.assertIn(" son_dolu_ay=2026-10 ", kr1)
         satirlar = c.splitlines()
         self.assertIn("son_dolu_ay=2026-10", satirlar)

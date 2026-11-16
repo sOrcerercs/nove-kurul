@@ -50,13 +50,13 @@ WEIGHT_TOLERANCE = 0.005
 
 
 # KAYNAK: Nove Performance lib/domain/weights.ts:15 @ d5d0e5d
-def _is_set(w):
+def is_set(w):
     return isinstance(w, (int, float)) and not isinstance(w, bool) and math.isfinite(w)
 
 
 # KAYNAK: Nove Performance lib/domain/weights.ts:21-31 @ d5d0e5d
 def check_weights(ws, required):
-    set_ = [w for w in ws if _is_set(w)]
+    set_ = [w for w in ws if is_set(w)]
     if len(set_) == 0:
         return "missing" if required else None
     if len(set_) != len(ws):
@@ -73,7 +73,7 @@ def check_weights(ws, required):
 
 # KAYNAK: Nove Performance lib/domain/weights.ts:49-52 @ d5d0e5d
 def weight_set_state(ws):
-    if not any(_is_set(w) for w in ws):
+    if not any(is_set(w) for w in ws):
         return "none"
     return "complete" if check_weights(ws, True) is None else "incomplete"
 
@@ -111,7 +111,7 @@ def _mean(xs):
 # KAYNAK: Nove Performance lib/domain/progress.ts:55-62 @ d5d0e5d
 def obj_pct(krs):
     measurable = [k for k in krs if is_measurable(k)]
-    weighted = len(measurable) > 0 and all(_is_set(k.get("weight")) and k["weight"] > 0 for k in measurable)
+    weighted = len(measurable) > 0 and all(is_set(k.get("weight")) and k["weight"] > 0 for k in measurable)
     if not weighted:
         return _mean([kr_pct(k) for k in measurable])
     total = 0
