@@ -509,6 +509,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 
 - [ ] Formlar gönderildi: Finans, OKR, Raporlama, Satış Müdürü, SDR (+ boş odalar) — dördü ön dolduruldu, SDR eklendi (11.11.2026)
 - [ ] Her form gelince: revize → `onayli/` → `formdan_takim.py` → kuru koşu → 3 gerçek soru → devreye alma
+- [x] OKR veri okuyucusu: `bin/okr_veri.py` — Nove PYS veritabanından `okr_okuyucu` rolüyle salt okunur (`OKR_READONLY_URL`); komutlar sema, donemler, bolumler, objektifler, kr, eksik-veri, sirket; `app_settings` izni `docs/okr-veri-izin.sql` (13.11.2026; site karşılaştırması ve 3 panel sorusu bekliyor)
 - [ ] Bir danışman ancak **verisi bağlıysa** devreye girer. Verisi olmayan danışman sahnede "kurulumda" olarak görünür
 
 ### Faz 7 · Satış ekibi ve zil — S1 netleşince açılır

@@ -10,7 +10,7 @@
 |---|---|---|
 | Finans Danışmanı | `takimlar/finans/` | kurulumda — form bekliyor (Faz 6) |
 | Kalite Danışmanı | `takimlar/kalite/` | **kurulu** (19.10.2026) — veri `bin/kalite_veri.py` (`qa_okuyucu`, salt okunur); günlük rapor 11:00 (iş günü); tutarlılık DB'de uzlaştırıldı (22.10.2026) |
-| OKR Danışmanı | `takimlar/okr/` | kurulumda — form bekliyor (Faz 6) |
+| OKR Danışmanı | `takimlar/okr/` | **kurulu** (13.11.2026) — veri `bin/okr_veri.py` (`okr_okuyucu`, salt okunur); yalnız soru, zamanlı rapor yok; hesap Nove Performance `d5d0e5d`'den taşındı (`bin/okr_hesap.py`) |
 | Raporlama Danışmanı | `takimlar/raporlama/` | kurulumda — form bekliyor (Faz 6) |
 | Satış Müdürü | `takimlar/satis-muduru/` | kurulumda — form bekliyor (Faz 6) |
 | SDR Danışmanı | `takimlar/sdr/` | kurulumda — form bekliyor (Faz 6; Satış Müdürü'nden ayrıldı, 11.11.2026) |
