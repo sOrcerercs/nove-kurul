@@ -9,4 +9,4 @@
 | 2026-11-12 | [Panel canlı](plans/2026-11-12-panel-canli.md) · [spec](specs/2026-11-12-panel-canli-design.md) | tamamlandi (#20) | - |
 | 2026-11-12 | [Panel canlı 2 — Denetçi yedeği, zorluk, sahne](plans/2026-11-12-panel-canli-2.md) · [spec](specs/2026-11-12-panel-canli-2-design.md) | tamamlandi (#20) | - |
 | 2026-11-13 | [OKR Danışmanı](plans/2026-11-13-okr-danismani.md) · [spec](specs/2026-11-13-okr-danismani-design.md) | tamamlandi · PR #21 | - |
-| 2026-10-19 | [Panelde kurul yanıtı kart olarak](plans/2026-10-19-answer-card-rendering.md) | taslak | kullanici |
+| 2026-10-19 | [Panelde kurul yanıtı kart olarak](plans/2026-10-19-answer-card-rendering.md) | beklemede | Kağan — panelde göz kontrolü |

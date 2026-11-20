@@ -1,9 +1,9 @@
 ---
-durum: taslak
+durum: beklemede
 guncelleme: 2026-11-20
-dal: -
+dal: feature/yanit-karti
 pr: -
-bekleyen: kullanici
+bekleyen: kullanici — panelde göz kontrolü
 ---
 
 # Panelde kurul yanıtı kart olarak gösterilsin
@@ -28,11 +28,17 @@ main'e alındı.
 Kısa yanıt büyük ve koyu; Dayanak rozetli satırlar (✅ Birincil, 🟡 İkincil, ⛔ Doğrulanamadı); Bilinmeyenler sarı
 kutu; Not küçük ve gri; altta danışman · tarih · Denetçi ✓ · CEO ✓.
 
-## Henüz karar yok
+## Kararlar (Kağan, 20.11.2026)
 
-- Kart, `md_html` çıktısını mı süsler (başlığa göre bölümleme sunucuda), yoksa panel dört başlığı ayrı alanlar
-  olarak mı alır?
-- Dört başlıktan biri eksik ya da beklenmedik biçimdeyse panel ne gösterir (bugünkü düz `.md` görünümüne geri
-  dönüş mü, uyarı mı)?
-- "Kurula not" kutusu (`panel/panel.js:681`) kartta nereye oturur?
-- Denetçi ✓ · CEO ✓ satırı için iki imzanın bilgisi Yanıt defterinde var mı, yoksa soru kaydından mı okunur?
+- Kart **panelde** kurulur: sunucu yanıtı bugünkü gibi `md_html` ile HTML'e çevirir; `panel/yanit-karti.js`
+  (DOM'suz modül, `sahne-sira.js` deseni) `<h4>` başlıklarına göre böler ve kartı çizer.
+- Zorunlu başlıklardan (Kısa yanıt, Dayanak, Bilinmeyenler) biri eksikse ya da tanınmayan bir başlık varsa kartın
+  üstünde **"Kontrol edilmesi gerekebilir"** yazar; içerik kaybolmaz. `Not` isteğe bağlıdır (SKILL.md).
+- **Kurula not** kutusu kartın en altında; **iki imza** (Denetçi ✓ · CEO ✓) onun altında, danışman ve tarihle aynı satırda.
+- İmza bilgisi Yanıt defterinin `- Denetçi: ✔ · CEO: ✔` satırından okunur (`bin/panel_defter.py`, `imzalar`).
+
+## Yapılan
+
+- `panel/yanit-karti.js` + `tests/test_yanit_karti.py` (node), `bin/panel_defter.py` `imzalar` + testleri,
+  `panel/panel.js` kartı çağırır, `panel/index.html` betik, `panel/stil.css` kart stilleri.
+- Önizleme: `yanitlar/20261120-1547-uuvm.md` headless Chrome ile çizildi (panele giriş yapılmadan).

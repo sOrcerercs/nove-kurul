@@ -130,6 +130,18 @@ class DurumTest(Taban):
         self.assertIn("<h3>", d["yanit_html"])
         self.assertIn("Not var", d["kurula_not_html"])
         self.assertEqual((d["etiket"], d["danisman"]), ("onaylı", "kalite"))
+        self.assertEqual(d["imzalar"], {"denetci": True, "ceo": True})
+
+    def test_imzalar_defter_satirindan(self):
+        a = self.soru()
+        metin = kayit("CEO kontrolü yapılmadı", "## Yanıt\nmetin\n").replace("- Denetçi: ✔ · CEO: ✔", "- Denetçi: ✔ · CEO: —")
+        self.defterle(a, metin)
+        self.assertEqual(pd.durum(self.kok, a, UYE, "kurul")["imzalar"], {"denetci": True, "ceo": False})
+
+    def test_imza_satiri_yoksa_imzasiz(self):
+        a = self.soru()
+        self.defterle(a, kayit("onaylı", "## Yanıt\nmetin\n").replace("- Denetçi: ✔ · CEO: ✔\n", ""))
+        self.assertEqual(pd.durum(self.kok, a, UYE, "kurul")["imzalar"], {"denetci": False, "ceo": False})
 
     def test_ceo_yapilmadi_de_yanitlandi(self):
         a = self.soru()
