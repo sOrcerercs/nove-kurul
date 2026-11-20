@@ -235,6 +235,12 @@ class ClaudeKomutuTesti(unittest.TestCase):
         self.assertTrue(cozum["hata"])
         self.assertIn("süre tavanı", cozum["metin"])
 
+    def test_sure_tavaninda_butce_harcanmis_sayilir(self):
+        """Zaman aşımında ne harcandığı bilinmiyor → 0 değil CEO tavanı yazılır; soru bütçesi eksik sayılmaz."""
+        with mock.patch.object(ceo.subprocess, "run", side_effect=ceo.subprocess.TimeoutExpired("claude", 1)):
+            cozum = ceo.claude_sor("istem")
+        self.assertEqual(cozum["maliyet"], float(ayar.CEO_BUTCESI_USD))
+
 
 class MainTesti(Kurulum):
     def test_on_sart_hatasi_cikis_2(self):

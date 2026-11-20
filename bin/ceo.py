@@ -127,8 +127,9 @@ def claude_sor(metin):
     try:
         sonuc = subprocess.run(claude_komutu(metin), cwd=str(KOK), capture_output=True, text=True,
                                timeout=ayar.CEO_SURESI_SN, env=claude_ortami())
-    except subprocess.TimeoutExpired:
-        return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": "süre tavanı aşıldı"}
+    except subprocess.TimeoutExpired:   # ne harcandığı bilinmiyor → tavan harcanmış sayılır (bekci.yedek_sor gibi)
+        return {"hata": True, "maliyet": float(ayar.CEO_BUTCESI_USD), "tur": 0,
+                "metin": "süre tavanı aşıldı — tavan harcanmış sayıldı"}
     except OSError as exc:
         return {"hata": True, "maliyet": 0.0, "tur": 0, "metin": f"claude başlatılamadı: {exc}"}
     return kos.sonucu_cozumle(sonuc.stdout)

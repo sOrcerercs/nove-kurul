@@ -315,6 +315,10 @@ def denetim_maliyeti(kosu):
     return sum(float(m) for m in re.findall(r"^- denetçi maliyeti: ([\d.]+) USD", _oku(kosu), re.MULTILINE))
 
 
+def _tek_satir(metin):
+    return " ".join(str(metin if metin is not None else "").split())
+
+
 def _kaydet(kok, takim, kosu, karar):
     """Kararı koşu kaydının altına, durum.json'a ve bekçi telemetrisine yazar."""
     durum = ayar.durum_oku(takim, kok)
@@ -325,8 +329,9 @@ def _kaydet(kok, takim, kosu, karar):
                                           "kontrol": karar.get("kontrol"),
                                           "zaman": ayar.simdi_iso()}}, kok)
     with open(kosu, "a", encoding="utf-8") as dosya:
-        dosya.write(f"\n\n## Bekçi\n- karar: **{karar['karar']}**\n- gerekçe: {karar['gerekce']}\n"
-                    f"- ihlal edilen kural: {karar.get('ihlal_edilen_kural') or '-'}\n"
+        # Serbest metin tek satıra iner: satır başı sahte `## …` bölümü açamaz (soru_kaydi.tek_satir ile aynı kural).
+        dosya.write(f"\n\n## Bekçi\n- karar: **{karar['karar']}**\n- gerekçe: {_tek_satir(karar['gerekce'])}\n"
+                    f"- ihlal edilen kural: {_tek_satir(karar.get('ihlal_edilen_kural')) or '-'}\n"
                     f"- kontrol: {_kontrol_satiri(karar.get('kontrol'))}\n")
         if karar.get("maliyet") is not None:
             dosya.write(f"- denetçi maliyeti: {karar['maliyet']:.3f} USD\n")
