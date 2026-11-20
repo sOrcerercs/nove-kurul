@@ -216,8 +216,10 @@ def durum(kok, soru_id, eposta, rol):
             if rol == "yonetici":
                 sonuc["gerekce"] = d["gerekce"]
         else:
+            imza = soru_kaydi.alan(defter_metni, "Denetçi") or ""   # "✔ · CEO: ✔" (soru_kapisi yazar)
             sonuc.update(durum="yanitlandi", etiket=d["etiket"], danisman=d["danisman"],
-                         yanit_html=md_html(d["yanit"]))
+                         yanit_html=md_html(d["yanit"]),
+                         imzalar={"denetci": imza.startswith("✔"), "ceo": "CEO: ✔" in imza})
             if d["kurula_not"]:
                 sonuc["kurula_not_html"] = md_html(d["kurula_not"])
         return sonuc

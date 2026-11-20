@@ -32,6 +32,12 @@ class PanelStatikTest(unittest.TestCase):
         a, b, c = h.index("ofis3d-v4.js"), h.index("sahne-sira.js"), h.index("panel.js")
         self.assertLess(a, b)
         self.assertLess(b, c)
+        self.assertLess(h.index("yanit-karti.js"), c)
+
+    def test_yanit_karti_kullanilir(self):
+        self.assertIn("NoveYanitKarti.kart(", self.js)
+        for sinif in (".kart-uyari", ".kart-kisa", ".kart-bilinmeyen", ".kart-not", ".rozet", ".kart-imza"):
+            self.assertIn(sinif, self.css)
 
     def test_sahneye_ham_metin_gitmez(self):
         i = self.js.index("function sahneSonraki(")
