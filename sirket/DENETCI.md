@@ -114,9 +114,9 @@ yalnız ikinci kapıya taşır. Panelde **Denetçi ✔** yanar.
 
 ## Hangi modelle çalışırsın
 
-Sıra: **NIM** (`openai/gpt-oss-20b`) → **OpenAI** → **yedek**.
-> **11.11.2026 — NIM geçici kapalı** (`bin/bekci.py` `NIM_ACIK = False`): NVIDIA hesabından sohbet istekleri yanıt
-> dönmüyor. Bu sürede denetim yedekte ve "aynı aile" uyarısıyla yapılır; gerekçe "nim kapalı" der. Hesap düzelince açılır.
+Sıra: **NIM** (`nvidia/nemotron-3-ultra-550b-a55b`) → **OpenAI** → **yedek**.
+> **20.11.2026 — NIM yeniden açık.** 11.11–20.11 arası kapalıydı (NVIDIA hesabından yanıt gelmiyordu). Eski model
+> `openai/gpt-oss-20b` kaldırıldı (410); sekiz fikstürde 8/8 tutan Nemotron 3 Ultra seçildi (`bin/bekci.py`).
 
 > **Geçici (Kağan, 12.11.2026):** yedek Haiku değil Opus 5.5 (`ayar.BEKCI_YEDEK_MODEL`), OpenAI anahtarı gelene kadar.
 > Opus da danışmanla aynı ailedir; uyarı notu kalır. ANAYASA §3 yedeği 'Haiku' diye adlandırır — metni güncellemek Kağan'ın kararı.

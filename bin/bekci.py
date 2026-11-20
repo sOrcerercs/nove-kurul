@@ -39,13 +39,14 @@ ZAMAN_ASIMI_SN = 60
 # denemede gerçek sorularda yetmedi → 300. Stop hook süresi bundan + yedek (Opus) süresinden uzun olmalı.
 NIM_ZAMAN_ASIMI_SN = 300
 OPENAI_MODEL = "gpt-5-mini"
-# NIM bekçi modeli. 2026-09-15 ölçümü: gerçek ANAYASA ve kurallarla üç fikstürde 3/3 doğru
-# (nvidia/nemotron-3-super-120b-a12b 1/3 + iki HTTP hatası). `.env`'deki NIM_BEKCI_MODEL ezer.
-NIM_BEKCI_MODEL = "openai/gpt-oss-20b"
-# GEÇİCİ KAPALI (11.11.2026): NVIDIA hesabından sohbet istekleri hiç yanıt dönmüyor — gpt-oss-20b dahil dört
-# model iki kelimelik istekte bile zaman aşımı, stream'de ilk bayt yok; /models çalışıyor. Her denetim 300 sn
-# boşa bekliyordu. Kağan hesaba bakıyor; düzelince True yap. Kapalıyken düşüş gerekçede yazılır.
-NIM_ACIK = False
+# NIM bekçi modeli. 2026-09-15 ölçümünde openai/gpt-oss-20b 3/3 doğruydu; 20.11.2026'da o model 410
+# "end of life". 20.11.2026 ölçümü (`bin/bekci_karsilastir.py --yol nim`, sekiz fikstür): nemotron-3-ultra 8/8,
+# çağrı başına ~37 sn; mistral-large-4 3/8 (beş çağrıda beş 300 sn zaman aşımı); nemotron-3.5-lightning 4/8
+# (karar dönmedi). `.env`'deki NIM_BEKCI_MODEL ezer.
+NIM_BEKCI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+# 11.11.2026–20.11.2026 kapalıydı: NVIDIA hesabından sohbet istekleri yanıt dönmüyordu. 20.11.2026'da hesap
+# yanıt veriyor (yukarıdaki ölçüm) → yeniden açık. Kapatılırsa düşüş gerekçede yazılır.
+NIM_ACIK = True
 # Reasoning modelleri düşünmeye harcadıkları bütçe yüzünden `content`'i BOŞ bırakıyor;
 # 400 token ile içerik hiç gelmedi, 3000 ile fikstürlerde geldi; 23.10.2026 gerçek sorularda yine
 # boş kaldı ("reasoning'e harcadı") → 8000.

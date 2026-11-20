@@ -195,7 +195,8 @@ class BekciYedegiTesti(unittest.TestCase):
         with mock.patch.object(bekci, "openai_sor",
                                return_value={"karar": "kabul", "gerekce": "temiz",
                                              "ihlal_edilen_kural": None}), \
-             mock.patch.object(bekci, "yedek_sor") as sahte_haiku:
+             mock.patch.object(bekci, "yedek_sor") as sahte_haiku, \
+             mock.patch.object(bekci, "NIM_ACIK", False):
             karar = bekci.llm_karari({"OPENAI_API_KEY": "sk-gecerli"}, "istem")
         sahte_haiku.assert_not_called()
         self.assertEqual(karar["gerekce"], "nim kapalı (geçici) → openai yolu · temiz")
