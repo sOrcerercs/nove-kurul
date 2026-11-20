@@ -36,3 +36,6 @@ kasa/
 .DS_Store
 __pycache__/
 *.pyc
+
+# Düzenleyici ayarları makineye özgüdür
+.vscode/
