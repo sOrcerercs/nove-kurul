@@ -14,6 +14,9 @@ takimlar/*/veri/
 # Danışman defteri ajanın hafızasıdır ve hasta/müşteri ad soyadı taşıyabilir; depo herkese açık (Kağan, 19.10.2026).
 takimlar/*/defter.md
 !takimlar/_iskelet/defter.md
+# Danışman durumu (son koşu, bekçi gerekçesi) koşuda yazılır, makineye özgüdür; gerekçe şirket içi sayı taşıyabilir.
+takimlar/*/durum.json
+!takimlar/_iskelet/durum.json
 sirket-log/
 *.jsonl
 
