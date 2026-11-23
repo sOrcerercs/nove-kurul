@@ -685,7 +685,8 @@ kabul edilip yazılıyordu → artık "arşiv okunamadı", hiçbir şey yazılma
   ve zayıf sahiplik iddiası; `DefterGitTesti` `.git`'siz kökte (yalnız duman fikstüründe) düşer — `.git` yoksa atlansın.
 - Docker: taban imajlar etiketle sabit (digest değil); UID değişip imaj yeniden derlenirse `claude-ev` volume'u eski
   sahipte kalır; konteynerdeki Caddy userland-proxy arkasında gerçek IP'yi göremezse 403 verir (kapalı kalır) — §9'a satır.
-- Kağan'a soru: `takimlar/*/veri/`, `kasa/`, `gelen/` taşınmıyor (S-1 listesinde yok) — sunucuda gerekmediği doğru mu?
+- ~~Kağan'a soru: `veri/`, `kasa/`, `gelen/`~~ → kapandı (23.11.2026): üçü de sunucuda gerekmez — `veri/` her koşuda
+  veritabanından yeniden çekilir; `gelen/`'i hiçbir betik okumaz; `kasa/` Kağan'ın ayrı deposu, sistem okumaz.
 
 ## Kağan'ın elle adımları (ajan yapmaz)
 
