@@ -142,7 +142,7 @@ nove-kurul/
 ├── bin/                       kos · bekci · ceo · dagitici · soru_kapisi · yanit_defteri · crm_zil · panel · ayar · …
 ├── panel/                     arayüz: giriş gezegeni + Kurul Ofisi 3D v4 (index.html · stil.css · panel.js · ofis3d-v4.js)
 ├── sirket-log/                sorular/ · rapor/ · telemetri — git'e GİRMEZ
-├── deploy/                    systemd birimleri, Caddy ayarı · roller.json (e-posta → rol, git'e GİRMEZ; örneği roller.json.example)
+├── deploy/                    KURULUM.md · docker/ (Dockerfile, compose.yaml, crontab) · Caddyfile.example · roller.json (e-posta → rol, git'e GİRMEZ; örneği roller.json.example)
 └── tests/
 ```
 
@@ -285,32 +285,35 @@ kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N
 ## 8 · Sunucu mimarisi
 
 ```
-  Tarayıcı (yönetici) ──HTTPS──► Caddy (TLS, yalnız şirket ağı / VPN)
-                                              │
+  Tarayıcı (yönetici) ──HTTPS──► ters vekil (Caddy örneği; TLS, yalnız şirket ağı / VPN)
+                                              │  X-Forwarded-For = gerçek istemci IP'si
                                               ▼
-                                   bin/panel.py  (127.0.0.1:8770)
-                                   sahne.py'den türer: POST giriş/çıkış (e-posta + şifre, N11),
-                                   GET durum, POST soru, SSE olay akışı
-                                              │ yazar: gelen/<soru-id>.json
-                                              ▼
-            systemd: nove-dinleyici.service   bin/soru_kapisi.py --dinle → dagitici.py → kos.py
-            systemd: nove-sabah.timer 08:00   bin/gunluk.py --sabah     (mesai açılışı, N29)
-            systemd: nove-rapor.timer pzt–cuma 09:30   bin/gunluk.py --rapor   (Kalite günlük raporu)
-            systemd: nove-ilerlet.timer her 10 dk   bin/gunluk.py --ilerlet   (soru zinciri)
-            systemd: nove-aksam.timer 19:00   bin/gunluk.py --aksam     (mesai kapanışından 1 saat önce)
+   Docker Compose (deploy/docker/compose.yaml) — tek imaj, depo /srv/nove-kurul olarak bağlı
+   ┌─ servis `panel`   bin/panel.py --adres 0.0.0.0 --https-arkasinda   (127.0.0.1:8770)
+   │     sahne.py'den türer: POST giriş/çıkış (e-posta + şifre, N11), GET durum, POST soru, SSE olay akışı
+   │     soru_kapisi --dinle yerine panelin arka plan ilerleticisi: gelen/<soru-id>.json → dagitici.py → kos.py
+   └─ servis `zamanlayici`   supercronic deploy/docker/crontab   (TZ Europe/Istanbul; dört iş)
+         08:00 bin/gunluk.py --sabah   (mesai açılışı, N29)
+         pzt–cuma 09:30 bin/gunluk.py --rapor   (Kalite günlük raporu)
+         her 10 dk bin/gunluk.py --ilerlet   (soru zinciri)
+         19:00 bin/gunluk.py --aksam   (mesai kapanışından 1 saat önce)
                                               │
                                    claude -p (Sonnet: danışman · Opus: CEO)
                                    Stop hook → bekci.py (NIM → OpenAI → Haiku)
 ```
 
+Kurulum adımları, `.env` anahtarları, geçiş günü ve yedek listesi: **`deploy/KURULUM.md`**.
+
 - **Henüz yazılmayanlar:** `panel.py` ve `soru_kapisi.py --dinle` Faz 5'te gelir; bugün soru komut satırından
   `soru_kapisi.py --yeni` ile girer. `gunluk.py`'deki `ZAMANLI` boştur: sabah ve akşam zamanlayıcıları yalnız
   `sirket-log/rapor/`'a rapor yazar; bir danışman formunda "Tempo" istenmedikçe zamanlı koşu başlatmaz.
-- **İşletim sistemi:** Linux (Ubuntu 24.04 LTS önerilir). `kos.py`'nin `fcntl` kilidi Linux'ta olduğu gibi çalışır.
-  `zamanla.py`'nin launchd kısmı yerine **systemd timer** kullanılır (`deploy/` altında).
+- **Çalışma ortamı:** Docker Compose (şirket yazılımcısının standardı, 20.10.2026). `kos.py`'nin `fcntl` kilidinin
+  işlemesi için iki servis aynı bağlı klasörü görür. `zamanla.py`'nin launchd kısmı yerine `zamanlayici` servisi
+  (supercronic) çalışır; `zamanla.py` Linux'ta çalışmayı reddeder.
 - **Claude Code kimliği:** Sunucuda kişisel abonelik oturumu **kullanılmaz.** Nove'nin Anthropic Console
   organizasyonundan bir `ANTHROPIC_API_KEY` alınır. Böylece maliyet şirket hesabına yazılır ve kişiye bağlı kalmaz.
-- **Kullanıcı:** Sistem ayrı bir `nove-ajan` Linux kullanıcısıyla çalışır. Repo bu kullanıcıya aittir ve `.env` dosyasının izni `600` olur.
+- **Kullanıcı:** Konteyner root olmayan `nove-ajan` kullanıcısıyla çalışır; imaj, depoyu ve `.env`'i tutan makine
+  kullanıcısının uid/gid'iyle derlenir. `.env` izni `600` olur. `sunucu_kontrol.py` sahipliği denetler.
 - **Panel:** `panel/` altında (§8c). `ofis3d-v4.js` Claude Design'dan birebir alındı; v4 bileşeninin mantığı (soru akışı, ajan kartı,
   Yanıt defteri) `panel.js`'te düz JavaScript'e çevrildi. Şu an demo verisiyle dönen akış, `panel.py`'nin SSE olaylarına bağlanır.
   Orijinal `Nove Kurul Ofisi 3D v4.dc.html` ve `support.js` henüz dışa aktarılmadı; Claude Design 14 Aralık'ta Artifacts'a
@@ -332,7 +335,7 @@ CRM ── "satış yapıldı" olayı ──► bin/crm_zil.py  (LLM yok, salt o
   `crm_zil.py` tek tip bir olay bekler (`{olay_id, zaman, masa}`) ve her program için küçük bir çevirici yazılır.
 - **İki bağlantı yolu vardır.** CRM webhook gönderebiliyorsa `panel.py` üzerinde `POST /api/crm/satis` açılır
   ve paylaşılan bir sırla doğrulanır. Gönderemiyorsa `crm_zil.py --yokla` her 2 dakikada bir CRM API'sini
-  **yalnız okuma** yetkili bir anahtarla sorgular (systemd timer).
+  **yalnız okuma** yetkili bir anahtarla sorgular (`zamanlayici` servisi).
 - Zil olayı **ajan tetiklemez** ve para harcamaz. Tavanlara (§9) sayılmaz.
 - Olaya yalnız şunlar yazılır: olay id'si, zaman ve temsilcinin sahnedeki masa numarası. Satış tutarı yazılmaz.
   **Müşteri ve hasta bilgisi hiç alınmaz. Temsilci adı gösterilmez (N9).**
@@ -405,14 +408,9 @@ Her faz, bir öncekinin çalıştığı görüldükten sonra açılır (kagan-si
 ### Faz 0 · Sunucu hazırlığı
 > **Durum (09.10.2026):** başlamadı — şirketten kaynak bekliyor (API anahtarı, NIM, sunucu, S4). Faz 1–3 beklemeden yerelde ilerler.
 
-```bash
-sudo adduser --system --group --home /srv/nove-kurul nove-ajan
-sudo apt install -y python3 git caddy
-# Node + Claude Code
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt install -y nodejs
-sudo npm install -g @anthropic-ai/claude-code
-sudo -u nove-ajan claude --version
-```
+Yazılımcı `deploy/KURULUM.md`'deki adımları izler (Docker Compose paketi: imaj derleme, `.env`, `up -d`,
+`sunucu_kontrol.py`, ters vekil). Eski `adduser/apt/npm` düzeni yürürlükten kalktı (23.11.2026).
+
 - [ ] Anthropic Console'da Nove organizasyonu ve API anahtarı (aylık harcama limiti 1.200 USD, §9)
 - [ ] NVIDIA NIM anahtarı (Denetçi için)
 - [ ] Panel kullanıcı listesi ve ilk şifrelerin nasıl dağıtılacağı (yöntem N23; kullanıcı listesi S2'ye bağlı)
@@ -494,7 +492,7 @@ ve `qa-koclugu-kurgusu` taşınır.
     buna göre konur (N31, şimdi geçici 1,50 USD)
 
 ### Faz 5 · Panel
-> **Durum (12.11.2026):** panel canlı — giriş, soru, durum yoklaması, Yanıt defteri; SSE, CRM zili, ajan kartı, Caddy/systemd açık.
+> **Durum (12.11.2026):** panel canlı — giriş, soru, durum yoklaması, Yanıt defteri; SSE, CRM zili, ajan kartı, Caddy/systemd yerine Docker paketi hazır (23.11.2026).
 
 - [x] Giriş ekranı ve Kurul Ofisi `panel/` altında, demo verisiyle çalışıyor (09.10.2026)
 - [ ] Orijinal `.dc.html` + `support.js` Claude Design'dan dışa aktarıldı (14 Aralık'tan önce)
@@ -502,7 +500,7 @@ ve `qa-koclugu-kurgusu` taşınır.
 - [ ] `bin/panel.py` kalanı: `GET /api/olaylar` (SSE), `POST /api/crm/satis`
 - [ ] "Soru akışı" kartı soru kaydından, "Ajan kartı" `takim.md` + `durum.json` + `defter.md`'den beslenir
 - [ ] `otomatikDemo` yalnız demo ortamında açılır, üretimde kapalı kalır
-- [ ] Caddy + systemd birimleri (`deploy/`)
+- [x] Docker Compose paketi + Caddyfile örneği (`deploy/`) (23.11.2026; kurulum `deploy/KURULUM.md`)
 
 ### Faz 6 · Yönetici danışmanları
 > **Durum (09.10.2026):** başlamadı — `takim.md` dosyaları boş açıldı.

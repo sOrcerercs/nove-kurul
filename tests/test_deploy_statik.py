@@ -134,5 +134,46 @@ class CaddyTesti(unittest.TestCase):
         self.assertNotIn("nove.group", metin)
 
 
+class BelgeTesti(unittest.TestCase):
+    def setUp(self):
+        self.metin = _oku(KOK / "deploy" / "KURULUM.md")
+
+    def test_kurulum_anahtar_adlari(self):
+        import rapor_postasi
+        adlar = ["ANTHROPIC_API_KEY", "QA_READONLY_URL", "OKR_READONLY_URL", "NVIDIA_API_KEY",
+                 "OPENAI_API_KEY"] + list(rapor_postasi.GEREKLI_ANAHTARLAR)
+        self.assertEqual(len(adlar), 11)
+        for ad in adlar:
+            self.assertIn(ad, self.metin)
+
+    def test_kurulum_deger_tasimaz(self):
+        self.assertIsNone(re.search(r"^\s*[A-Z][A-Z0-9_]{2,}=\S", self.metin, re.M))
+        for yasak in ("sk-ant", "postgresql://", "@nove.group"):
+            self.assertNotIn(yasak, self.metin)
+
+    def test_kurulum_yedek_listesi(self):
+        for parca in ("yanitlar/", "sirket-log/", "deploy/*.json", "formlar/onayli/", "defter.md",
+                      "durum.json", "kosu", "cikti", ".env"):
+            self.assertIn(parca, self.metin)
+
+    def test_kurulum_komutlari(self):
+        for parca in ("sunucu_kontrol.py", "--tasima-oncesi", "zamanla.py --kaldir", "--kullanici-ekle",
+                      "NOVE_UID", "docker compose restart", "X-Forwarded-For", "claude login"):
+            self.assertIn(parca, self.metin)
+        self.assertRegex(self.metin, r"tasima\.py\s+--paketle")
+        self.assertRegex(self.metin, r"tasima\.py\s+--ac")
+
+    def test_ana_belgeler_dockeri_anlatir(self):
+        kurulum = _oku(KOK / "NOVE-KURULUM.md")
+        for parca in ("deploy/KURULUM.md", "zamanlayici"):
+            self.assertIn(parca, kurulum)
+        for yok in ("nove-dinleyici.service", "nove-sabah.timer"):
+            self.assertNotIn(yok, kurulum)
+        deploy_satiri = [s for s in _oku(KOK / "CLAUDE.md").splitlines() if s.startswith("deploy/")]
+        self.assertTrue(deploy_satiri)
+        self.assertIn("KURULUM.md", deploy_satiri[0])
+        self.assertNotIn("systemd timer", _oku(KOK / "README.md"))
+
+
 if __name__ == "__main__":
     unittest.main()
