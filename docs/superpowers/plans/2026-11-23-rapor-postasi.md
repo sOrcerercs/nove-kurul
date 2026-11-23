@@ -2,7 +2,7 @@
 durum: beklemede
 guncelleme: 2026-11-23
 dal: feature/rapor-postasi
-pr: -
+pr: 32
 bekleyen: kullanici — PR merge; Kağan'ın elle adımları 1–6
 ---
 
