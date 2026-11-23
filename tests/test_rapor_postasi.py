@@ -6,6 +6,7 @@ import json
 import os
 import re
 import smtplib
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -104,10 +105,12 @@ class SahteSMTP:
     ornekler = []
     hata_ver = {}  # adım adı → istisna
 
-    def __init__(self, host, port, timeout=None):
+    def __init__(self, host, port, timeout=None, context=None):
         self._hata("init")
         self.host, self.port, self.timeout = host, port, timeout
+        self.context = context
         self.starttls_cagrildi = False
+        self.kapatildi = False
         self.gonderilen = []  # (msg, to_addrs)
         type(self).ornekler.append(self)
 
@@ -116,9 +119,10 @@ class SahteSMTP:
         if adim in cls.hata_ver:
             raise cls.hata_ver[adim]
 
-    def starttls(self):
+    def starttls(self, context=None):
         self._hata("starttls")
         self.starttls_cagrildi = True
+        self.starttls_baglami = context
 
     def login(self, k, s):
         self._hata("login")
@@ -128,7 +132,10 @@ class SahteSMTP:
         self.gonderilen.append((msg, to_addrs))
 
     def quit(self):
-        pass
+        self.kapatildi = True
+
+    def close(self):
+        self.kapatildi = True
 
 
 class SahteSSL(SahteSMTP):
@@ -276,6 +283,44 @@ class Gonderim(unittest.TestCase):
                 self.assertIn("alıcı dosyası bozuk", metin)
                 self.assertNotIn("@", metin)
                 self.assertEqual(r["sonuclar"][0]["sonuc"], "kilitli")
+
+    def test_alici_dosyasi_bozuk_anahtar_yazilmaz(self):
+        for icerik in ({"ornek.bir@nove.group": "kalite-gunluk"},
+                       {"x\nSahte satir": "kalite-gunluk"}):
+            with self.subTest(icerik=icerik):
+                r = self._bozuk(icerik)
+                metin = " ".join(r["kilitler"])
+                self.assertIn("alıcı dosyası bozuk", metin)
+                self.assertNotIn("@", metin)
+                self.assertNotIn("\n", metin)
+                self.assertNotIn("Sahte", metin)
+
+    def test_env_satiri_ajan_kilidini_acamaz(self):
+        (self.kok / ".env").write_text(
+            "".join(f"{k}={v}\n" for k, v in ORTAM.items()) + "CLAUDECODE=\n", encoding="utf-8")
+        with mock.patch.dict(os.environ, {"CLAUDECODE": "1"}):
+            r = rapor_postasi.calistir(self.kok, simdi=SIMDI)
+        self.assertEqual(self.mesajlar(), [])
+        self.assertIn("CLAUDECODE", " ".join(r["kilitler"]))
+
+    def _dogrulayan(self, ctx):
+        self.assertIsInstance(ctx, ssl.SSLContext)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
+
+    def test_tls_sertifika_dogrulanir_587(self):
+        self.cagir()
+        self._dogrulayan(SahteSMTP.ornekler[0].starttls_baglami)
+
+    def test_tls_sertifika_dogrulanir_465(self):
+        self.cagir(ortam={**ORTAM, "POSTA_SMTP_PORT": "465"})
+        self._dogrulayan(SahteSSL.ornekler[0].context)
+
+    def test_giris_hatasinda_baglanti_kapanir(self):
+        SahteSMTP.hata_ver = {"login": OSError("x")}
+        self.cagir()
+        self.assertEqual(self.mesajlar(), [])
+        self.assertTrue(SahteSMTP.ornekler[0].kapatildi)
 
     def _bozuk(self, icerik):
         self.alicilari_yaz(icerik)

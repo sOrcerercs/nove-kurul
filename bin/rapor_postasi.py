@@ -24,6 +24,7 @@ import json
 import os
 import re
 import smtplib
+import ssl
 import sys
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -115,6 +116,11 @@ def kilitler(kok, ortam: dict) -> list:
     return nedenler
 
 
+def _tur_adi(tur) -> str:
+    """Hata iletisine yalnız güvenli biçimli tür adı girer; ham anahtar adres ya da satır sonu taşıyabilir."""
+    return tur if isinstance(tur, str) and re.fullmatch(r"[a-z0-9-]{1,64}", tur) else "tür adı"
+
+
 def alicilari_oku(kok) -> dict:
     """`deploy/posta-alicilari.json` → {tür: [adres]}. Dosya yoksa {}. Tek kusur bütün dosyayı reddeder."""
     yol = Path(kok) / "deploy" / "posta-alicilari.json"
@@ -130,14 +136,14 @@ def alicilari_oku(kok) -> dict:
     sonuc = {}
     for tur, liste in veri.items():
         if not isinstance(liste, list):
-            raise PostaHatasi(f"alıcı dosyası bozuk: {tur}")
+            raise PostaHatasi(f"alıcı dosyası bozuk: {_tur_adi(tur)}")
         temiz = []
         for adres in liste:
             if not isinstance(adres, str):
-                raise PostaHatasi(f"alıcı dosyası bozuk: {tur}")
+                raise PostaHatasi(f"alıcı dosyası bozuk: {_tur_adi(tur)}")
             a = adres.strip().lower()
             if not _ADRES.fullmatch(a) or not a.endswith(sonek):
-                raise PostaHatasi(f"alıcı dosyası bozuk: {tur}")
+                raise PostaHatasi(f"alıcı dosyası bozuk: {_tur_adi(tur)}")
             if a not in temiz:
                 temiz.append(a)
         sonuc[tur] = temiz
@@ -185,12 +191,24 @@ def _bugun_gonderilen(kok, bugun: date) -> int:
 def _baglan(ortam: dict):
     sunucu, port = ortam["POSTA_SMTP_SUNUCU"], int(ortam["POSTA_SMTP_PORT"])
     zaman_asimi = ayar.POSTA_SMTP_ZAMAN_ASIMI_SN
-    if port == 465:
-        smtp = smtplib.SMTP_SSL(sunucu, port, timeout=zaman_asimi)
-    else:
-        smtp = smtplib.SMTP(sunucu, port, timeout=zaman_asimi)
-        smtp.starttls()
-    smtp.login(ortam["POSTA_KULLANICI"], ortam["POSTA_SIFRE"])
+    ctx = ssl.create_default_context()
+    smtp = None
+    try:
+        if port == 465:
+            smtp = smtplib.SMTP_SSL(sunucu, port, timeout=zaman_asimi, context=ctx)
+        else:
+            smtp = smtplib.SMTP(sunucu, port, timeout=zaman_asimi)
+            smtp.starttls(context=ctx)
+        smtp.login(ortam["POSTA_KULLANICI"], ortam["POSTA_SIFRE"])
+    except BaseException:
+        if smtp is not None:
+            for ad in ("quit", "close"):
+                try:
+                    getattr(smtp, ad)()
+                    break
+                except Exception:
+                    continue
+        raise
     return smtp
 
 
@@ -211,6 +229,8 @@ def calistir(kok=None, simdi=None, kuru=False, ortam=None) -> dict:
     bugun = simdi.date()
     if ortam is None:
         ortam = {**os.environ, **ayar.env_yukle(kok / ".env")}
+        if os.environ.get(AJAN_ISARETI):  # .env satırı ajan işaretini boşaltamaz
+            ortam[AJAN_ISARETI] = os.environ[AJAN_ISARETI]
     tavan = ayar.POSTA_GUNLUK_TAVAN
     nedenler = kilitler(kok, ortam)
     alicilar, alici_bozuk = {}, False
