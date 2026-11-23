@@ -1,9 +1,8 @@
 ---
-durum: beklemede
+durum: tamamlandi
 guncelleme: 2026-11-23
 dal: feature/rapor-postasi
 pr: 32
-bekleyen: kullanici — PR merge; Kağan'ın elle adımları 1–6
 ---
 
 # Rapor Postası — Implementation Plan
@@ -410,3 +409,10 @@ Kurulum kararları (controller): sahte SMTP `send_message(msg, to_addrs=None)` (
 - Panel: `replaceState` hash'i düşürür; statik testler kaynak dizgisi; tarayıcıyla uçtan uca denenmedi.
 - Testler: `test_kilit_env_bicim` anahtar adını, giriş hatası testi kayıttaki sınıf adını doğrulamıyor; karma tur
   (iletildi + onaylanamadı) testi yok. `IS-DAGITIMCI.md` cümlesi s-/r- listesinde.
+
+## Kapanış (23.11.2026)
+
+PR #32 merge edildi (main `43ff473`). main'de tam takım: 989 test OK (skipped=9; taban 931). Kod tamam;
+gönderim, Kağan'ın elle adımları (ANAYASA §1 metni, `.env` anahtarları, alıcı dosyası + deny satırları, kendi
+terminalinde `--kuru` ve gerçek deneme, NOVE-KURULUM/CLAUDE.md satırı) bitene kadar kilitli kalır — bunlar spec'in
+"Kurulumda kalan" bölümünde.
