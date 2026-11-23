@@ -646,16 +646,22 @@ Kurgusal kök: `git archive HEAD` → `mktemp -d /tmp/nove-duman.*`; kurgusal `.
 | 5 `sunucu_kontrol.py` | çıkış 0; sekiz madde TAMAM, `denetci` UYARI, `posta-anahtarlari` BİLGİ; çıktıda `sahte`/`db.invalid` yok (0). `--db`: çıkış 1, `db-kalite` ve `db-okr` HATA (`OperationalError`), çıktıda değer yok |
 | 6 panel | `up -d panel`; `/` içinde "Nove AI" 2 eşleşme; `/api/ben` 401; `port panel 8770` = `127.0.0.1:18770`; günlükte `http://0.0.0.0:8770` ve "yalnız konteyner içinde" uyarısı |
 | 7 crontab | `supercronic -test deploy/docker/crontab` çıkış 0, "crontab is valid" |
-| 8 takım konteynerde | `Ran 1078 tests`, `FAILED (failures=4, skipped=8)` (ana makinede skipped=9) |
+| 8 takım konteynerde | `Ran 1078 tests`, `FAILED (failures=4, skipped=8)` (ana makinede skipped=9: fark `test_scrypt_varsa_kullanilir`; Mac'teki Python'da scrypt yok, konteynerde var ve koşuyor; ana makine atlama nedenleri çıktıdan doğrulandı) |
 | 9 temizlik | `down -v --rmi local` çıkış 0; kapsayıcı, imaj, birim, ağ kalmadı; geçici klasör silindi; 8770'teki servis yerinde |
 
 **X-Forwarded-For denetimi (Task 2, gerçek Docker ağı üzerinden).** Panel `--https-arkasinda` ile; bağlantı IP'si
-Docker geçidi (172.19.0.1). Yanlış parolayla POST `/api/giris`:
-- `203.0.113.7` + `uye@example.com` x5 → 401 x5.
-- `203.0.113.8` + `diger1@example.com` → **401** (fren geçit IP'sine değil XFF değerine bağlı).
-- `203.0.113.7` + `diger2@example.com` → **429** (IP engeli).
-- Not: ilk denemede `203.0.113.8` + aynı e-posta 429 döndü; fren e-posta ve IP'ye ayrı ayrı bakar, e-posta
-  sayacı 5 hatadan sonra IP'den bağımsız engeller. Beklenen davranış; denetim farklı e-postayla yinelendi.
+Docker geçidi (172.19.0.1). Yanlış parolayla POST `/api/giris`, sırasıyla olan:
+1. İlk koşu (kısa brief sırası): `203.0.113.7` + `uye@example.com` x5 → 401 x5; `203.0.113.8` + aynı e-posta → 429;
+   `203.0.113.7` + aynı e-posta → 429. Sonuç karışık: 429'un nedeni IP mi e-posta mı ayırt edilemedi.
+2. `docker compose restart panel` ile bellekteki sayaçlar sıfırlandı (fren yalnız bellekte).
+3. Yeniden başlatmadan sonra dizi baştan koşuldu: `203.0.113.7` + `uye@example.com` x5 → 401 x5;
+   `203.0.113.8` + `diger1@example.com` → **401**; `203.0.113.7` + `diger2@example.com` → **429**;
+   `203.0.113.8` + `uye@example.com` → 429.
+   Anlamı: .8, .7'nin beş hatasından etkilenmedi (fren geçit IP'sine bağlı olsaydı .8 de 429 alırdı); .7 farklı
+   e-postayla bile 429 aldı, yani engel IP sayacından geliyor.
+- Kod: `bin/panel_kimlik.py` `DenemeFreni.engelli_mi` (satır 161-165) e-posta sayacına **veya** IP sayacına
+  bakar (`DENEME_SINIRI = 5`, pencere 15 dk; satır 21-22); `basarisiz` (167-173) ikisine de yazar. Bu yüzden aynı
+  e-postayla 5 hatadan sonra IP'den bağımsız 429 gelmesi koddan beklenen davranıştır.
 
 **Sonraya kalan (bu planda düzeltilmedi).** Konteynerdeki 4 hata hep `tests/test_formdan_takim.py` `DefterGitTesti`
 (`test_danisman_defteri_git_disinda` kalite/finans/satis-muduru, `test_onayli_formlar_git_disinda_sablon_izleniyor`):
