@@ -10,6 +10,22 @@
 #       veritabani:
 #         external: true
 #         name: <veritabani-agi-adi>
+#
+# UYARI: panel konteyner içinde her adresten bağlantı alır ve şifresiz HTTP konuşur. Bağlandığı ağdaki
+# her konteyner ona doğrudan ulaşır, vekilin IP süzgecini atlar; Docker ağı özel aralıkta olduğu için
+# panel o konteyneri vekil sayar ve X-Forwarded-For başlığına güvenir. Bu yüzden veritabani ağında
+# YALNIZ veritabanı konteynerleri olmalı; başka uygulamaların bağlı olduğu genel bir ağa bağlamayın.
+#
+# Vekil (Caddy/nginx) de konteynerdeyse 127.0.0.1:8770'e ulaşamaz. Yalnız vekil ile panelin olduğu ayrı
+# bir ağ açılır (docker network create nove-vekil), vekil de ona bağlanır ve hedefi panel:8770 olur:
+#
+#   panel altına:   networks: [vekil]      (veritabani da gerekiyorsa: [veritabani, vekil])
+#   dosyanın sonundaki networks: bloğuna (yoksa açın):
+#       vekil:
+#         external: true
+#         name: nove-vekil
+#
+# Vekil ağına vekilden başka konteyner bağlanmaz (bkz. deploy/KURULUM.md, "Vekil de konteynerdeyse").
 name: nove-kurul
 x-ortak: &ortak
   image: nove-kurul:yerel

@@ -10,5 +10,8 @@ panel.example.com {
 	@disaridan not remote_ip 10.0.0.0/8
 	respond @disaridan 403
 
+	# Caddy makinede (konteyner dışında) çalışıyorsa hedef budur. Caddy de konteynerdeyse hedef
+	# panel:8770 olur ve ikisi yalnız kendilerinin olduğu ayrı bir Docker ağını paylaşır
+	# (bkz. deploy/KURULUM.md, "Vekil de konteynerdeyse"; paneli genel bir ağa bağlamayın).
 	reverse_proxy 127.0.0.1:8770
 }

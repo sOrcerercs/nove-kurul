@@ -163,6 +163,14 @@ class BelgeTesti(unittest.TestCase):
         self.assertRegex(self.metin, r"tasima\.py\s+--paketle")
         self.assertRegex(self.metin, r"tasima\.py\s+--ac")
 
+    def test_vekil_konteynerde_ayri_ag(self):
+        self.assertIn("Vekil de konteynerdeyse", self.metin)
+        self.assertIn("panel:8770", self.metin)
+        compose = _oku(DOCKER / "compose.yaml")
+        for parca in ("panel:8770", "YALNIZ veritabanı konteynerleri", "Vekil ağına vekilden başka konteyner"):
+            self.assertIn(parca, compose)
+        self.assertIn("panel:8770", _oku(KOK / "deploy" / "Caddyfile.example"))
+
     def test_ana_belgeler_dockeri_anlatir(self):
         kurulum = _oku(KOK / "NOVE-KURULUM.md")
         for parca in ("deploy/KURULUM.md", "zamanlayici"):

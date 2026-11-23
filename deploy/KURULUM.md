@@ -38,6 +38,10 @@ Komutlar depo kökünden çalışır (`/srv/nove-kurul`). `docker compose` komut
 Mac'teki `localhost` adresi sunucuda çalışmaz; konteynerin içinde `localhost` konteynerin kendisidir.
 - Veritabanı aynı makinede, Docker'da ise: ortak bir dış Docker ağı kurun, URL'de servis adını kullanın.
   `deploy/docker/compose.yaml`'ın başındaki yorum, iki servise o ağı nasıl ekleyeceğinizi gösterir.
+  **Dikkat:** panel bu ağa da bağlanır. Bu ağda **yalnız veritabanı konteynerleri** olmalı; sunucudaki başka
+  uygulamaların da bağlı olduğu genel bir ağ kullanmayın. Nedeni 4. bölümde, "Vekil de konteynerdeyse" altında.
+  Veritabanı genel bir ağdaysa, yalnız veritabanı ile bu sistemi içeren ayrı bir ağ açın ya da veritabanına
+  makinenin adresi ve yayınlanan portu üzerinden ulaşın.
 - Başka bir makinedeyse: makine adı ya da IP'yi kullanın ve konteynerden o porta erişimi açın.
 
 Seçtiğiniz adres `.env`'deki `QA_READONLY_URL` ve `OKR_READONLY_URL` değerleri olur (5. bölüm).
@@ -56,7 +60,7 @@ Nove Finans ile aynı makineye kuruyorsanız ortak `.env` ve ortak kullanıcı o
 Aşağıdakileri 3. bölümde seçtiğiniz kullanıcıyla yapın.
 
 ```bash
-# 1) Depoyu al
+# 1) Depoyu al (<depo-adresi>: şirketin git sunucusundaki depo; adresi Kağan verir)
 git clone <depo-adresi> /srv/nove-kurul
 cd /srv/nove-kurul
 
@@ -75,6 +79,11 @@ docker compose -f deploy/docker/compose.yaml up -d
 # 5) Kurulumu doğrula
 docker compose -f deploy/docker/compose.yaml exec panel python3 bin/sunucu_kontrol.py --db --tasima-oncesi
 ```
+
+**`.env` dosyasının biçimi.** Düz metin dosyasıdır; her satıra bir anahtar yazılır: önce anahtarın adı, hemen
+ardından eşittir işareti, hemen ardından değer. Eşittir işaretinin iki yanında boşluk bırakmayın. Değeri tırnak
+içine almanız gerekmez. `#` ile başlayan satırlar yorum sayılır, boş satırlar atlanır. Anahtar adları 5. bölümdeki
+tablolardadır.
 
 `build` mutlaka `up -d`'den önce gelir: yalnız `panel` servisinde `build:` vardır, `zamanlayici` aynı imajı
 (`nove-kurul:yerel`) kullanır.
@@ -101,6 +110,25 @@ Panel `--https-arkasinda` ile çalışır ve giriş denemesi frenini istemci IP'
   `proxy_set_header X-Forwarded-For $remote_addr;` (`$proxy_add_x_forwarded_for` değil).
   Panel yalnız başlığın en sağdaki değerine güvenir ve yalnız bağlantı vekilden (loopback/özel ağ) geliyorsa.
   Vekil başlığı yazmazsa herkes tek IP görünür ve beş yanlış şifre herkesi kilitler (bkz. 9. bölüm).
+
+#### Vekil de konteynerdeyse
+
+Yukarıdaki anlatım, vekilin doğrudan makinede (konteyner dışında) çalıştığını varsayar. Vekil de bir Docker
+konteyneriyse `127.0.0.1:8770`'e ulaşamaz: konteynerin içinde `127.0.0.1` vekil konteynerinin kendisidir.
+Bu durumda:
+
+1. **Yalnız vekil ile panelin bulunduğu ayrı bir Docker ağı** açın (örnek ad: `nove-vekil`):
+   `docker network create nove-vekil`
+2. Paneli bu ağa ekleyin. `deploy/docker/compose.yaml`'ın başındaki yorum nasıl yapılacağını gösterir.
+   Vekil konteynerini de bu ağa bağlayın.
+3. Vekilin hedefini `127.0.0.1:8770` yerine **`panel:8770`** yapın (Caddy'de `reverse_proxy panel:8770`).
+
+**Paneli genel bir ağa bağlamayın.** Panel konteynerin içinde bütün adreslerden bağlantı kabul eder ve
+şifresiz HTTP konuşur. Aynı Docker ağındaki her konteyner panele doğrudan ulaşabilir; böylece vekilin IP
+süzgecini (yalnız şirket ağı/VPN) atlar. Üstelik Docker ağları özel adres aralığındadır; panel o ağdan gelen
+bağlantıyı vekil sayar ve `X-Forwarded-For` başlığına güvenir. Yani oradaki bir konteyner giriş frenini de
+aşabilir. Bu yüzden vekil ağında vekilden başka konteyner, veritabanı ağında da veritabanından başka konteyner
+olmamalıdır.
 
 ## 5. `.env` anahtarları
 
@@ -144,7 +172,8 @@ Zorunlu:
 
 **`.env` değişince** servisleri yeniden başlatın (`docker compose restart`; tam komut
 `docker compose -f deploy/docker/compose.yaml restart`).
-İmajı yeniden derlemek gerekmez.
+İmajı yeniden derlemek gerekmez. Yeniden başlatmadan önce **açık soru olmadığını** görün (8. bölümdeki ilk adım
+gibi): yeniden başlatma, o anda yürüyen bir ajan koşusunu yarıda keser.
 
 ## 6. Geçiş günü (Mac'ten sunucuya)
 
@@ -155,13 +184,20 @@ raporu iki yerde açılır. Sıra budur; Kağan Mac tarafını yapar, siz sunucu
    `docker compose -f deploy/docker/compose.yaml exec panel python3 bin/sunucu_kontrol.py --tasima-oncesi`
 2. **Mac'te zamanlayıcıları kaldır ve paneli durdur** (Kağan):
    `python3 bin/zamanla.py --kaldir`
+   Bu komut zamanlı işlerle birlikte 8770'teki yerel paneli (sahne) de durdurur. Panel ya da sahne ayrıca bir
+   terminalde elle açıldıysa o terminalde `Ctrl+C` ile kapatın. 8770'te hâlâ dinleyen var mı diye bakmak için:
+   `lsof -nP -iTCP:8770 -sTCP:LISTEN` (çıktı boşsa port boştur). 8770 doluyken paketleme reddedilir.
 3. **Mac'te durumu paketle** (Kağan; açık soru yokken):
    `python3 bin/tasima.py --paketle`
-   Bu, bir `.tar.gz` arşivi ve yanına bir `.sha256` dosyası üretir; ikisi de sunucuya gider. Paket; `yanitlar/`,
+   Bu, bir `.tar.gz` arşivi ve yanına bir `.sha256` dosyası üretir; ikisi de sunucuya gider. İkisi de
+   varsayılan olarak **ev klasörüne** yazılır; başka bir klasör için `--cikti DIZIN` ekleyin (deponun içi olamaz). Paket; `yanitlar/`,
    `sirket-log/`, `deploy/{roller,kullanicilar,posta-alicilari}.json`, `formlar/onayli/` ve
    `takimlar/*/{defter.md,durum.json,kosu,cikti}` içerir. **`.env` paketlenmez.** Açık soru ya da dolu koşu kilidi
    varsa paketleme reddedilir; yarım soru taşınmaz. Önce `--kuru` ile neyin gideceğini görebilirsiniz.
-4. **Sunucuda aç.** Arşiv ve `.sha256` aynı klasörde olmalı (örnek: `/srv/tasima`).
+4. **Sunucuda aç.** Arşiv ve `.sha256` aynı klasörde olmalı (örnek: `/srv/tasima`). İki dosyanın izni yalnız
+   sahibine açıktır; bu yüzden ya onları 3. bölümdeki kullanıcıyla kopyalayın ya da kopyaladıktan sonra
+   sahipliği o kullanıcıya verin: `sudo chown <karar-2-kullanicisi> /srv/tasima/*`. Aksi hâlde `--ac`
+   "okuma izni yok" der.
    ```bash
    docker compose -f deploy/docker/compose.yaml stop
    docker compose -f deploy/docker/compose.yaml run --rm -v /srv/tasima:/tasima:ro panel \
