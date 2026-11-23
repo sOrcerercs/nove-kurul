@@ -120,8 +120,8 @@ class DockerfileTesti(unittest.TestCase):
 class DockerignoreTesti(unittest.TestCase):
     def test_sir_ve_kisisel_veri(self):
         satirlar = {s.strip() for s in _oku(KOK / ".dockerignore").splitlines()}
-        for beklenen in (".env", ".env.*", "yanitlar/", "sirket-log/", "deploy/*.json", "formlar/", "kasa/",
-                         "takimlar/*/kosu/", "takimlar/*/cikti/", "takimlar/*/gelen/", "takimlar/*/veri/",
+        for beklenen in (".env", ".env.*", "**/.env", "**/.env.*", "yanitlar/", "sirket-log/", "deploy/*.json",
+                         "formlar/", "kasa/", "takimlar/*/kosu/", "takimlar/*/cikti/", "takimlar/*/gelen/", "takimlar/*/veri/",
                          "takimlar/*/defter.md", "takimlar/*/durum.json"):
             self.assertIn(beklenen, satirlar)
 
