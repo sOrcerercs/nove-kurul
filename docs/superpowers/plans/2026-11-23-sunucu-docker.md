@@ -2,7 +2,7 @@
 durum: beklemede
 guncelleme: 2026-11-23
 dal: feature/sunucu-docker
-pr: -
+pr: 34
 bekleyen: kullanici — PR merge; KURULUM.md yazılımcıya; geçiş günü
 spec: docs/superpowers/specs/2026-11-23-sunucu-teslim-design.md
 ---

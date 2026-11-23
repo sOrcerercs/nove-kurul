@@ -2,7 +2,7 @@
 durum: onaylandi
 guncelleme: 2026-11-23
 dal: feature/sunucu-docker
-pr: -
+pr: 34
 onay: Kağan, 23.11.2026 (yaklaşım A — Docker Compose; tasarım onayı aynı gün)
 ---
 
