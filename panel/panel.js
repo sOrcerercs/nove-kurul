@@ -677,9 +677,9 @@ function gercekAkis(){
       + (gs.baglanti ? '' : `<div class="bekle-k">Bağlantı kesildi, yeniden deneniyor</div>`) + `</div>`;
   } else if (v && v.durum === 'yanitlandi') {
     const yok = v.etiket === 'CEO kontrolü yapılmadı';
-    h += `<div class="answer"><div class="lbl">${yok ? 'YANIT · CEO KONTROLÜ YAPILMADI' : 'CEO ONAYLI YANIT'}</div>`
-      + (v.kurula_not_html ? `<div class="kurulanot"><div class="lbl">KURULA NOT</div><div class="md">${v.kurula_not_html}</div></div>` : '')
-      + `<div class="md">${v.yanit_html || ''}</div><small>${esc(bas(v.danisman || ''))}${v.danisman ? ' · ' : ''}${esc(trTarih(v.zaman))}</small></div>`;
+    h += NoveYanitKarti.kart({ etiket_lbl: yok ? 'YANIT · CEO KONTROLÜ YAPILMADI' : 'CEO ONAYLI YANIT',
+      yanit_html: v.yanit_html, kurula_not_html: v.kurula_not_html, danisman_ad: v.danisman ? bas(v.danisman) : '',
+      tarih: trTarih(v.zaman), imzalar: v.imzalar || { denetci: true, ceo: !yok } });
   } else if (v && v.durum === 'onaylanamadi') {
     h += `<div class="answer red"><div class="lbl">ONAYLANAMADI</div><p>${esc(v.sebep || '')}</p>`
       + (v.gerekce ? `<pre class="gerekce">${esc(v.gerekce)}</pre>` : '') + `<small>${esc(trTarih(v.zaman))}</small></div>`;
