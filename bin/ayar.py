@@ -47,6 +47,12 @@ DUZELTME_EN_AZ_USD = 0.50       # kalan bütçe bunun altındaysa düzeltme turu
 CEO_BUTCESI_USD = 1.50          # CEO kontrolü başına — GEÇİCİ: Faz 4 beş gerçek soruda ölçülecek (N31)
 CEO_SURESI_SN = 5 * 60
 
+# --- rapor postası (spec: rapor postası betiği) ----------------------------------
+POSTA_GUNLUK_TAVAN = 10         # gün başına mail (rapor başına bir mail)
+POSTA_EN_FAZLA_GUN = 2          # id tarihi bugünden bu kadar günden eski raporun haberi gitmez
+POSTA_SMTP_ZAMAN_ASIMI_SN = 20  # SMTP bağlantı/işlem zaman aşımı
+POSTA_IZINLI_ALAN = "nove.group"  # alıcı adresi yalnız @nove.group ile biter (Kağan, 23.11.2026)
+
 TAKIM_KISA_ADLARI = {          # telefonda ve panelde kısa yazılsın diye; tek sözlük (Nove danışmanları)
     "finans": "finans",
     "kalite": "kalite",
