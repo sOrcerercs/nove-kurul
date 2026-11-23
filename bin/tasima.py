@@ -37,6 +37,8 @@ PANEL_PORTU = 8770
 TASINANLAR = ("yanitlar", "sirket-log", "deploy/roller.json", "deploy/kullanicilar.json",
               "deploy/posta-alicilari.json", "formlar/onayli", "takimlar/*/defter.md", "takimlar/*/durum.json",
               "takimlar/*/kosu", "takimlar/*/cikti", "takimlar/bekci-telemetri.jsonl")
+# Bunların altı taşınır; TASINANLAR'daki öteki girdiler dosyadır ve yalnız birebir eşleşir.
+DIZIN_KURALLARI = ("yanitlar", "sirket-log", "formlar/onayli", "takimlar/*/kosu", "takimlar/*/cikti")
 ATLANAN_ADLAR = (".DS_Store", ".kilit", "__pycache__")
 
 
@@ -49,7 +51,7 @@ def izinli_mi(goreli: str) -> bool:
     if not goreli or goreli.startswith("/") or "\\" in goreli or "\0" in goreli:
         return False
     parcalar = goreli.split("/")
-    if any(p in ("", ".", "..") or p.startswith(".env") for p in parcalar):
+    if any(p in ("", ".", "..") or p.lower().startswith(".env") for p in parcalar):
         return False
     if parcalar[-1] in ATLANAN_ADLAR:
         return False
@@ -57,7 +59,8 @@ def izinli_mi(goreli: str) -> bool:
         return False
     for kural in TASINANLAR:
         kp = kural.split("/")
-        if len(parcalar) >= len(kp) and all(fnmatch.fnmatchcase(p, k) for p, k in zip(parcalar, kp)):
+        uygun_boy = len(parcalar) > len(kp) if kural in DIZIN_KURALLARI else len(parcalar) == len(kp)
+        if uygun_boy and all(fnmatch.fnmatchcase(p, k) for p, k in zip(parcalar, kp)):
             return True
     return False
 
@@ -102,8 +105,13 @@ def _mac_denetimi(kok) -> list:
     if sys.platform != "darwin":
         return []
     nedenler = []
-    if any(is_["yuklu"] for is_ in zamanla.durum(kok)):
+    isler = zamanla.durum(kok)
+    if any(is_["yuklu"] for is_ in isler):
         nedenler.append("zamanlayıcı kurulu — önce: python3 bin/zamanla.py --kaldir")
+    eskiler = [is_.get("eski_etiket", "?") for is_ in isler if is_.get("eski_yuklu")]
+    if eskiler:
+        nedenler.append(f"zamanlayıcı kurulu (eski etiket: {', '.join(eskiler)}) — önce her biri için: "
+                        "launchctl bootout gui/$(id -u)/<etiket>")
     try:
         socket.create_connection(("127.0.0.1", PANEL_PORTU), timeout=1).close()
         nedenler.append(f"{PANEL_PORTU}'te panel/sahne çalışıyor — önce durdur")
@@ -180,17 +188,22 @@ def paketle(kok, cikti_dizini, simdi=None, kuru=False, mac_denetimi=None) -> dic
         sha_yolu = arsiv.with_name(arsiv.name + ".sha256")
         if arsiv.exists() or sha_yolu.exists():
             raise TasimaHatasi("aynı adlı arşiv var — ezilmez")
+        olusan = []   # temizlik yalnız bu koşunun yarattığını siler; yarışan başka arşive dokunmaz
         try:
-            with _yeni_dosya(arsiv) as ham:
+            ham = _yeni_dosya(arsiv)
+            olusan.append(arsiv)
+            with ham:
                 with tarfile.open(fileobj=ham, mode="w:gz") as t:
                     for g in liste:
                         t.add(kok / g, arcname=g, recursive=False, filter=_kimliksiz)
             hesap = hashlib.sha256(arsiv.read_bytes()).hexdigest()
-            with _yeni_dosya(sha_yolu) as f:
+            f = _yeni_dosya(sha_yolu)
+            olusan.append(sha_yolu)
+            with f:
                 f.write(f"{hesap}  {arsiv.name}\n".encode())
         except BaseException:
-            arsiv.unlink(missing_ok=True)
-            sha_yolu.unlink(missing_ok=True)
+            for yol in olusan:
+                yol.unlink(missing_ok=True)
             raise
         sonuc["arsiv"], sonuc["sha256"] = arsiv, hesap
     return sonuc

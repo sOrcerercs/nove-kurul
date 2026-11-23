@@ -85,6 +85,17 @@ class IzinTest(unittest.TestCase):
                   "bin/ayar.py", "sirket-log/posta/.kilit", "yanitlar/.DS_Store", ""):
             self.assertFalse(tasima.izinli_mi(y), y)
 
+    def test_dosya_kurali_yalniz_birebir(self):
+        for y in ("deploy/roller.json/x", "takimlar/bekci-telemetri.jsonl/x", "takimlar/kalite/defter.md/y",
+                  "takimlar/kalite/durum.json/z", "deploy/posta-alicilari.json/a/b"):
+            self.assertFalse(tasima.izinli_mi(y), y)
+        for y in ("formlar/onayli/a/b.md", "takimlar/kalite/kosu/a/b.md", "sirket-log/a/b/c.log"):
+            self.assertTrue(tasima.izinli_mi(y), y)
+
+    def test_env_buyuk_kucuk_harf_duyarsiz(self):
+        for y in ("yanitlar/.ENV", "yanitlar/.Env.yedek", "sirket-log/.eNv/x.md"):
+            self.assertFalse(tasima.izinli_mi(y), y)
+
 
 class PaketTest(Taban):
     def paketle(self, **kw):
@@ -168,6 +179,37 @@ class PaketTest(Taban):
         with mock.patch.object(tasima.zamanla, "durum") as d, mock.patch.object(tasima.sys, "platform", "linux"):
             self.assertEqual(tasima.engeller(self.kok), [])
             d.assert_not_called()
+
+    def test_eski_etiketli_zamanlayici_engeller(self):
+        with mock.patch.object(tasima.zamanla, "durum", return_value=[
+                    {"ad": "rapor", "yuklu": False, "eski_yuklu": True, "eski_etiket": "com.nove.rapor"}]), \
+                mock.patch.object(tasima.sys, "platform", "darwin"), \
+                mock.patch.object(tasima.socket, "create_connection", side_effect=OSError):
+            e = tasima.engeller(self.kok)
+        self.assertEqual(len(e), 1)
+        self.assertIn("zamanlayıcı", e[0])
+        self.assertIn("eski etiket", e[0])
+
+    def test_hata_temizligi_rakip_arsivi_silmez(self):
+        ad = "nove-tasima-20261124-0840.tar.gz"
+        asil = tasima._yeni_dosya
+
+        def rakip_once(hedef):
+            def sahte(yol):
+                if yol.name == hedef:
+                    yol.write_bytes(b"RAKIP")
+                return asil(yol)
+            return sahte
+
+        for hedef in (ad, ad + ".sha256"):
+            with self.subTest(hedef=hedef):
+                for f in self.cikti.iterdir():
+                    f.unlink()
+                with mock.patch.object(tasima, "_yeni_dosya", side_effect=rakip_once(hedef)):
+                    with self.assertRaises(tasima.TasimaHatasi):
+                        self.paketle()
+                self.assertEqual((self.cikti / hedef).read_bytes(), b"RAKIP")
+                self.assertEqual([f.name for f in self.cikti.iterdir()], [hedef])
 
     def test_panel_portu_dinliyorsa_engeller(self):
         with mock.patch.object(tasima.zamanla, "durum", return_value=[]), \
