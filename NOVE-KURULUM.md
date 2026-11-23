@@ -304,9 +304,10 @@ kagan-sirketi'nin beş maddesi temel alındı. Revize 13.10.2026'da yapıldı (N
 
 Kurulum adımları, `.env` anahtarları, geçiş günü ve yedek listesi: **`deploy/KURULUM.md`**.
 
-- **Henüz yazılmayanlar:** `panel.py` ve `soru_kapisi.py --dinle` Faz 5'te gelir; bugün soru komut satırından
-  `soru_kapisi.py --yeni` ile girer. `gunluk.py`'deki `ZAMANLI` boştur: sabah ve akşam zamanlayıcıları yalnız
-  `sirket-log/rapor/`'a rapor yazar; bir danışman formunda "Tempo" istenmedikçe zamanlı koşu başlatmaz.
+- **Henüz yazılmayanlar:** `panel.py` yazıldı (§8c); `soru_kapisi.py --dinle` yerine panelin arka plan ilerleticisi
+  soruları yürütür (komut satırı girişi `soru_kapisi.py --yeni` durur). SSE (`/api/olaylar`) ve CRM zili hâlâ yazılmadı.
+  `gunluk.py`'deki `ZAMANLI` boştur: `zamanlayici` servisinin sabah ve akşam işleri yalnız `sirket-log/rapor/`'a rapor
+  yazar; bir danışman formunda "Tempo" istenmedikçe zamanlı koşu başlatmaz.
 - **Çalışma ortamı:** Docker Compose (şirket yazılımcısının standardı, 20.10.2026). `kos.py`'nin `fcntl` kilidinin
   işlemesi için iki servis aynı bağlı klasörü görür. `zamanla.py`'nin launchd kısmı yerine `zamanlayici` servisi
   (supercronic) çalışır; `zamanla.py` Linux'ta çalışmayı reddeder.
