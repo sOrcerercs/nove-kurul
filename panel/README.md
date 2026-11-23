@@ -19,7 +19,7 @@ python3 bin/panel.py
 ```
 
 - `bin/panel.py` `panel/` dosyalarını ve API'yi aynı adresten (`127.0.0.1:8770`) sunar.
-- Bayraklar: `--port N` · `--ilerletme-yok` (arka plan ilerleticisini kapatır) · `--https-arkasinda` (çerez `Secure` olur) ·
+- Bayraklar: `--port N` · `--adres A` (varsayılan `127.0.0.1`; `0.0.0.0` yalnız konteynerde) · `--ilerletme-yok` (arka plan ilerleticisini kapatır) · `--https-arkasinda` (çerez `Secure` olur) ·
   `--kullanici-ekle <eposta> --ad "<ad>"` (kullanıcı ekler; Claude Code ortamında reddedilir, kendi terminalinde koşturulur).
 - `?demo` ile ya da dosyayı çift tıklayarak açınca **demo modu**: her e-posta ve şifre kabul edilir, `#ofis` girişi atlar.
 - `?demo` olmadan açınca form `POST /api/giris`'e gider; gerçek modda soru, bekleme ekranı ve Yanıt defteri canlıdır.
@@ -39,6 +39,6 @@ python3 bin/panel.py
 - Arka plan ilerleticisi: açık soru varken her ~60 sn'de bir İş Dağıtımcı adımı koşturur; `.kos.lock` doluysa atlar, bir adımdan
   sonra en az 15 sn (`ASGARI_ARA_SN`) bekler.
 - Şifre: scrypt, yoksa PBKDF2-SHA256 (600 000 tur; kayıtta `yontem`). `deploy/kullanicilar.json` git'e girmez, izni `600`.
-  Oturumlar bellekte, 12 saat. Fren: aynı e-posta ya da IP için 15 dk'da 5 hatalı giriş (dev'de bütün istekler `127.0.0.1`).
+  Oturumlar bellekte, 12 saat. Fren: aynı e-posta ya da IP için 15 dk'da 5 hatalı giriş (dev'de bütün istekler `127.0.0.1`). `--https-arkasinda` ile vekil (loopback/özel ağ) arkasında istemci IP'si `X-Forwarded-For`'un en sağdaki değeridir.
 - Kurulmamış bölüme giden soru koşusuz `onaylanamadı` ("Bu bölüm henüz kurulmadı") olarak deftere girer. Onaylanamayan
   yanıtlarda kurul kısa sebebi, yönetici ham gerekçeyi görür.

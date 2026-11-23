@@ -1,0 +1,6 @@
+# Zamanlı işler (TZ=Europe/Istanbul). Saatler bin/ayar.py mesaisinden türer (ANAYASA §4):
+# sabah mesai açılışı, akşam kapanıştan bir saat önce. Testi: tests/test_deploy_statik.py
+0 8 * * * python3 bin/gunluk.py --sabah
+30 9 * * 1-5 python3 bin/gunluk.py --rapor
+*/10 * * * * python3 bin/gunluk.py --ilerlet
+0 19 * * * python3 bin/gunluk.py --aksam

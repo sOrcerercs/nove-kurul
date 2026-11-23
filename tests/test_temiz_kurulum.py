@@ -126,7 +126,7 @@ class LaunchdEtiketiTesti(unittest.TestCase):
                  mock.patch.object(zamanla, "_launchctl", sahte_launchctl):
                 sonuc = {s["ad"]: s for s in zamanla.durum(kok)}
                 yakalanan = io.StringIO()
-                with redirect_stdout(yakalanan):
+                with mock.patch.object(zamanla.sys, "platform", "darwin"), redirect_stdout(yakalanan):
                     zamanla.main(["--durum"])
         self.assertTrue(sonuc["sabah"]["eski_yuklu"])
         self.assertFalse(sonuc["aksam"]["eski_yuklu"])

@@ -1,0 +1,17 @@
+# Örnek ters vekil. Alan adı ve ağ aralığı yer tutucudur; sunucuda kendi değerlerinle değiştir.
+# TLS: Caddy sertifikayı kendisi alır. Şirket içi adda `tls internal` ya da şirket sertifikası:
+#   tls /etc/caddy/sirket.crt /etc/caddy/sirket.key
+#
+# Caddy'nin reverse_proxy'si X-Forwarded-For'u istemcinin gerçek adresinden kendisi yazar.
+# Panel (--https-arkasinda) başlığın yalnız EN SAĞDAKİ değerine güvenir ve yalnız bağlantı
+# loopback/özel ağdan geliyorsa (panel.istemci_ip); dıştan gelen sahte başlık sayılmaz.
+panel.example.com {
+	# Şirket ağı / VPN aralığı (örnek: 10.0.0.0/8) dışından gelen isteği reddet
+	@disaridan not remote_ip 10.0.0.0/8
+	respond @disaridan 403
+
+	# Caddy makinede (konteyner dışında) çalışıyorsa hedef budur. Caddy de konteynerdeyse hedef
+	# panel:8770 olur ve ikisi yalnız kendilerinin olduğu ayrı bir Docker ağını paylaşır
+	# (bkz. deploy/KURULUM.md, "Vekil de konteynerdeyse"; paneli genel bir ağa bağlamayın).
+	reverse_proxy 127.0.0.1:8770
+}

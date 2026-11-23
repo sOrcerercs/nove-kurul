@@ -6,6 +6,7 @@ kırpılmaz, sayılmaz, maskelenmez. Soran yalnız oturumdan gelir. Belirteç ve
 """
 import argparse
 import getpass
+import ipaddress
 import json
 import os
 import sys
@@ -208,6 +209,31 @@ class Ilerletici:
             self._is.join(timeout=5)
 
 
+# Vekil olabilecek ağlar. `ip.is_private` kullanılmaz: belgeleme aralıklarını (TEST-NET) da özel sayar.
+VEKIL_AGLARI = tuple(ipaddress.ip_network(a) for a in (
+    "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+    "::1/128", "fc00::/7", "fe80::/10"))
+
+
+def istemci_ip(baglanti_ip, xff_basliklari, vekil_arkasinda):
+    """Giriş freninin IP anahtarı. Başlığa yalnız vekil arkasında VE bağlantı loopback/özel ağdan
+    geliyorsa güvenilir; en sağdaki değer vekilin kendi eklediğidir. Geçersiz değer anahtar olmaz."""
+    if not vekil_arkasinda or not xff_basliklari:
+        return baglanti_ip
+    try:
+        es = ipaddress.ip_address(baglanti_ip)
+        es = getattr(es, "ipv4_mapped", None) or es
+    except ValueError:
+        return baglanti_ip
+    if not any(es in a for a in VEKIL_AGLARI if a.version == es.version):
+        return baglanti_ip
+    aday = xff_basliklari[-1].split(",")[-1].strip()
+    try:
+        return str(ipaddress.ip_address(aday))
+    except ValueError:
+        return baglanti_ip
+
+
 class Sunucu(SimpleHTTPRequestHandler):
     """İnce HTTP adaptörü: /api/ → Uygulama.istek; geri kalanı panel/ altından statik."""
 
@@ -227,7 +253,10 @@ class Sunucu(SimpleHTTPRequestHandler):
         except cookies.CookieError:
             pass
         m = c.get(panel_kimlik.CEREZ_ADI)
-        kod, d, ek = self.uygulama.istek(yontem, self.path, govde, m.value if m else None, self.client_address[0])
+        kod, d, ek = self.uygulama.istek(yontem, self.path, govde, m.value if m else None,
+                                             istemci_ip(self.client_address[0],
+                                                        self.headers.get_all("X-Forwarded-For") or [],
+                                                        self.uygulama.https))
         ham = json.dumps(d, ensure_ascii=False).encode("utf-8")
         self.send_response(kod)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -289,7 +318,8 @@ def _kullanici_ekle(eposta, ad):
 
 
 def main(argv=None):
-    a = argparse.ArgumentParser(description="Nove Kurul Ofisi paneli (yalnız 127.0.0.1)")
+    a = argparse.ArgumentParser(description="Nove Kurul Ofisi paneli (varsayılan 127.0.0.1)")
+    a.add_argument("--adres", default="127.0.0.1")
     a.add_argument("--port", type=int, default=8770)
     a.add_argument("--ilerletme-yok", action="store_true")
     a.add_argument("--https-arkasinda", action="store_true")
@@ -298,14 +328,22 @@ def main(argv=None):
     arg = a.parse_args(argv)
     if arg.kullanici_ekle:
         return _kullanici_ekle(arg.kullanici_ekle, arg.ad or arg.kullanici_ekle)
+    ayar.ortam_yukle(KOK / ".env")
+    try:
+        loopback = ipaddress.ip_address(arg.adres).is_loopback
+    except ValueError:
+        loopback = False
+    if not loopback:
+        print(f"panel: uyarı: {arg.adres} — yalnız konteyner içinde; makinede ters vekil arkasında kullan",
+              file=sys.stderr)
     il = None if arg.ilerletme_yok else Ilerletici(KOK)
     uyg = Uygulama(KOK, ilerletici=il, https=arg.https_arkasinda)
     try:
-        sunucu = ThreadingHTTPServer(("127.0.0.1", arg.port), yakala(uyg))
+        sunucu = ThreadingHTTPServer((arg.adres, arg.port), yakala(uyg))
     except OSError:
-        print(f"panel: port {arg.port} dolu (`bin/sahne.py` de 8770 kullanır)", file=sys.stderr)
+        print(f"panel: {arg.adres}:{arg.port} açılamadı — port dolu (`bin/sahne.py` de 8770 kullanır) ya da adres geçersiz", file=sys.stderr)
         return 1
-    print(f"panel: http://127.0.0.1:{arg.port} — ilerletme {'kapalı' if il is None else 'açık'}")
+    print(f"panel: http://{arg.adres}:{arg.port} — ilerletme {'kapalı' if il is None else 'açık'}")
     try:
         n_acik = len(panel_defter.acik_sorular(KOK))
     except Exception:

@@ -40,7 +40,8 @@
 ```
 NOVE-KURULUM.md       kurulum belgesi — kararlar (N1–N11), akış, fazlar, açık sorular
 ANAYASA.md            beş madde — İNSANIN dosyası, ajan değiştirmez
-bin/                  kos.py · bekci.py · dagitici.py · gunluk.py · ayar.py · agents_uret.py · sahne.py · panel.py · …
+bin/                  kos.py · bekci.py · dagitici.py · gunluk.py · ayar.py · agents_uret.py · sahne.py · panel.py · sunucu_kontrol.py · tasima.py · …
+deploy/               KURULUM.md · docker/ (Dockerfile, compose.yaml, crontab) · Caddyfile.example · roller/kullanicilar/posta-alicilari.json (git'e girmez)
 sirket/               AJAN-KIMLIGI.md · DENETCI.md · CEO-KIMLIGI.md · QA-DANISMANI.md · IS-DAGITIMCI.md · YETENEKLER.md
 takimlar/<danisman>/  takim.md · kurallar.md · defter.md · durum.json · kosu/ · cikti/ · veri/
 takimlar/_iskelet/    yeni danışmanın dört dosyalık iskeleti (bin/takim-olustur.sh)

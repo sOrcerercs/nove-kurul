@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Zamanlayıcı kurucusu — macOS launchd. Beş iş kurar, başka hiçbir şey yapmaz.
 
+Yalnız macOS'ta çalışır; Linux'ta reddeder (çıkış 2). Sunucuda zamanlayıcı Docker'dadır:
+deploy/docker/compose.yaml (`zamanlayici` servisi, supercronic) — bkz. deploy/KURULUM.md.
+
 Takvimli (saatinde bir kez koşar, biter):
   sabah  → `bin/gunluk.py --sabah`  · dağıtıcıyı koşturur, sabah raporunu yazar
   akşam  → `bin/gunluk.py --aksam`  · günün koşularını ve bekçi kararlarını denetler
@@ -236,6 +239,10 @@ def _eski_etiket_uyarisi():
 
 
 def main(argv):
+    if sys.platform != "darwin":
+        print("zamanla: yalnız macOS (launchd). Sunucuda zamanlayıcı Docker'dadır: "
+              "deploy/docker/compose.yaml (deploy/KURULUM.md)", file=sys.stderr)
+        return 2
     if "--kuru" in argv:
         for tetik in TUM_ISLER:
             print(f"--- {etiket(tetik['ad'])} · {_ne_zaman(tetik)} · {tetik['ne']}")

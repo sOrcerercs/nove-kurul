@@ -42,7 +42,7 @@ uyarı" notuyla kaydedilir.
 ## Platform notu
 
 Sürücü Linux ve macOS'ta çalışır: koşu kilidi `fcntl`'e bağlıdır, Windows'ta yalnız **WSL** içinde çalışır.
-Sunucuda (NOVE-KURULUM.md §8) zamanlayıcı systemd timer'dır; macOS'ta `bin/zamanla.py` launchd kullanır;
+Sunucuda (NOVE-KURULUM.md §8) zamanlayıcı Docker (`deploy/docker/`, supercronic) içindedir; macOS'ta `bin/zamanla.py` launchd kullanır;
 ikisi de yoksa **cron** ile `python3 bin/gunluk.py --sabah` ve `--aksam` çağrılır.
 
 ## Lisans
