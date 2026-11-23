@@ -1,4 +1,4 @@
-"""bin/tasima.py --paketle: S-1 durumu tek arşiv; .env asla; değer ve dosya adı basmaz. Geçici kök, kurgusal sırlar."""
+"""bin/tasima.py --paketle/--ac: S-1 durumu tek arşiv; .env asla; değer ve dosya adı basmaz. Geçici kök, kurgusal sırlar."""
 import fcntl
 import hashlib
 import io
@@ -276,6 +276,241 @@ class MainTest(Taban):
         for argv in ([], ["--paketle", "--ac", "x"], ["--x"]):
             with mock.patch.object(sys, "stderr", io.StringIO()):
                 self.assertEqual(self.main(argv)[0], 2, argv)
+
+
+class AcTaban(Taban):
+    """Kaynak `self.kok` (kur ile dolu), hedef `self.hedef` boş klasör; euid testlerde 1000."""
+
+    def setUp(self):
+        super().setUp()
+        self.hedef = Path(self.t.name) / "hedef"
+        self.hedef.mkdir()
+        p = mock.patch.object(tasima, "_mac_denetimi", return_value=[])   # Mac'teki 8770/launchd'ye bakmasın
+        p.start()
+        self.addCleanup(p.stop)
+        p = mock.patch.object(tasima, "_euid", return_value=1000)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def arsivle(self, kaynak=None):
+        return tasima.paketle(kaynak or self.kok, self.cikti, simdi=SIMDI, mac_denetimi=BOS)["arsiv"]
+
+    def elle_arsiv(self, uyeler, ad="elle.tar.gz"):
+        """uyeler: (ad, tur, veri) — tur: 'dosya' | 'dizin' | 'sembolik' | 'sabit'; geçerli .sha256 ile."""
+        arsiv = self.cikti / ad
+        with tarfile.open(arsiv, "w:gz") as t:
+            for uad, tur, veri in uyeler:
+                b = tarfile.TarInfo(uad)
+                if tur == "dosya":
+                    b.size = len(veri)
+                    t.addfile(b, io.BytesIO(veri))
+                    continue
+                b.type = {"dizin": tarfile.DIRTYPE, "sembolik": tarfile.SYMTYPE, "sabit": tarfile.LNKTYPE}[tur]
+                if tur in ("sembolik", "sabit"):
+                    b.linkname = veri
+                t.addfile(b)
+        h = hashlib.sha256(arsiv.read_bytes()).hexdigest()
+        arsiv.with_name(arsiv.name + ".sha256").write_text(f"{h}  {arsiv.name}\n")
+        return arsiv
+
+    def ac(self, arsiv, **kw):
+        kw.setdefault("euid", 1000)
+        kw.setdefault("mac_denetimi", BOS)
+        return tasima.ac(self.hedef, arsiv, **kw)
+
+    def ac_main(self, argv, ortam=None):
+        g = io.StringIO()
+        with redirect_stdout(g):
+            kod = tasima.main(argv, self.hedef, ortam=ortam if ortam is not None else {})
+        return kod, g.getvalue()
+
+    def hedef_icerik(self):
+        return sorted(p.relative_to(self.hedef).as_posix() for p in self.hedef.rglob("*")
+                      if p.name != ayar.KOSU_KILIDI)
+
+
+class AcTest(AcTaban):
+    def test_gidis_donus(self):
+        s = self.ac(self.arsivle())
+        self.assertEqual(s["yazilan"], 12)
+        self.assertEqual(s["catisan"], [])
+        self.assertIsNone(s["yedek"])
+        self.assertEqual(tasima.dosyalar(self.hedef), tasima.dosyalar(self.kok))
+        for g in tasima.dosyalar(self.kok):
+            self.assertEqual((self.hedef / g).read_bytes(), (self.kok / g).read_bytes(), g)
+            self.assertEqual((self.hedef / g).stat().st_mode & 0o777, 0o600, g)
+        self.assertEqual((self.hedef / "deploy/kullanicilar.json").stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.hedef / "yanitlar").stat().st_mode & 0o777, 0o700)
+        self.assertFalse((self.hedef / ".env").exists())
+        self.assertFalse(any(".env" in p for p in self.hedef_icerik()))
+
+    def test_saglama_toplami_tutmazsa_reddeder(self):
+        arsiv = self.arsivle()
+        sha = arsiv.with_name(arsiv.name + ".sha256")
+        with open(arsiv, "ab") as f:
+            f.write(b"\0")
+        with self.assertRaises(tasima.TasimaHatasi) as b:
+            self.ac(arsiv)
+        self.assertIn("sağlama toplamı", str(b.exception))
+        self.assertEqual(list(self.hedef.iterdir()), [])
+        sha.write_text("0" * 64 + "  " + arsiv.name + "\n")
+        with self.assertRaises(tasima.TasimaHatasi):
+            self.ac(arsiv)
+        self.assertEqual(list(self.hedef.iterdir()), [])
+
+    def test_sha256_dosyasi_yoksa_reddeder(self):
+        arsiv = self.arsivle()
+        arsiv.with_name(arsiv.name + ".sha256").unlink()
+        with self.assertRaises(tasima.TasimaHatasi) as b:
+            self.ac(arsiv)
+        self.assertIn("sağlama toplamı", str(b.exception))
+        self.assertEqual(list(self.hedef.iterdir()), [])
+        kod, _ = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertEqual(list(self.hedef.iterdir()), [])
+
+    def test_dusmanca_arsiv_tamamen_reddedilir(self):
+        iyi = ("yanitlar/iyi.md", "dosya", b"iyi\n")
+        durumlar = {
+            "ust": [("../disari.md", "dosya", b"x")],
+            "mutlak": [("/tmp/x.md", "dosya", b"x")],
+            "env": [(".env", "dosya", b"ANTHROPIC_API_KEY=sk-ant-GIZLI-4711\n")],
+            "alt_env": [("yanitlar/.env", "dosya", b"x")],
+            "alt_env_buyuk": [("yanitlar/.ENV", "dosya", b"x")],
+            "kod": [("bin/ayar.py", "dosya", b"x")],
+            "kurallar": [("takimlar/kalite/kurallar.md", "dosya", b"x")],
+            "dosya_kurali_alti": [("deploy/roller.json/x", "dosya", b"x")],
+            "sembolik": [("yanitlar/bag.md", "sembolik", "/etc/passwd")],
+            "sabit": [("yanitlar/sert.md", "sabit", "yanitlar/iyi.md")],
+            "cift": [("yanitlar/iyi.md", "dosya", b"ikinci\n")],
+            "dosya_ust_klasor": [("yanitlar/iyi.md/alt.md", "dosya", b"x")],
+        }
+        disari_once = sorted(p.name for p in Path(self.t.name).iterdir())
+        for ad, kotu in durumlar.items():
+            with self.subTest(ad):
+                arsiv = self.elle_arsiv([iyi] + kotu, ad=f"{ad}.tar.gz")
+                with self.assertRaises(tasima.TasimaHatasi) as b:
+                    self.ac(arsiv)
+                self.assertIn("arşivde beklenmeyen yol", str(b.exception))
+                self.assertFalse((self.hedef / "yanitlar").exists())
+                self.assertEqual(self.hedef_icerik(), [])
+                self.assertEqual(sorted(p.name for p in Path(self.t.name).iterdir()), disari_once)
+                self.assertFalse((self.hedef.parent / "disari.md").exists())
+
+    def test_izinli_dizin_uyesi_kabul(self):
+        arsiv = self.elle_arsiv([("yanitlar/alt", "dizin", None), ("yanitlar/alt/a.md", "dosya", b"a\n")])
+        s = self.ac(arsiv)
+        self.assertEqual(s["yazilan"], 1)
+        self.assertEqual((self.hedef / "yanitlar/alt/a.md").read_bytes(), b"a\n")
+
+    def test_hedefte_sembolik_bag_reddedilir(self):
+        disari = Path(self.t.name) / "disari"
+        disari.mkdir()
+        (self.hedef / "yanitlar").symlink_to(disari)
+        with self.assertRaises(tasima.TasimaHatasi) as b:
+            self.ac(self.arsivle())
+        self.assertIn("hedefte beklenmeyen yol", str(b.exception))
+        self.assertEqual(list(disari.iterdir()), [])
+        self.assertFalse((self.hedef / "sirket-log").exists())
+
+    def test_ikinci_kosu_zararsiz(self):
+        arsiv = self.arsivle()
+        self.ac(arsiv)
+        once = {g: (self.hedef / g).stat().st_mtime_ns for g in tasima.dosyalar(self.hedef)}
+        s = self.ac(arsiv)
+        self.assertEqual((s["yazilan"], s["ayni"], s["catisan"]), (0, 12, []))
+        self.assertEqual({g: (self.hedef / g).stat().st_mtime_ns for g in tasima.dosyalar(self.hedef)}, once)
+        kod, _ = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 0)
+
+    def test_catisma_varsa_hicbir_sey_yazmaz(self):
+        arsiv = self.arsivle()
+        yaz(self.hedef, "sirket-log/dagitici.log", "eski\n")
+        s = self.ac(arsiv)
+        self.assertEqual(s["catisan"], ["sirket-log/dagitici.log"])
+        self.assertEqual(s["yazilan"], 0)
+        kod, _ = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertFalse((self.hedef / "yanitlar").exists())
+        self.assertEqual((self.hedef / "sirket-log/dagitici.log").read_text(), "eski\n")
+        self.assertEqual(self.hedef_icerik(), ["sirket-log", "sirket-log/dagitici.log"])
+
+    def test_ustune_yaz_yedekler(self):
+        arsiv = self.arsivle()
+        yaz(self.hedef, "sirket-log/dagitici.log", "eski\n")
+        s = self.ac(arsiv, ustune_yaz=True, simdi=SIMDI)
+        self.assertEqual((self.hedef / "sirket-log/dagitici.log").read_text(), "x\n")
+        yedek = self.hedef / "sirket-log/tasima-yedek/20261124-084000"
+        self.assertEqual((yedek / "sirket-log/dagitici.log").read_text(), "eski\n")
+        self.assertEqual((yedek / "sirket-log/dagitici.log").stat().st_mode & 0o777, 0o600)
+        self.assertEqual(s["yedek"], yedek)
+        self.assertEqual(s["yazilan"], 12)
+        self.assertEqual(s["catisan"], ["sirket-log/dagitici.log"])
+
+    def test_hedefte_acik_soru_varsa_reddeder(self):
+        arsiv = self.arsivle()
+        yaz(self.hedef, "sirket-log/sorular/s9.md", "# Soru\n- durum: alindi\n")
+        s = self.ac(arsiv)
+        self.assertEqual(len(s["engeller"]), 1)
+        self.assertIn("açık soru var: 1", s["engeller"][0])
+        kod, cikti = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertIn("ENGEL", cikti)
+        self.assertFalse((self.hedef / "yanitlar").exists())
+
+    def test_hedef_kilit_doluysa_reddeder(self):
+        arsiv = self.arsivle()
+        with open(self.hedef / ayar.KOSU_KILIDI, "a") as k:
+            fcntl.flock(k, fcntl.LOCK_EX)
+            kod, cikti = self.ac_main(["--ac", str(arsiv)])
+            self.assertEqual(kod, 1)
+            self.assertIn("koşu kilidi dolu", cikti)
+            self.assertFalse((self.hedef / "yanitlar").exists())
+
+    def test_root_reddedilir(self):
+        arsiv = self.arsivle()
+        with self.assertRaises(tasima.TasimaHatasi) as b:
+            self.ac(arsiv, euid=0)
+        self.assertIn("root", str(b.exception))
+        self.assertEqual(list(self.hedef.iterdir()), [])
+        with mock.patch.object(tasima, "_euid", return_value=0):
+            kod, cikti = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertIn("root", cikti)
+        self.assertEqual(list(self.hedef.iterdir()), [])
+
+    def test_kuru_yazmaz(self):
+        arsiv = self.arsivle()
+        kod, cikti = self.ac_main(["--ac", str(arsiv), "--kuru"], {"CLAUDECODE": "1"})
+        self.assertEqual(kod, 0)
+        self.assertIn("12", cikti)
+        self.assertEqual(list(self.hedef.iterdir()), [])
+        s = self.ac(arsiv, kuru=True)
+        self.assertEqual((s["yazilan"], s["yazilacak"]), (0, 12))
+        self.assertEqual(list(self.hedef.iterdir()), [])
+
+    def test_ajan_ortaminda_yazan_ac_durur(self):
+        arsiv = self.arsivle()
+        kod, cikti = self.ac_main(["--ac", str(arsiv)], {"CLAUDECODE": "1"})
+        self.assertEqual(kod, 1)
+        self.assertIn("yalnız --kuru", cikti)
+        self.assertEqual(list(self.hedef.iterdir()), [])
+
+    def test_cikti_dosya_adi_tasimaz(self):
+        arsiv = self.arsivle()
+        yaz(self.hedef, "sirket-log/dagitici.log", "eski\n")
+        kod, cikti = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertIn("sirket-log/", cikti)
+        self.assertIn("1 dosya", cikti)
+        self.assertIn("--ustune-yaz", cikti)
+        for yasak in ("example.com", "GIZLI", "dagitici.log", "s1.md"):
+            self.assertNotIn(yasak, cikti)
+
+    def test_ac_kullanim_hatasi(self):
+        for argv in (["--ac"], ["--ustune-yaz"], ["--ac", "x", "--cikti", "y"], ["--paketle", "--ustune-yaz"]):
+            with mock.patch.object(sys, "stderr", io.StringIO()):
+                self.assertEqual(self.ac_main(argv)[0], 2, argv)
 
 
 if __name__ == "__main__":

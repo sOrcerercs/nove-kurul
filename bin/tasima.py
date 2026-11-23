@@ -8,9 +8,14 @@ zorlama bayrağı yoktur. Paketleme boyunca koşu kilidi (`.kos.lock`) tutulur: 
 `.env` paketlenmez (S-2): sunucuda yazılımcı yazar. Hiçbir parçası `.env` ile başlayan yol paketlenmez ve açılmaz.
 Çıktıya dosya adı ya da içerik yazılmaz; yalnız üst klasör başına adet.
 
+Açma (sunucu, konteyner kullanıcısıyla; root reddedilir): önce sağlama toplamı ve arşivin bütün üyeleri denetlenir,
+denetim bitmeden tek bayt yazılmaz. Hedefte aynı içerikli dosyaya dokunulmaz; farklı içerikli dosya varsa hiçbir şey
+yazılmaz (`--ustune-yaz` ile eskisi `sirket-log/tasima-yedek/<zaman>/`'a kopyalanıp yazılır).
+
 Kullanım:
     python3 bin/tasima.py --paketle [--cikti DIZIN] [--kuru]   # varsayılan çıktı: ev klasörü
-    --kuru: engelleri ve özeti basar, arşiv yazmaz, kilit almaz.
+    python3 bin/tasima.py --ac ARSIV [--ustune-yaz] [--kuru]   # ARSIV.sha256 yanında olmalı
+    --kuru: denetler ve sayıları basar; arşiv/dosya yazmaz, kilit almaz.
 Çıkış: 0 tamam · 1 reddedildi · 2 kullanım hatası. Ajan ortamında (CLAUDECODE) yalnız --kuru çalışır.
 """
 from __future__ import annotations
@@ -18,10 +23,12 @@ from __future__ import annotations
 import fcntl
 import fnmatch
 import hashlib
+import io
 import os
 import socket
 import sys
 import tarfile
+import tempfile
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -209,6 +216,148 @@ def paketle(kok, cikti_dizini, simdi=None, kuru=False, mac_denetimi=None) -> dic
     return sonuc
 
 
+def _euid():
+    return os.geteuid()
+
+
+def _arsiv_oku(arsiv: Path) -> bytes:
+    """Arşivin baytları — yalnız yanındaki .sha256 ile tutarsa. Tek okuma: denetlenen bayt açılan bayttır."""
+    sha_yolu = arsiv.with_name(arsiv.name + ".sha256")
+    try:
+        beklenen = sha_yolu.read_text(encoding="ascii").split()[0].lower()
+    except (OSError, UnicodeDecodeError, IndexError):
+        raise TasimaHatasi("sağlama toplamı okunamadı — ARSIV.sha256 arşivin yanında olmalı") from None
+    veri = arsiv.read_bytes()
+    if hashlib.sha256(veri).hexdigest() != beklenen:
+        raise TasimaHatasi("sağlama toplamı tutmuyor — arşiv bozuk ya da değişmiş")
+    return veri
+
+
+def _uyeleri_oku(veri: bytes) -> dict:
+    """{goreli: içerik}. Tek bir izinsiz üye bütün arşivi reddeder; extractall kullanılmaz."""
+    icerik, gorulen = {}, set()
+    try:
+        with tarfile.open(fileobj=io.BytesIO(veri), mode="r:gz") as t:
+            for m in t.getmembers():
+                if not (m.isreg() or m.isdir()) or not izinli_mi(m.name) or m.name in gorulen:
+                    raise TasimaHatasi(f"arşivde beklenmeyen yol: {m.name!r}")
+                gorulen.add(m.name)
+                if m.isreg():
+                    icerik[m.name] = t.extractfile(m).read()
+    except tarfile.TarError:
+        raise TasimaHatasi("arşiv okunamadı") from None
+    for g in icerik:   # bir dosya başka bir dosyanın üst klasörü olamaz
+        parca = g.split("/")
+        if any("/".join(parca[:i]) in icerik for i in range(1, len(parca))):
+            raise TasimaHatasi(f"arşivde beklenmeyen yol: {g!r}")
+    return icerik
+
+
+def _hedef_yolu(kok: Path, goreli: str) -> Path:
+    """Hedefte her mevcut üst parça gerçek dizin, yolun kendisi yok ya da düzenli dosya olmalı (sembolik bağ değil)."""
+    yol, parca = kok, goreli.split("/")
+    for i, p in enumerate(parca):
+        yol = yol / p
+        son = i == len(parca) - 1
+        if yol.is_symlink() or (yol.exists() and not (yol.is_file() if son else yol.is_dir())):
+            raise TasimaHatasi(f"hedefte beklenmeyen yol: {'/'.join(parca[:i + 1])!r}")
+    return yol
+
+
+def _dosya_yaz(kok: Path, goreli: str, icerik: bytes):
+    """Eksik dizinler 0o700, dosya 0o600; geçici dosya + os.replace (yarım dosya kalmaz)."""
+    yol = kok
+    for p in goreli.split("/")[:-1]:
+        yol = yol / p
+        if not yol.exists():
+            os.mkdir(yol, 0o700)
+            os.chmod(yol, 0o700)
+    hedef = kok / goreli
+    fd, gecici = tempfile.mkstemp(dir=hedef.parent, prefix=".tasima-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(icerik)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(gecici, 0o600)
+        os.replace(gecici, hedef)
+    except BaseException:
+        Path(gecici).unlink(missing_ok=True)
+        raise
+
+
+def ac(kok, arsiv, ustune_yaz=False, kuru=False, simdi=None, euid=None, mac_denetimi=None) -> dict:
+    kok, arsiv = Path(kok), Path(arsiv)
+    veri = _arsiv_oku(arsiv)                                        # 1 sağlama toplamı
+    if (_euid() if euid is None else euid) == 0:                    # 2 root değil
+        raise TasimaHatasi("root olarak açılmaz — konteyner kullanıcısıyla koştur")
+    sonuc = {"engeller": [], "toplam": 0, "yazilacak": 0, "yazilan": 0, "ayni": 0, "catisan": [],
+             "catisan_ozet": {}, "yedek": None}
+
+    def sinifla():                                                  # 4 üyeler · 5 sınıflama
+        icerik = _uyeleri_oku(veri)
+        yeni, catisan, eski = [], [], {}
+        for g in sorted(icerik):
+            yol = _hedef_yolu(kok, g)
+            if not yol.exists():
+                yeni.append(g)
+                continue
+            eski[g] = yol.read_bytes()
+            if eski[g] == icerik[g]:
+                sonuc["ayni"] += 1
+            else:
+                catisan.append(g)
+        sonuc["toplam"], sonuc["catisan"], sonuc["catisan_ozet"] = len(icerik), catisan, _ozet(catisan)
+        sonuc["yazilacak"] = len(yeni) + (len(catisan) if ustune_yaz else 0)
+        return icerik, yeni, catisan, eski
+
+    if kuru:
+        sinifla()
+        return sonuc
+    with kos_kilidi(kok):                                           # 3 engel ve kilit
+        sonuc["engeller"] = engeller(kok, mac_denetimi)
+        if sonuc["engeller"]:
+            return sonuc
+        icerik, yeni, catisan, eski = sinifla()
+        if catisan and not ustune_yaz:                              # 6 sessiz ezme yok
+            return sonuc
+        yedekler = []
+        if catisan:                                                 # 7 önce yedek (yollar yazmadan denetlenir)
+            yedek_goreli = f"sirket-log/tasima-yedek/{(simdi or _simdi()):%Y%m%d-%H%M%S}"
+            if _hedef_yolu(kok, yedek_goreli).exists():
+                raise TasimaHatasi("yedek klasörü zaten var — bir dakika sonra yeniden dene")
+            yedekler = [(f"{yedek_goreli}/{g}", eski[g]) for g in catisan]
+            for y, _ in yedekler:
+                _hedef_yolu(kok, y)
+            sonuc["yedek"] = kok / yedek_goreli
+        for y, b in yedekler:
+            _dosya_yaz(kok, y, b)
+        for g in yeni + catisan:                                    # 8 yazım
+            _dosya_yaz(kok, g, icerik[g])
+            sonuc["yazilan"] += 1
+    return sonuc
+
+
+def _yazdir_ac(sonuc, kuru, ustune_yaz, simdi):
+    print(f"taşıma açma — {simdi:%Y-%m-%d %H:%M}")
+    for e in sonuc["engeller"]:
+        print(f"  ENGEL {e}")
+    if sonuc["engeller"] and not kuru:
+        return
+    print(f"  → {sonuc['toplam']} dosya · {sonuc['yazilacak']} yazılacak · {sonuc['ayni']} aynı (dokunulmadı) · "
+          f"{len(sonuc['catisan'])} farklı" + (" · kuru: yazılmadı" if kuru else ""))
+    for ust, adet in sorted(sonuc["catisan_ozet"].items()):
+        print(f"  ÇATIŞMA {ust + '/':<16}{adet} dosya")
+    if sonuc["catisan"] and not ustune_yaz:
+        print("  farklı içerikli dosyalar ezilmedi" + ("" if kuru else ", hiçbir dosya yazılmadı") +
+              " — Mac'teki hâli yazmak için: --ustune-yaz (eskiler sirket-log/tasima-yedek/'e kopyalanır)")
+    if sonuc["yedek"]:
+        print(f"  yedek: {sonuc['yedek']}")
+    if not kuru:
+        print(f"  {sonuc['yazilan']} dosya yazıldı.")
+    print("  .env açılmadı (S-2): sunucuda yazılımcı yazar.")
+
+
 def _yazdir(sonuc, kuru, simdi):
     print(f"taşıma paketi — {simdi:%Y-%m-%d %H:%M}")
     for e in sonuc["engeller"]:
@@ -226,8 +375,8 @@ def main(argv, kok=None, ortam=None) -> int:
     ortam = os.environ if ortam is None else ortam
     kok = Path(kok or KOK)
     argv = list(argv)
-    paketle_mi = kuru = False
-    cikti = None
+    paketle_mi = kuru = ustune_yaz = False
+    cikti = arsiv = None
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -235,28 +384,43 @@ def main(argv, kok=None, ortam=None) -> int:
             paketle_mi = True
         elif a == "--kuru":
             kuru = True
+        elif a == "--ustune-yaz":
+            ustune_yaz = True
         elif a == "--cikti" and i + 1 < len(argv):
             i += 1
             cikti = argv[i]
+        elif a == "--ac" and i + 1 < len(argv):
+            i += 1
+            arsiv = argv[i]
         else:
-            print(f"kullanım hatası: {a if a in ('--ac',) else 'bilinmeyen ya da eksik bayrak'}", file=sys.stderr)
+            print("kullanım hatası: bilinmeyen ya da eksik bayrak", file=sys.stderr)
             return 2
         i += 1
-    if not paketle_mi:
-        print("kullanım: python3 bin/tasima.py --paketle [--cikti DIZIN] [--kuru]", file=sys.stderr)
+    ac_mi = arsiv is not None
+    if paketle_mi == ac_mi or (paketle_mi and ustune_yaz) or (ac_mi and cikti is not None):
+        print("kullanım: python3 bin/tasima.py --paketle [--cikti DIZIN] [--kuru]\n"
+              "          python3 bin/tasima.py --ac ARSIV [--ustune-yaz] [--kuru]", file=sys.stderr)
         return 2
     if not kuru and ortam.get(AJAN_ISARETI):
         print("durdu — ajan ortamında taşıma kapalı; yalnız --kuru.")
         return 1
     simdi = _simdi()
     try:
-        sonuc = paketle(kok, Path(cikti) if cikti else Path.home(), simdi=simdi, kuru=kuru)
+        if ac_mi:
+            sonuc = ac(kok, Path(arsiv), ustune_yaz=ustune_yaz, kuru=kuru, simdi=simdi)
+        else:
+            sonuc = paketle(kok, Path(cikti) if cikti else Path.home(), simdi=simdi, kuru=kuru)
     except TasimaHatasi as e:
         print(f"reddedildi: {e}")
         return 1
     except OSError as e:
         print(f"reddedildi: {type(e).__name__}")
         return 1
+    if ac_mi:
+        _yazdir_ac(sonuc, kuru, ustune_yaz, simdi)
+        if kuru:
+            return 0
+        return 1 if sonuc["engeller"] or (sonuc["catisan"] and not ustune_yaz) else 0
     _yazdir(sonuc, kuru, simdi)
     if kuru:
         return 0
