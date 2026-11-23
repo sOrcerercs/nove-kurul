@@ -2,7 +2,7 @@
 durum: yazildi
 guncelleme: 2026-11-23
 dal: docs/rapor-postasi-istisnasi
-pr: -
+pr: 31
 bekleyen: kullanici — metni ANAYASA.md §1 sonuna işlemek
 onay: Kağan, 23.11.2026 (seçenek A — yalnız haber)
 ---
