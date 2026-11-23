@@ -6,6 +6,7 @@ kırpılmaz, sayılmaz, maskelenmez. Soran yalnız oturumdan gelir. Belirteç ve
 """
 import argparse
 import getpass
+import ipaddress
 import json
 import os
 import sys
@@ -289,7 +290,8 @@ def _kullanici_ekle(eposta, ad):
 
 
 def main(argv=None):
-    a = argparse.ArgumentParser(description="Nove Kurul Ofisi paneli (yalnız 127.0.0.1)")
+    a = argparse.ArgumentParser(description="Nove Kurul Ofisi paneli (varsayılan 127.0.0.1)")
+    a.add_argument("--adres", default="127.0.0.1")
     a.add_argument("--port", type=int, default=8770)
     a.add_argument("--ilerletme-yok", action="store_true")
     a.add_argument("--https-arkasinda", action="store_true")
@@ -298,14 +300,22 @@ def main(argv=None):
     arg = a.parse_args(argv)
     if arg.kullanici_ekle:
         return _kullanici_ekle(arg.kullanici_ekle, arg.ad or arg.kullanici_ekle)
+    ayar.ortam_yukle(KOK / ".env")
+    try:
+        loopback = ipaddress.ip_address(arg.adres).is_loopback
+    except ValueError:
+        loopback = False
+    if not loopback:
+        print(f"panel: uyarı: {arg.adres} — yalnız konteyner içinde; makinede ters vekil arkasında kullan",
+              file=sys.stderr)
     il = None if arg.ilerletme_yok else Ilerletici(KOK)
     uyg = Uygulama(KOK, ilerletici=il, https=arg.https_arkasinda)
     try:
-        sunucu = ThreadingHTTPServer(("127.0.0.1", arg.port), yakala(uyg))
+        sunucu = ThreadingHTTPServer((arg.adres, arg.port), yakala(uyg))
     except OSError:
-        print(f"panel: port {arg.port} dolu (`bin/sahne.py` de 8770 kullanır)", file=sys.stderr)
+        print(f"panel: {arg.adres}:{arg.port} açılamadı — port dolu (`bin/sahne.py` de 8770 kullanır) ya da adres geçersiz", file=sys.stderr)
         return 1
-    print(f"panel: http://127.0.0.1:{arg.port} — ilerletme {'kapalı' if il is None else 'açık'}")
+    print(f"panel: http://{arg.adres}:{arg.port} — ilerletme {'kapalı' if il is None else 'açık'}")
     try:
         n_acik = len(panel_defter.acik_sorular(KOK))
     except Exception:

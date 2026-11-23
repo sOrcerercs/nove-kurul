@@ -1,6 +1,7 @@
 """`gunluk.py --rapor` — zamanlı Kalite raporu (spec: kalite-gunluk-rapor, Görev 2)."""
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -174,8 +175,18 @@ class RaporTesti(unittest.TestCase):
 
 
 class IlerletTesti(unittest.TestCase):
+    def test_env_anahtari_ortama_yuklenir(self):
+        kok = Path(tempfile.mkdtemp())
+        (kok / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-sahte-0002\n", encoding="utf-8")
+        with mock.patch.dict(os.environ), mock.patch.object(gunluk, "KOK", kok), \
+                mock.patch.object(gunluk.dagitici, "dagit"):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            gunluk.main(["--ilerlet"])
+            self.assertEqual(os.environ["ANTHROPIC_API_KEY"], "sk-ant-sahte-0002")
+
     def test_yalniz_dagitici_calisir(self):
         with mock.patch.object(gunluk.dagitici, "dagit", return_value={"kararlar": []}) as dagit, \
+                mock.patch.object(gunluk.ayar, "ortam_yukle"), \
                 mock.patch.object(gunluk, "rapor") as rapor, mock.patch.object(gunluk, "yaz") as yaz, \
                 mock.patch.object(gunluk, "sabah") as sabah:
             rc = gunluk.main(["--ilerlet"])

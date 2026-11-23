@@ -1,4 +1,5 @@
 """Panel sunucusu: İlerletici, HTTP adaptörü, komut satırı. Gerçek dagitici.dagit asla çağrılmaz."""
+import io
 import json
 import os
 import sys
@@ -8,6 +9,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from contextlib import redirect_stderr, redirect_stdout
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
@@ -15,6 +17,7 @@ from unittest import mock
 KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "bin"))
 import panel  # noqa: E402
+import dagitici  # noqa: E402
 import panel_kimlik  # noqa: E402
 import soru_kapisi  # noqa: E402
 
@@ -186,6 +189,76 @@ class KomutSatiriTesti(unittest.TestCase):
                     mock.patch("sys.stderr"), mock.patch("sys.stdout"):
                 self.assertEqual(panel.main(["--kullanici-ekle", UYE, "--ad", "Üye"]), 1)
         self.assertFalse(self.dosya.exists())
+
+
+UYARI = "yalnız konteyner içinde; makinede ters vekil arkasında kullan"
+
+
+class AdresVeOrtamTesti(unittest.TestCase):
+    def kos(self, argv, env_metni=None, sunucu_hatasi=None, sonra=None):
+        kok = Path(tempfile.mkdtemp())
+        (kok / "deploy").mkdir()
+        if env_metni is not None:
+            (kok / ".env").write_text(env_metni, encoding="utf-8")
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(panel, "KOK", kok), mock.patch.object(panel, "ThreadingHTTPServer") as sunucu, \
+                mock.patch.dict(os.environ), redirect_stdout(out), redirect_stderr(err):
+            if sunucu_hatasi:
+                sunucu.side_effect = sunucu_hatasi
+            rc = panel.main(argv)
+            if sonra:
+                sonra()  # ortam yamasının içinde
+        return rc, out.getvalue(), err.getvalue(), sunucu
+
+    def test_varsayilan_adres_127(self):
+        rc, out, err, sunucu = self.kos(["--ilerletme-yok"])
+        self.assertEqual(sunucu.call_args[0][0], ("127.0.0.1", 8770))
+        self.assertIn("http://127.0.0.1:8770", out)
+        self.assertNotIn("uyarı", err)
+        self.assertEqual(rc, 0)
+
+    def test_adres_0000_baglanir_ve_uyarir(self):
+        rc, out, err, sunucu = self.kos(["--adres", "0.0.0.0", "--ilerletme-yok"])
+        self.assertEqual(sunucu.call_args[0][0], ("0.0.0.0", 8770))
+        self.assertIn("http://0.0.0.0:8770", out)
+        self.assertIn(UYARI, err)
+        self.assertEqual(rc, 0)
+
+    def test_loopback_disi_adres_uyarir(self):
+        _, _, err, _ = self.kos(["--adres", "192.0.2.10", "--ilerletme-yok"])
+        self.assertIn(UYARI, err)
+        _, _, err, _ = self.kos(["--adres", "::1", "--ilerletme-yok"])
+        self.assertNotIn("uyarı", err)
+
+    def test_baglanamazsa_1(self):
+        rc, _, err, _ = self.kos(["--adres", "0.0.0.0", "--ilerletme-yok"], sunucu_hatasi=OSError)
+        self.assertEqual(rc, 1)
+        self.assertIn("0.0.0.0:8770 açılamadı", err)
+
+    def test_env_anahtari_dagitici_alt_surecine_ulasir(self):
+        def kontrol():
+            cikti = json.dumps({"result": json.dumps({"zorluk": "orta", "gerekce": "x"}), "total_cost_usd": 0.003})
+            with mock.patch.object(dagitici.subprocess, "run",
+                                   return_value=mock.Mock(stdout=cikti, returncode=0)) as calistir:
+                dagitici.haiku_zorluk("soru")
+            self.env = calistir.call_args.kwargs["env"]
+
+        with mock.patch.dict(os.environ):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            rc, _, _, _ = self.kos(["--ilerletme-yok"], env_metni="ANTHROPIC_API_KEY=sk-ant-sahte-0001\n",
+                                   sonra=kontrol)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.env["ANTHROPIC_API_KEY"], "sk-ant-sahte-0001")
+
+    def test_env_yokken_acilir(self):
+        rc, _, _, _ = self.kos(["--ilerletme-yok"])
+        self.assertEqual(rc, 0)
+
+    def test_kullanici_ekle_env_yuklemez(self):
+        with mock.patch.object(panel.ayar, "ortam_yukle") as yukle, \
+                mock.patch.dict(os.environ, {"CLAUDECODE": "1"}), mock.patch("sys.stderr"):
+            panel.main(["--kullanici-ekle", UYE])
+        yukle.assert_not_called()
 
 
 class AdaptorTesti(unittest.TestCase):

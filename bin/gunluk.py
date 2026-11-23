@@ -313,6 +313,7 @@ def aksam(kok, simdi=None):
 
 
 def main(argv):
+    ayar.ortam_yukle(KOK / ".env")
     kuru = "--kuru" in argv
     if "--ilerlet" in argv:
         # Gün içi ilerletme: yalnız dağıtıcı (mesai/tatil kararı onun); rapor açmaz, dosya yazmaz.
