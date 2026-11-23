@@ -223,6 +223,34 @@ class PaketTest(Taban):
         (self.kok / "yanitlar" / "bag.md").symlink_to(self.kok / ".env")
         self.assertNotIn("yanitlar/bag.md", uyeler(self.paketle()["arsiv"]))
 
+    def test_kok_disina_cikan_sembolik_ust_klasor_atlanir(self):
+        disari = Path(self.t.name) / "disari"
+        yaz(disari, "kosu/k.md", "ANTHROPIC_API_KEY=sk-ant-GIZLI-4711\n")
+        (self.kok / "takimlar" / "dis").symlink_to(disari)
+        s = self.paketle()
+        self.assertNotIn("takimlar/dis/kosu/k.md", uyeler(s["arsiv"]))
+        self.assertEqual(uyeler(s["arsiv"]), IZINLI)
+        self.assertEqual(s["atlanan"], 1)
+
+    def test_sabit_bag_atlanir(self):
+        os.link(self.kok / ".env", self.kok / "yanitlar" / "sert.md")
+        s = self.paketle()
+        self.assertEqual(uyeler(s["arsiv"]), IZINLI)
+        self.assertEqual(s["atlanan"], 1)
+        with tarfile.open(s["arsiv"], "r:gz") as t:
+            for m in t.getmembers():
+                self.assertNotIn(b"GIZLI-4711", t.extractfile(m).read())
+
+    def test_atlanan_sayisi_basilir(self):
+        (self.kok / "yanitlar" / "bag.md").symlink_to(self.kok / ".env")
+        os.link(self.kok / ".env", self.kok / "yanitlar" / "sert.md")
+        with mock.patch.object(tasima, "engeller", return_value=[]):
+            kod, cikti = self.main(["--paketle", "--kuru"])
+        self.assertEqual(kod, 0)
+        self.assertIn("2 dosya atlandı", cikti)
+        for yasak in ("bag.md", "sert.md", "GIZLI"):
+            self.assertNotIn(yasak, cikti)
+
     def test_cikti_depo_icinde_olamaz(self):
         with self.assertRaises(tasima.TasimaHatasi):
             tasima.paketle(self.kok, self.kok / "sirket-log", simdi=SIMDI, mac_denetimi=BOS)
@@ -392,10 +420,50 @@ class AcTest(AcTaban):
                 with self.assertRaises(tasima.TasimaHatasi) as b:
                     self.ac(arsiv)
                 self.assertIn("arşivde beklenmeyen yol", str(b.exception))
+                for yasak in ("disari.md", "passwd", "GIZLI", "ayar.py", "kurallar.md", "bag.md", "sert.md",
+                              "iyi.md", "alt.md", "x.md", "roller.json"):
+                    self.assertNotIn(yasak, str(b.exception))
                 self.assertFalse((self.hedef / "yanitlar").exists())
                 self.assertEqual(self.hedef_icerik(), [])
                 self.assertEqual(sorted(p.name for p in Path(self.t.name).iterdir()), disari_once)
                 self.assertFalse((self.hedef.parent / "disari.md").exists())
+
+    def test_dusmanca_arsiv_adet_ve_ust_klasor_basar(self):
+        arsiv = self.elle_arsiv([("yanitlar/a.md", "sembolik", "/etc/passwd"),
+                                 ("yanitlar/b.md", "sembolik", "/etc/passwd"), ("bin/ayar.py", "dosya", b"x")])
+        with self.assertRaises(tasima.TasimaHatasi) as b:
+            self.ac(arsiv)
+        self.assertIn("3 üye", str(b.exception))
+        self.assertIn("yanitlar/", str(b.exception))
+        self.assertIn("bin/", str(b.exception))
+
+    def test_kesik_arsiv_okunamadi(self):
+        tam = self.arsivle().read_bytes()
+        for ad, veri in (("kesik", tam[:len(tam) // 2]), ("kesik_son", tam[:-12]),
+                         ("bozuk", tam[:40] + bytes(b ^ 0xFF for b in tam[40:80]) + tam[80:])):
+            with self.subTest(ad):
+                arsiv = self.cikti / f"{ad}.tar.gz"
+                arsiv.write_bytes(veri)
+                h = hashlib.sha256(veri).hexdigest()
+                arsiv.with_name(arsiv.name + ".sha256").write_text(f"{h}  {arsiv.name}\n")
+                with self.assertRaises(tasima.TasimaHatasi) as b:
+                    self.ac(arsiv)
+                self.assertIn("arşiv okunamadı", str(b.exception))
+                self.assertEqual(self.hedef_icerik(), [])
+
+    def test_okuma_izni_yoksa_ayri_ileti(self):
+        arsiv = self.arsivle()
+        for hedef in ("read_text", "read_bytes"):
+            with self.subTest(hedef), mock.patch.object(Path, hedef, side_effect=PermissionError(13, "izin")):
+                with self.assertRaises(tasima.TasimaHatasi) as b:
+                    self.ac(arsiv)
+                self.assertIn("okuma izni yok", str(b.exception))
+                self.assertNotIn("sağlama toplamı okunamadı", str(b.exception))
+        with mock.patch.object(Path, "read_text", side_effect=PermissionError(13, "izin")):
+            kod, cikti = self.ac_main(["--ac", str(arsiv)])
+        self.assertEqual(kod, 1)
+        self.assertIn("okuma izni yok", cikti)
+        self.assertEqual(list(self.hedef.iterdir()), [])
 
     def test_izinli_dizin_uyesi_kabul(self):
         arsiv = self.elle_arsiv([("yanitlar/alt", "dizin", None), ("yanitlar/alt/a.md", "dosya", b"a\n")])
@@ -410,6 +478,8 @@ class AcTest(AcTaban):
         with self.assertRaises(tasima.TasimaHatasi) as b:
             self.ac(self.arsivle())
         self.assertIn("hedefte beklenmeyen yol", str(b.exception))
+        self.assertIn("yanitlar/", str(b.exception))
+        self.assertNotIn("s1.md", str(b.exception))
         self.assertEqual(list(disari.iterdir()), [])
         self.assertFalse((self.hedef / "sirket-log").exists())
 

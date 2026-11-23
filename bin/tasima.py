@@ -22,13 +22,16 @@ from __future__ import annotations
 
 import fcntl
 import fnmatch
+import gzip
 import hashlib
 import io
 import os
 import socket
+import stat
 import sys
 import tarfile
 import tempfile
+import zlib
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -73,8 +76,15 @@ def izinli_mi(goreli: str) -> bool:
 
 
 def dosyalar(kok) -> list:
-    """İzinli düzenli dosyalar, sıralı; sembolik bağ ve özel dosya atlanır."""
+    """İzinli düzenli dosyalar, sıralı; sembolik bağ, sabit bağ, kök dışı ve özel dosya atlanır."""
+    return _tara(kok)[0]
+
+
+def _tara(kok):
+    """(izinli dosyalar, atlanan adet). İzinli yoldaki bir dosya şunlarda atlanır: sembolik bağ, düzenli dosya değil,
+    gerçek yolu kökün dışında (sembolik üst klasör), birden çok sabit bağı var (`.env` başka adla taşınamasın)."""
     kok = Path(kok)
+    gercek_kok = kok.resolve()
     sonuc = set()
     for kural in TASINANLAR:
         for yol in kok.glob(kural):
@@ -86,12 +96,25 @@ def dosyalar(kok) -> list:
                         sonuc.add(Path(dizin) / ad)
             else:
                 sonuc.add(yol)
-    gecenler = []
+    gecenler, atlanan = [], 0
     for yol in sonuc:
         goreli = yol.relative_to(kok).as_posix()
-        if izinli_mi(goreli) and not yol.is_symlink() and yol.is_file():
+        if not izinli_mi(goreli):
+            continue
+        if _guvenli_dosya_mi(yol, gercek_kok):
             gecenler.append(goreli)
-    return sorted(gecenler)
+        else:
+            atlanan += 1
+    return sorted(gecenler), atlanan
+
+
+def _guvenli_dosya_mi(yol: Path, gercek_kok: Path) -> bool:
+    try:
+        bilgi = os.lstat(yol)
+        yol.resolve().relative_to(gercek_kok)
+    except (OSError, ValueError):
+        return False
+    return stat.S_ISREG(bilgi.st_mode) and bilgi.st_nlink == 1
 
 
 @contextmanager
@@ -175,10 +198,10 @@ def paketle(kok, cikti_dizini, simdi=None, kuru=False, mac_denetimi=None) -> dic
         raise TasimaHatasi("çıktı dizini deponun içinde olamaz")
     simdi = simdi or _simdi()
     arsiv = cikti_dizini / f"nove-tasima-{simdi:%Y%m%d-%H%M}.tar.gz"
-    sonuc = {"engeller": [], "ozet": {}, "toplam": 0, "arsiv": None, "sha256": None}
+    sonuc = {"engeller": [], "ozet": {}, "toplam": 0, "atlanan": 0, "arsiv": None, "sha256": None}
 
     def hazirla():
-        liste = dosyalar(kok)
+        liste, sonuc["atlanan"] = _tara(kok)
         sonuc["ozet"], sonuc["toplam"] = _ozet(liste), len(liste)
         return liste
 
@@ -220,14 +243,34 @@ def _euid():
     return os.geteuid()
 
 
+IZIN_YOK = ("okuma izni yok — arşivi ve .sha256'yı konteyner kullanıcısının okuyabileceği hâle getirin "
+            "(sahibi 3. bölümdeki kullanıcı olsun)")
+
+
+def _ust(goreli: str) -> str:
+    """Hata iletisi için yalnız üst klasör; dosya adı basılmaz."""
+    parca = goreli.split("/")
+    return parca[0] + "/" if len(parca) > 1 and parca[0] else "(kök)"
+
+
+def _yol_hatasi(nerede: str, kotuler) -> TasimaHatasi:
+    ustler = sorted({_ust(g) for g in kotuler})
+    return TasimaHatasi(f"{nerede} beklenmeyen yol: {len(kotuler)} üye ({', '.join(ustler)})")
+
+
 def _arsiv_oku(arsiv: Path) -> bytes:
     """Arşivin baytları — yalnız yanındaki .sha256 ile tutarsa. Tek okuma: denetlenen bayt açılan bayttır."""
     sha_yolu = arsiv.with_name(arsiv.name + ".sha256")
     try:
         beklenen = sha_yolu.read_text(encoding="ascii").split()[0].lower()
+    except PermissionError:
+        raise TasimaHatasi(IZIN_YOK) from None
     except (OSError, UnicodeDecodeError, IndexError):
         raise TasimaHatasi("sağlama toplamı okunamadı — ARSIV.sha256 arşivin yanında olmalı") from None
-    veri = arsiv.read_bytes()
+    try:
+        veri = arsiv.read_bytes()
+    except PermissionError:
+        raise TasimaHatasi(IZIN_YOK) from None
     if hashlib.sha256(veri).hexdigest() != beklenen:
         raise TasimaHatasi("sağlama toplamı tutmuyor — arşiv bozuk ya da değişmiş")
     return veri
@@ -235,21 +278,24 @@ def _arsiv_oku(arsiv: Path) -> bytes:
 
 def _uyeleri_oku(veri: bytes) -> dict:
     """{goreli: içerik}. Tek bir izinsiz üye bütün arşivi reddeder; extractall kullanılmaz."""
-    icerik, gorulen = {}, set()
-    try:
-        with tarfile.open(fileobj=io.BytesIO(veri), mode="r:gz") as t:
+    icerik, gorulen, kotuler = {}, set(), []
+    try:   # gzip önce bütünüyle açılır: CRC ve uzunluk denetlenir, kesik ya da bozuk akış sessizce geçmez
+        with tarfile.open(fileobj=io.BytesIO(gzip.decompress(veri)), mode="r:") as t:
             for m in t.getmembers():
                 if not (m.isreg() or m.isdir()) or not izinli_mi(m.name) or m.name in gorulen:
-                    raise TasimaHatasi(f"arşivde beklenmeyen yol: {m.name!r}")
+                    kotuler.append(m.name)
+                    continue
                 gorulen.add(m.name)
                 if m.isreg():
                     icerik[m.name] = t.extractfile(m).read()
-    except tarfile.TarError:
+    except (tarfile.TarError, EOFError, zlib.error, OSError):   # OSError: gzip.BadGzipFile
         raise TasimaHatasi("arşiv okunamadı") from None
     for g in icerik:   # bir dosya başka bir dosyanın üst klasörü olamaz
         parca = g.split("/")
         if any("/".join(parca[:i]) in icerik for i in range(1, len(parca))):
-            raise TasimaHatasi(f"arşivde beklenmeyen yol: {g!r}")
+            kotuler.append(g)
+    if kotuler:
+        raise _yol_hatasi("arşivde", kotuler)
     return icerik
 
 
@@ -260,7 +306,7 @@ def _hedef_yolu(kok: Path, goreli: str) -> Path:
         yol = yol / p
         son = i == len(parca) - 1
         if yol.is_symlink() or (yol.exists() and not (yol.is_file() if son else yol.is_dir())):
-            raise TasimaHatasi(f"hedefte beklenmeyen yol: {'/'.join(parca[:i + 1])!r}")
+            raise _yol_hatasi("hedefte", [goreli])
     return yol
 
 
@@ -364,6 +410,8 @@ def _yazdir(sonuc, kuru, simdi):
         print(f"  ENGEL {e}")
     for ust, adet in sorted(sonuc["ozet"].items()):
         print(f"  {ust + '/':<16}{adet} dosya")
+    if sonuc.get("atlanan"):
+        print(f"  {sonuc['atlanan']} dosya atlandı (sembolik bağ, sabit bağ ya da depo dışını gösteren yol)")
     if sonuc["arsiv"]:
         print(f"  → {sonuc['toplam']} dosya · arşiv: {sonuc['arsiv']} · sha256: {sonuc['sha256']}")
     elif not sonuc["engeller"] or kuru:
