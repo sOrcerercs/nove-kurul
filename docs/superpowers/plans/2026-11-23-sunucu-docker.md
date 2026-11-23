@@ -1,9 +1,8 @@
 ---
-durum: beklemede
+durum: tamamlandi
 guncelleme: 2026-11-23
 dal: feature/sunucu-docker
 pr: 34
-bekleyen: kullanici — PR merge; KURULUM.md yazılımcıya; geçiş günü
 spec: docs/superpowers/specs/2026-11-23-sunucu-teslim-design.md
 ---
 
@@ -706,3 +705,9 @@ kabul edilip yazılıyordu → artık "arşiv okunamadı", hiçbir şey yazılma
 - "CLAUDE.md'de `deploy/` satırı güncellenir": bugün öyle bir satır yok → eklenir (Task 7).
 - "Hepsi sürümü sabitlenmiş": `apt` paketleri taban imaj etiketiyle sabitlenir (Task 6).
 - `--ac` çakışma davranışı spec'te yok → aynı içerik atlanır, farklı içerik reddedilir, `--ustune-yaz` yedekler (Task 5).
+
+## Kapanış (23.11.2026)
+
+PR #34 merge edildi (main `7c4ccfb`). main'de tam takım: 1085 test OK (skipped=9; taban 989). Kod tamam. Kalan insan
+adımları: `deploy/KURULUM.md`'nin yazılımcıya verilmesi ve `.env` değerleri (Kağan: en sona), sunucu kurulumu, geçiş
+günü (KURULUM §6), ilk gerçek `claude -p` Kağan onayıyla.
