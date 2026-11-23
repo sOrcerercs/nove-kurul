@@ -386,6 +386,12 @@ class Gonderim(unittest.TestCase):
         self.assertEqual(len(r["kilitler"]), 1)
         self.assertEqual(r["sonuclar"][0]["sonuc"], "gonderilecek")
 
+    def test_kuru_panel_adresi_yokken_dusmez(self):
+        r = self.cagir(kuru=True, ortam={rapor_postasi.AJAN_ISARETI: "1"})
+        self.assertEqual(r["sonuclar"][0]["sonuc"], "gonderilecek")
+        self.assertIn("PANEL_ADRES", " ".join(r["kilitler"]))
+        self.assertEqual(SahteSMTP.ornekler, [])
+
     def test_ortam_varsayilani_kok_env(self):
         onceki = dict(os.environ)
         with mock.patch.dict(os.environ, {}, clear=True):

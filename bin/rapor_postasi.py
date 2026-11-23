@@ -279,7 +279,7 @@ def _isle(kok, simdi, bugun, kuru, ortam, alicilar, engel, nedenler, tavan) -> d
             if sayi >= tavan:
                 ekle(a, "tavan", len(liste))
                 continue
-            konu, govde = sablon(a["tur"], a["tarih"], a["id"], ortam["PANEL_ADRES"])
+            konu, govde = sablon(a["tur"], a["tarih"], a["id"], ortam.get("PANEL_ADRES", ""))
             deneme = onceki.get("deneme", 0)
             if kuru:
                 sayi += 1
