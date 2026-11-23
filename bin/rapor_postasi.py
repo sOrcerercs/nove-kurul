@@ -12,9 +12,8 @@ kalıbındaki kayıtları aday sayar; her biri için bir haber maili hazırlar (
   3. `CLAUDECODE` ortamında değil (ajan göndermez; yalnız `--kuru`)
 
 Adres hiçbir çıktıya, kayda ya da hata iletisine yazılmaz; kayıtta yalnız alıcı sayısı ve istisna sınıf adı kalır.
-Komut satırı sonraki görevde eklenir.
 
-Kullanım (kilitler ve CLI eklenince):
+Kullanım:
     python3 bin/rapor_postasi.py --kuru     # ne gideceğini gösterir, göndermez
     python3 bin/rapor_postasi.py            # gönderir (yalnız insan)
 """
@@ -309,3 +308,54 @@ def _isle(kok, simdi, bugun, kuru, ortam, alicilar, engel, nedenler, tavan) -> d
             except Exception:
                 pass
     return {"kilitler": nedenler, "sonuclar": sonuclar, "bugun": sayi, "tavan": tavan}
+
+
+_BASLIKLAR = {"gonderildi": "GİTTİ", "hata": "HATA", "tavan": "TAVAN", "eski": "ESKİ", "ad-yok": "AD YOK",
+              "kilitli": "KİLİTLİ", "alici-yok": "ALICI YOK", "gonderilecek": "GÖNDER"}
+
+
+def bas(sonuc: dict, simdi, kuru: bool, kok=None) -> None:
+    """Özet: adres yok, yalnız alıcı sayısı; `hata` satırında kayıttaki istisna sınıf adı."""
+    kok = kok or KOK
+    print(f"rapor postası — {simdi.astimezone(ISTANBUL).strftime('%Y-%m-%d %H:%M')}" + (" (kuru)" if kuru else ""))
+    for neden in sonuc["kilitler"]:
+        print(f"  KİLİT {neden}")
+    gonderilen = 0
+    for s in sonuc["sonuclar"]:
+        baslik = _BASLIKLAR.get(s["sonuc"], s["sonuc"].upper())
+        if s["sonuc"] == "hata":
+            baslik += " " + ((kayit_oku(kok, s["id"]) or {}).get("hata") or "?")
+        parcalar = [s["id"], s["tur"]]
+        if s["konu"]:
+            parcalar.append(f'"{s["konu"]}"')
+        if s["alici_sayisi"]:
+            parcalar.append(f"{s['alici_sayisi']} alıcı")
+        print(f"  {baslik.ljust(9)} " + " · ".join(parcalar))
+        if s["sonuc"] in ("gonderildi", "gonderilecek"):
+            gonderilen += 1
+    print(f"  → {gonderilen} haber · bugün gönderilen {sonuc['bugun']}/{sonuc['tavan']}")
+    if kuru:
+        print("  (kuru koşu: mail gönderilmedi, kayıt yazılmadı)")
+
+
+def main(argv, kok=None, ortam=None, simdi=None) -> int:
+    """K1 yetkiyle: ajan ortamında yalnız `--kuru` (bin/formdan_takim.py deseni)."""
+    kok = kok or KOK
+    ortam_arg = ortam
+    if [a for a in argv if a != "--kuru"]:
+        print("kullanım: python3 bin/rapor_postasi.py [--kuru]", file=sys.stderr)
+        return 2
+    if "--kuru" not in argv and (os.environ if ortam is None else ortam).get(AJAN_ISARETI):
+        print("durdu — ajan ortamında gönderim kapalı; yalnız --kuru.")
+        return 1
+    kuru = "--kuru" in argv
+    simdi = (simdi or datetime.now(ISTANBUL)).astimezone(ISTANBUL)
+    sonuc = calistir(kok, simdi=simdi, kuru=kuru, ortam=ortam_arg)
+    bas(sonuc, simdi, kuru, kok)
+    if kuru:
+        return 0
+    return 1 if sonuc["kilitler"] or any(s["sonuc"] == "hata" for s in sonuc["sonuclar"]) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

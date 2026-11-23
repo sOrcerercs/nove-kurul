@@ -1,9 +1,12 @@
+import contextlib
 import fcntl
+import io
 import inspect
 import json
 import os
 import re
 import smtplib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -416,6 +419,74 @@ class Gonderim(unittest.TestCase):
         (Path(gecici.name) / "deploy" / "posta-alicilari.json").write_text(json.dumps(veri), encoding="utf-8")
         self.assertEqual(rapor_postasi.alicilari_oku(gecici.name), {k: v for k, v in veri.items()})
         self.assertIn("deploy/posta-alicilari.json", (depo / ".gitignore").read_text(encoding="utf-8").splitlines())
+
+
+class KomutSatiri(unittest.TestCase):
+    AJAN = {**ORTAM, "CLAUDECODE": "1"}
+    setUp = Gonderim.setUp
+    alicilari_yaz = Gonderim.alicilari_yaz
+
+    def main(self, argv, ortam):
+        cikti = io.StringIO()
+        with contextlib.redirect_stdout(cikti):
+            kod = rapor_postasi.main(argv, kok=self.kok, ortam=ortam, simdi=SIMDI)
+        return kod, cikti.getvalue()
+
+    def kayit_dosyalari(self):
+        return list((self.kok / "sirket-log" / "posta").glob("*.json"))
+
+    def test_kuru_ajan_ortaminda_listeler(self):
+        kod, cikti = self.main(["--kuru"], self.AJAN)
+        self.assertEqual(kod, 0)
+        for parca in ("rapor-kalite-20261123", "2 alıcı", "kuru koşu", "rapor postası — 2026-11-23 11:05 (kuru)"):
+            self.assertIn(parca, cikti)
+        self.assertNotIn("@", cikti)
+        self.assertEqual(SahteSMTP.ornekler + SahteSSL.ornekler, [])
+        self.assertEqual(self.kayit_dosyalari(), [])
+
+    def test_ajan_ortaminda_yazan_kosu_durur(self):
+        kod, cikti = self.main([], self.AJAN)
+        self.assertEqual(kod, 1)
+        self.assertIn("yalnız --kuru", cikti)
+        self.assertEqual(SahteSMTP.ornekler + SahteSSL.ornekler, [])
+        self.assertEqual(self.kayit_dosyalari(), [])
+
+    def test_kilitler_kuruda_gorunur(self):
+        (self.kok / "ANAYASA.md").write_text("istisna yok\n", encoding="utf-8")
+        kod, cikti = self.main(["--kuru"], {})
+        self.assertEqual(kod, 0)
+        self.assertEqual(sum(1 for s in cikti.splitlines() if s.startswith("  KİLİT ")), 2)
+        self.assertIn("GÖNDER", cikti)
+
+    def test_gercek_kosu_cikis_kodlari(self):
+        kod, cikti = self.main([], dict(ORTAM))
+        self.assertEqual(kod, 0)
+        self.assertIn("GİTTİ", cikti)
+        self.assertNotIn("(kuru)", cikti)
+        # kilit tutmuyor
+        (self.kok / "ANAYASA.md").write_text("istisna yok\n", encoding="utf-8")
+        kod, cikti = self.main([], dict(ORTAM))
+        self.assertEqual(kod, 1)
+        self.assertIn("KİLİT", cikti)
+
+    def test_gonderim_hatasi_cikis_1(self):
+        SahteSMTP.hata_ver = {"send": smtplib.SMTPRecipientsRefused({ALICILAR[0]: (550, b"x")})}
+        kod, cikti = self.main([], dict(ORTAM))
+        self.assertEqual(kod, 1)
+        self.assertIn("HATA SMTPRecipientsRefused", cikti)
+        self.assertNotIn("@", cikti)
+
+    def test_kullanim_hatasi(self):
+        self.assertEqual(self.main(["--gonder"], dict(ORTAM))[0], 2)
+        self.assertEqual(self.main(["x"], dict(ORTAM))[0], 2)
+
+    def test_alt_surec_kuru(self):
+        kok = Path(__file__).resolve().parent.parent
+        r = subprocess.run([sys.executable, "bin/rapor_postasi.py", "--kuru"], cwd=kok,
+                           env={**os.environ, "CLAUDECODE": "1"}, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(r.stdout.startswith("rapor postası —"), r.stdout)
+        self.assertNotIn("@", r.stdout + r.stderr)
 
 
 if __name__ == "__main__":
