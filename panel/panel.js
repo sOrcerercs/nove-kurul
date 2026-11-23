@@ -344,6 +344,8 @@ $('peek').addEventListener('click',e=>{
 /* Giriş: sunucuda bin/panel.py → POST /api/giris {eposta, sifre} → 200 {ad, basHarf, rol} | 401.
    Dosya doğrudan açıldığında (file://) ya da adres ?demo ile açıldığında demo modu: her giriş kabul edilir. */
 const DEMO = location.protocol==='file:' || new URLSearchParams(location.search).has('demo');
+// rapor postası bağlantısı (?soru=<id>): tüketilene kadar durur; giriş yapılınca kayıt açılır
+let istenenSoru = DEMO ? null : NoveSoruBaglantisi.oku(location.search);
 $('hint').hidden = !DEMO;
 async function dogrula(email, sifre){
   if(DEMO) return {ok:true};
@@ -386,7 +388,7 @@ function toWelcome(){
   later(toOffice, reduce?1400:3300);
 }
 function toOffice(){
-  if(!DEMO) defterYukle();
+  if(!DEMO) defterYukle().then(istenenAc);
   phase='office'; setNav(2); applyCamera(false);
   later(()=>{mountOffice(); const a=$('app'); a.classList.add('on'); a.setAttribute('tabindex','-1'); a.focus({preventScroll:true}); tick();}, reduce?100:700);
 }
@@ -651,12 +653,20 @@ async function defterYukle(){
     if (acik.length && !gs.bekleyen && !gs.gonderiyor) bekle(acik[0]); else renderApp();
   } catch (_) { if (no === oturumNo) { gs.defterHata = true; renderApp(); } }
 }
-async function satirAc(id){
+async function istenenAc(){
+  if (!istenenSoru) return;
+  const id = istenenSoru;
+  istenenSoru = null;
+  history.replaceState(null, '', location.pathname + NoveSoruBaglantisi.temiz(location.search));
+  await satirAc(id, true);
+}
+async function satirAc(id, baglantidan){
   if (DEMO || !id || gs.bekleyen || gs.gonderiyor) return;
   const no = oturumNo;
   try {
     const s = await api('/api/sorular/' + encodeURIComponent(id));
     if (no !== oturumNo || s.durum === 401 || gs.bekleyen) return;
+    if (baglantidan && s.durum === 404) { gs.hata = 'Bu kayıt bulunamadı ya da görme yetkin yok.'; st.panel = 'akis'; renderApp(); return; }
     if (!s.ok) throw new Error('durum ' + s.durum);
     $('app').scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     if (s.veri.durum === 'arastiriliyor') bekle(s.veri); else sonucGoster(s.veri, false);
@@ -799,7 +809,7 @@ if('ResizeObserver' in window) new ResizeObserver(()=>{clearTimeout(rt); rt=setT
   if(!DEMO) api('/api/ben',undefined,true).then(s=>{
     if(!s.ok || phase!=='login' || $('go').disabled) return;
     kullaniciYaz(s.veri.ad||'Misafir', s.veri.basHarf||'N', s.veri.rol);
-    phase='office'; setNav(2); applyCamera(true); mountOffice(); $('app').classList.add('on'); defterYukle();
+    phase='office'; setNav(2); applyCamera(true); mountOffice(); $('app').classList.add('on'); defterYukle().then(istenenAc);
   }).catch(()=>{});
 })();
 // focusing a field inside the rotated planet must never scroll the stage

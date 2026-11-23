@@ -33,6 +33,14 @@ class PanelStatikTest(unittest.TestCase):
         self.assertLess(a, b)
         self.assertLess(b, c)
         self.assertLess(h.index("yanit-karti.js"), c)
+        self.assertLess(h.index("soru-baglantisi.js"), c)
+
+    def test_soru_baglantisi_kullanilir(self):
+        for parca in ("NoveSoruBaglantisi.oku(location.search)", "async function istenenAc(",
+                      "history.replaceState(", "Bu kayıt bulunamadı ya da görme yetkin yok."):
+            self.assertIn(parca, self.js)
+        self.assertEqual(self.js.count("defterYukle().then(istenenAc)"), 2)
+        self.assertRegex(self.js, r"istenenSoru\s*=\s*DEMO \? null :")
 
     def test_yanit_karti_kullanilir(self):
         self.assertIn("NoveYanitKarti.kart(", self.js)

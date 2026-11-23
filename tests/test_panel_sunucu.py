@@ -216,6 +216,21 @@ class AdaptorTesti(unittest.TestCase):
                 urllib.request.urlopen(istek, timeout=5)
             self.assertEqual(c.exception.code, 405)
 
+    def test_soru_parametreli_kok_index_doner(self):
+        with tempfile.TemporaryDirectory() as g:
+            uyg = panel.Uygulama(Path(g))
+            try:
+                sunucu = ThreadingHTTPServer(("127.0.0.1", 0), panel.yakala(uyg))
+            except OSError:
+                self.skipTest("yerel soket açılamadı")
+            self.addCleanup(sunucu.server_close)
+            threading.Thread(target=sunucu.serve_forever, daemon=True).start()
+            self.addCleanup(sunucu.shutdown)
+            taban = f"http://127.0.0.1:{sunucu.server_address[1]}"
+            with urllib.request.urlopen(taban + "/?soru=rapor-kalite-20261123", timeout=5) as r:
+                self.assertEqual(r.status, 200)
+                self.assertIn("Nove AI", r.read().decode("utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()
