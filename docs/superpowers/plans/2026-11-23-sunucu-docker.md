@@ -633,7 +633,34 @@ servisine ve launchd işlerine dokunulmaz; `zamanlayici` servisi `up` edilmez (y
 
 ## Uygulama
 
-(Task 8 sonuçları ve uygulama notları buraya yazılır.)
+### Task 8 — duman testi (Mac, Docker 29.9.3, 23.11.2026)
+
+Kurgusal kök: `git archive HEAD` → `mktemp -d /tmp/nove-duman.*`; kurgusal `.env` (izin `-rw-------`), `roller.json`
+(`uye@example.com`: kurul), `kullanicilar.json` (`{}`). Proje `nove-duman`, port 18770. Dockerfile'da düzeltme gerekmedi.
+
+| Adım | Sonuç |
+|---|---|
+| 2 `build` | çıkış 0; imaj `nove-kurul:yerel` |
+| 3 kullanıcı/saat | `id -u` = 501 (host ile aynı, root değil); `date +%z` = `+0300`; `.claude` yazılabilir (`tamam`) |
+| 4 `claude --version` | çıkış 0; `2.1.330 (Claude Code)` = `CLAUDE_CODE_SURUM` |
+| 5 `sunucu_kontrol.py` | çıkış 0; sekiz madde TAMAM, `denetci` UYARI, `posta-anahtarlari` BİLGİ; çıktıda `sahte`/`db.invalid` yok (0). `--db`: çıkış 1, `db-kalite` ve `db-okr` HATA (`OperationalError`), çıktıda değer yok |
+| 6 panel | `up -d panel`; `/` içinde "Nove AI" 2 eşleşme; `/api/ben` 401; `port panel 8770` = `127.0.0.1:18770`; günlükte `http://0.0.0.0:8770` ve "yalnız konteyner içinde" uyarısı |
+| 7 crontab | `supercronic -test deploy/docker/crontab` çıkış 0, "crontab is valid" |
+| 8 takım konteynerde | `Ran 1078 tests`, `FAILED (failures=4, skipped=8)` (ana makinede skipped=9) |
+| 9 temizlik | `down -v --rmi local` çıkış 0; kapsayıcı, imaj, birim, ağ kalmadı; geçici klasör silindi; 8770'teki servis yerinde |
+
+**X-Forwarded-For denetimi (Task 2, gerçek Docker ağı üzerinden).** Panel `--https-arkasinda` ile; bağlantı IP'si
+Docker geçidi (172.19.0.1). Yanlış parolayla POST `/api/giris`:
+- `203.0.113.7` + `uye@example.com` x5 → 401 x5.
+- `203.0.113.8` + `diger1@example.com` → **401** (fren geçit IP'sine değil XFF değerine bağlı).
+- `203.0.113.7` + `diger2@example.com` → **429** (IP engeli).
+- Not: ilk denemede `203.0.113.8` + aynı e-posta 429 döndü; fren e-posta ve IP'ye ayrı ayrı bakar, e-posta
+  sayacı 5 hatadan sonra IP'den bağımsız engeller. Beklenen davranış; denetim farklı e-postayla yinelendi.
+
+**Sonraya kalan (bu planda düzeltilmedi).** Konteynerdeki 4 hata hep `tests/test_formdan_takim.py` `DefterGitTesti`
+(`test_danisman_defteri_git_disinda` kalite/finans/satis-muduru, `test_onayli_formlar_git_disinda_sablon_izleniyor`):
+`git archive` kökünde `.git` yok, `git check-ignore` çalışmıyor; test ortamı artefaktı, planın dokunduğu modül değil.
+Çözüm önerisi: bu testler `.git` yoksa atlansın.
 
 ## Kağan'ın elle adımları (ajan yapmaz)
 
