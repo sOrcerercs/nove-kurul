@@ -9,6 +9,8 @@
 0b. **Soru → sonraki adım** (§2 adım 5–8). Soru kaydındaki son karar bölümüne bakar: Denetçi kabul → CEO
    başlar; CEO red → `r-<soru-id>` (en fazla `CEO_MAKS_RED`); CEO onay → kurula iletilir; Denetçi
    red/atlandi, ikinci CEO reddi ya da biten soru bütçesi → "onaylanamadı" etiketiyle deftere girer.
+   Bir turda en az bir yanıt başarıyla iletildiyse tur sonunda `bin/rapor_postasi.py` bir kez çağrılır
+   (`_posta_tetikle`); hatası dağıtımı durdurmaz, loga yalnız istisna sınıf adı yazılır.
 
 1. **Karar → sonraki adım.** Bir takımın kuyruğundaki madde "tamam" olunca zincirin devamı
    `ZINCIR` tablosundan okunur ve bir sonraki takımın kuyruğuna yazılır.
@@ -467,13 +469,14 @@ def _sonraki_adim(kok, metin, simdi):
     return "düzeltme", "CEO reddetti — bulgularla düzeltme"
 
 
-def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
+def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None, posta=None):
     """Yolu süren her soruyu bir adım ilerletir. [{soru_id, adim, sebep}] döner (yapılacak olmayanlar hariç)."""
     simdi = simdi or datetime.now().astimezone()
     ceo_baslat = ceo_baslat or _ceo_baslat
     ilet = ilet or soru_kapisi.ilet
     dizin = Path(kok) / "sirket-log" / "sorular"
     adimlar = []
+    iletilen = False
     for yol in sorted(dizin.glob("*.md")) if dizin.is_dir() else []:
         metin = yol.read_text(encoding="utf-8")
         if soru_kaydi.alan(metin, "durum") in BITMIS:
@@ -491,6 +494,7 @@ def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
                 ceo_baslat(kok, yol.stem)
             elif adim == "iletildi":
                 ilet(kok, yol.stem)
+                iletilen = True
             elif adim == "onaylanamadı":
                 ilet(kok, yol.stem, onaylanamadi=sebep)
             elif adim == "düzeltme":
@@ -500,6 +504,8 @@ def sorulari_ilerlet(kok, simdi=None, kuru=False, ceo_baslat=None, ilet=None):
                 soru_kaydi.durum_yaz(yol, "düzeltmede")
         except soru_kapisi.IletHatasi as exc:   # soru kaybolmaz: kayıtta kalır, sebep loga ve çıktıya
             adimlar[-1] = {**adimlar[-1], "adim": "hata", "sebep": str(exc)}
+    if iletilen and not kuru:
+        (posta or _posta_tetikle)(kok, simdi)
     return adimlar
 
 
@@ -540,6 +546,28 @@ def _log_yaz(kok, satirlar, simdi):
                         f"{satir['sonuc']} | {satir['sebep']}\n")
 
 
+def _posta_tetikle(kok, simdi):
+    """Rapor postası: hatası dağıtımı durdurmaz. Loga yalnız sınıf adı girer (str(e) adres taşıyabilir)."""
+    try:
+        import rapor_postasi
+        sonuc = rapor_postasi.calistir(kok, simdi=simdi)
+        satirlar = [{"takim": "posta", "sonuc": "kilit", "sebep": k} for k in sonuc.get("kilitler", [])]
+        gonderilen = 0
+        for s in sonuc.get("sonuclar", []):
+            if s.get("sonuc") == "gonderildi":
+                gonderilen += 1
+            else:
+                satirlar.append({"takim": "posta", "sonuc": s.get("sonuc"), "sebep": s.get("id")})
+        if gonderilen:
+            satirlar.append({"takim": "posta", "sonuc": "gonderildi", "sebep": f"{gonderilen} haber"})
+        _log_yaz(kok, satirlar, simdi)
+    except Exception as exc:  # noqa: BLE001
+        try:
+            _log_yaz(kok, [{"takim": "posta", "sonuc": "hata", "sebep": type(exc).__name__}], simdi)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def dagit(kok, simdi=None, kuru=False):
     """Önce bekleyen soruları yönlendirir, sonra zinciri kurar, sonra tetik kararlarını verir ve uygun
     takımları başlatır.
@@ -549,7 +577,8 @@ def dagit(kok, simdi=None, kuru=False):
     simdi = simdi or datetime.now().astimezone()
     sorular = sorulari_isle(kok, simdi, kuru, haiku=haiku_sinifla, ilet=soru_kapisi.ilet,
                           zorluk_sor=haiku_zorluk)
-    akis = sorulari_ilerlet(kok, simdi, kuru, ceo_baslat=_ceo_baslat, ilet=soru_kapisi.ilet)
+    akis = sorulari_ilerlet(kok, simdi, kuru, ceo_baslat=_ceo_baslat, ilet=soru_kapisi.ilet,
+                            posta=_posta_tetikle)
     zincir = [z for takim in takimlar(kok) for z in zinciri_isle(kok, takim, kuru, simdi)]
     kararlar, baslatilan = [], 0
     for takim in takimlar(kok):

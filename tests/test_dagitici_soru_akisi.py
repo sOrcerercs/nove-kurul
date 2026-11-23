@@ -18,6 +18,8 @@ sys.path.insert(0, str(KOK / "bin"))
 import ayar  # noqa: E402
 import bekci  # noqa: E402
 import dagitici  # noqa: E402
+import rapor_postasi  # noqa: E402
+import soru_kapisi  # noqa: E402
 import soru_kaydi as sk  # noqa: E402
 
 TR = timezone(timedelta(hours=3))
@@ -303,6 +305,69 @@ class CeoTakilmaTesti(Kurulum):
         self.ilerlet()
         adimlar = self.ilerlet(simdi=OGLEN + self.GEC)
         self.assertEqual(adimlar[0]["adim"], "ceo")
+
+
+class PostaTetigiTesti(Kurulum):
+    def test_iletimden_sonra_posta_cagrilir(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        posta = mock.MagicMock()
+        self.ilerlet(posta=posta)
+        posta.assert_called_once_with(self.kok, OGLEN)
+
+    def test_onaylanamadida_posta_yok(self):
+        self.ekle(DENETCI_RED)
+        posta = mock.MagicMock()
+        self.ilerlet(posta=posta)
+        posta.assert_not_called()
+
+    def test_kuruda_posta_yok(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        posta = mock.MagicMock()
+        self.ilerlet(kuru=True, posta=posta)
+        posta.assert_not_called()
+
+    def test_ilet_hatasinda_posta_yok(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        self.ilet.side_effect = soru_kapisi.IletHatasi("x")
+        posta = mock.MagicMock()
+        adimlar = self.ilerlet(posta=posta)
+        posta.assert_not_called()
+        self.assertEqual(adimlar[0]["adim"], "hata")
+
+    def log(self):
+        yol = self.kok / "sirket-log" / "dagitici.log"
+        return yol.read_text(encoding="utf-8") if yol.exists() else ""
+
+    def test_posta_hatasi_dagiticiyi_durdurmaz(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        with mock.patch.object(rapor_postasi, "calistir", side_effect=RuntimeError("smtp a@b.c")):
+            adimlar = self.ilerlet()
+        self.assertEqual(adimlar[0]["adim"], "iletildi")
+        self.assertIn("posta | hata | RuntimeError", self.log())
+        self.assertNotIn("a@b.c", self.log())
+
+    def test_posta_sonucu_loga_duser(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        sonuc = {"kilitler": ["ANAYASA.md'de istisna yok"],
+                 "sonuclar": [{"id": "rapor-kalite-20261012", "sonuc": "kilitli"},
+                              {"id": "rapor-okr-20261012", "sonuc": "gonderildi"}],
+                 "bugun": 0, "tavan": 5}
+        with mock.patch.object(rapor_postasi, "calistir", return_value=sonuc):
+            self.ilerlet()
+        log = self.log()
+        self.assertIn("posta | kilit | ANAYASA.md'de istisna yok", log)
+        self.assertIn("posta | kilitli | rapor-kalite-20261012", log)
+        self.assertIn("posta | gonderildi | 1 haber", log)
+        self.assertNotIn("rapor-okr-20261012", log)
+
+    def test_dagit_tetigi_baglar(self):
+        self.ekle(DENETCI_KABUL, CEO_ONAY)
+        with mock.patch.object(dagitici, "_posta_tetikle") as posta, \
+             mock.patch.object(dagitici, "_kostur"), \
+             mock.patch.object(dagitici, "_ceo_baslat", self.ceo), \
+             mock.patch.object(dagitici.soru_kapisi, "ilet", self.ilet):
+            dagitici.dagit(self.kok, simdi=OGLEN)
+        posta.assert_called_once_with(self.kok, OGLEN)
 
 
 if __name__ == "__main__":
