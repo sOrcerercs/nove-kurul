@@ -305,5 +305,74 @@ class AdaptorTesti(unittest.TestCase):
                 self.assertIn("Nove AI", r.read().decode("utf-8"))
 
 
+class IstemciIpTesti(unittest.TestCase):
+    def test_vekil_kapali_baslik_yok_sayilir(self):
+        self.assertEqual(panel.istemci_ip("127.0.0.1", ["203.0.113.7"], False), "127.0.0.1")
+
+    def test_loopback_vekilden_en_sagdaki(self):
+        self.assertEqual(panel.istemci_ip("127.0.0.1", ["198.51.100.1, 203.0.113.7"], True), "203.0.113.7")
+
+    def test_ozel_agdan_vekil(self):
+        self.assertEqual(panel.istemci_ip("172.18.0.1", ["203.0.113.7"], True), "203.0.113.7")
+        self.assertEqual(panel.istemci_ip("::ffff:172.18.0.1", ["203.0.113.7"], True), "203.0.113.7")
+
+    def test_genel_ipden_baslik_yok_sayilir(self):
+        self.assertEqual(panel.istemci_ip("198.51.100.20", ["203.0.113.7"], True), "198.51.100.20")
+
+    def test_bozuk_baslik_baglanti_ipsi(self):
+        for b in ([""], ["abc"], ["1.2.3.4:5678"], ["203.0.113.7, "], []):
+            with self.subTest(baslik=b):
+                self.assertEqual(panel.istemci_ip("127.0.0.1", b, True), "127.0.0.1")
+        self.assertEqual(panel.istemci_ip("127.0.0.1", ["2001:DB8::1"], True), "2001:db8::1")
+
+    def test_birden_cok_baslik_son_satir(self):
+        self.assertEqual(panel.istemci_ip("127.0.0.1", ["203.0.113.7", "203.0.113.9"], True), "203.0.113.9")
+
+    def _sunucu(self, uyg):
+        try:
+            sunucu = ThreadingHTTPServer(("127.0.0.1", 0), panel.yakala(uyg))
+        except OSError:
+            self.skipTest("yerel soket açılamadı")
+        self.addCleanup(sunucu.server_close)
+        threading.Thread(target=sunucu.serve_forever, daemon=True).start()
+        self.addCleanup(sunucu.shutdown)
+        return f"http://127.0.0.1:{sunucu.server_address[1]}"
+
+    def _giris(self, taban, eposta, sifre, xff):
+        istek = urllib.request.Request(
+            taban + "/api/giris", method="POST",
+            data=json.dumps({"eposta": eposta, "sifre": sifre}).encode(),
+            headers={"X-Forwarded-For": xff, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(istek, timeout=5) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    def test_adaptor_ipyi_uygulamaya_tasir(self):
+        for https, beklenen in ((True, "203.0.113.7"), (False, "127.0.0.1")):
+            with self.subTest(https=https), tempfile.TemporaryDirectory() as g:
+                uyg = panel.Uygulama(Path(g), https=https)
+                uyg.istek = mock.Mock(return_value=(200, {}, []))
+                taban = self._sunucu(uyg)
+                self._giris(taban, UYE, SIFRE, "203.0.113.7")
+                self.assertEqual(uyg.istek.call_args[0][4], beklenen)
+
+    def test_bir_kisinin_kilidi_digerini_kilitlemez(self):
+        for https, son in ((True, 200), (False, 429)):
+            with self.subTest(https=https), tempfile.TemporaryDirectory() as g, \
+                    mock.patch.object(panel_kimlik, "PBKDF2_TUR", 1000):
+                kok = Path(g)
+                (kok / "deploy").mkdir()
+                (kok / "deploy" / "roller.json").write_text(
+                    json.dumps({UYE: "kurul", "baska@example.com": "kurul"}), encoding="utf-8")
+                panel_kimlik.kullanici_ekle(kok, UYE, "Üye", SIFRE)
+                panel_kimlik.kullanici_ekle(kok, "baska@example.com", "Başka", SIFRE)
+                taban = self._sunucu(panel.Uygulama(kok, https=https))
+                for _ in range(5):
+                    self.assertEqual(self._giris(taban, "baska@example.com", "yanlis", "203.0.113.7"), 401)
+                self.assertEqual(self._giris(taban, UYE, SIFRE, "203.0.113.8"), son)
+
+
 if __name__ == "__main__":
     unittest.main()

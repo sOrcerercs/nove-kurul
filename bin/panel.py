@@ -209,6 +209,31 @@ class Ilerletici:
             self._is.join(timeout=5)
 
 
+# Vekil olabilecek ağlar. `ip.is_private` kullanılmaz: belgeleme aralıklarını (TEST-NET) da özel sayar.
+VEKIL_AGLARI = tuple(ipaddress.ip_network(a) for a in (
+    "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+    "::1/128", "fc00::/7", "fe80::/10"))
+
+
+def istemci_ip(baglanti_ip, xff_basliklari, vekil_arkasinda):
+    """Giriş freninin IP anahtarı. Başlığa yalnız vekil arkasında VE bağlantı loopback/özel ağdan
+    geliyorsa güvenilir; en sağdaki değer vekilin kendi eklediğidir. Geçersiz değer anahtar olmaz."""
+    if not vekil_arkasinda or not xff_basliklari:
+        return baglanti_ip
+    try:
+        es = ipaddress.ip_address(baglanti_ip)
+        es = getattr(es, "ipv4_mapped", None) or es
+    except ValueError:
+        return baglanti_ip
+    if not any(es in a for a in VEKIL_AGLARI if a.version == es.version):
+        return baglanti_ip
+    aday = xff_basliklari[-1].split(",")[-1].strip()
+    try:
+        return str(ipaddress.ip_address(aday))
+    except ValueError:
+        return baglanti_ip
+
+
 class Sunucu(SimpleHTTPRequestHandler):
     """İnce HTTP adaptörü: /api/ → Uygulama.istek; geri kalanı panel/ altından statik."""
 
@@ -228,7 +253,10 @@ class Sunucu(SimpleHTTPRequestHandler):
         except cookies.CookieError:
             pass
         m = c.get(panel_kimlik.CEREZ_ADI)
-        kod, d, ek = self.uygulama.istek(yontem, self.path, govde, m.value if m else None, self.client_address[0])
+        kod, d, ek = self.uygulama.istek(yontem, self.path, govde, m.value if m else None,
+                                             istemci_ip(self.client_address[0],
+                                                        self.headers.get_all("X-Forwarded-For") or [],
+                                                        self.uygulama.https))
         ham = json.dumps(d, ensure_ascii=False).encode("utf-8")
         self.send_response(kod)
         self.send_header("Content-Type", "application/json; charset=utf-8")
