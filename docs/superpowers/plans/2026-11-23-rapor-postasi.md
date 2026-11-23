@@ -1,9 +1,9 @@
 ---
-durum: yazildi
+durum: beklemede
 guncelleme: 2026-11-23
 dal: feature/rapor-postasi
 pr: -
-bekleyen: kullanici — planı okuyup onaylamak; açık sorular (sonda)
+bekleyen: kullanici — PR merge; Kağan'ın elle adımları 1–6
 ---
 
 # Rapor Postası — Implementation Plan
@@ -385,3 +385,28 @@ Sıra önemli: 1–4 bitmeden betik göndermez (kilitler); 5 gerçek deneme.
 2. Alıcılar gizli: `To` gönderen adres, alıcılar yalnız zarfta (Task 2 adım 7).
 3. Alan adı kilidi var: yalnız `@nove.group` (`ayar.POSTA_IZINLI_ALAN`, Task 2 `alicilari_oku`).
 4. Zamanlayıcıya ayrı yeniden deneme tetiği şimdilik yok; zamanlayıcı sunucuya taşınınca eklenir.
+
+## Uygulama (23.11.2026)
+
+5 görev, görev başına inceleme, son dal incelemesi Fable 5.2. 989 test OK (skipped=9; taban 931).
+`python3 bin/rapor_postasi.py --kuru` (ajan ortamı) → çıkış 0, üç KİLİT satırı, adres yok.
+
+Son incelemede kapatılan üç açık (4d6e867): `.env`'deki `CLAUDECODE=` satırı ajan kilidini açamaz; alıcı dosyası
+hata iletisi ham anahtarı yazmaz; SMTP TLS sertifikası doğrulanır (başarısız bağlantı kapatılır).
+
+Kurulum kararları (controller): sahte SMTP `send_message(msg, to_addrs=None)` (gizli alıcı) · commit atfı Opus 5.5 ·
+`POSTA_IZINLI_ALAN` testli · `from __future__ import annotations` (Python 3.9).
+
+### Sonraya kalan küçükler (son inceleme: bekleyebilir)
+
+- Kısmi alıcı reddi (`send_message` dönüşü) yok sayılıyor; `alici_sayisi` reddedilenleri de sayıyor — ilk takip işi.
+- `SMTPServerDisconnected` sonrası döngü ölü bağlantıyla sürüyor (kalanlar `hata`, sonra yeniden denenir).
+- Süreç kilidi doluyken dönüşte `bugun: 0`; gelecek tarihli id üst sınırı yok; `_kayit_yaz` gönderim sonrası
+  hata verirse tek tekrar gönderim; zaman aşımı DATA sonrası olursa tekrar (en az bir kez teslim).
+- Dağıtıcı logu her turda `eski`/`ad-yok` satırı yazar — sunucuda raporlar birikince gürültü; logda atlanmalı.
+- `Date`/`Message-ID` başlığı yok; `PANEL_ADRES` `http://` kabul ediyor.
+- Alıcı dosyasında biçimsiz ama geçerli listeli anahtar sessizce kabul ediliyor (kullanılmaz).
+- Kilit yarışında geç kalan haber bir sonraki iletime kalır.
+- Panel: `replaceState` hash'i düşürür; statik testler kaynak dizgisi; tarayıcıyla uçtan uca denenmedi.
+- Testler: `test_kilit_env_bicim` anahtar adını, giriş hatası testi kayıttaki sınıf adını doğrulamıyor; karma tur
+  (iletildi + onaylanamadı) testi yok. `IS-DAGITIMCI.md` cümlesi s-/r- listesinde.
