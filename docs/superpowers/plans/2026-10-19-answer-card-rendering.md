@@ -1,9 +1,9 @@
 ---
-durum: beklemede
-guncelleme: 2026-11-20
+durum: tamamlandi
+guncelleme: 2026-11-23
 dal: feature/yanit-karti
-pr: -
-bekleyen: kullanici — panelde göz kontrolü
+pr: 29
+bekleyen: -
 ---
 
 # Panelde kurul yanıtı kart olarak gösterilsin
@@ -42,3 +42,9 @@ kutu; Not küçük ve gri; altta danışman · tarih · Denetçi ✓ · CEO ✓.
 - `panel/yanit-karti.js` + `tests/test_yanit_karti.py` (node), `bin/panel_defter.py` `imzalar` + testleri,
   `panel/panel.js` kartı çağırır, `panel/index.html` betik, `panel/stil.css` kart stilleri.
 - Önizleme: `yanitlar/20261120-1547-uuvm.md` headless Chrome ile çizildi (panele giriş yapılmadan).
+
+## Kapanış (23.11.2026)
+
+PR #29 merge edildi (main 15f5f62). Kağan panelde göz kontrolü yaptı; Dayanak tabloları dar yan sütunda harf harf
+bölünüyordu — `panel/stil.css`'te tabloda kelime bölme kapatıldı, hücreye en az genişlik verildi, sığmayan tablo yatay
+kayar ve ilk sütun sabit kalır (b2c98a0). main'de 931 test OK (skipped=9); taban 919'du (+12 yeni test).
