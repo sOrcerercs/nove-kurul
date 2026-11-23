@@ -9,7 +9,8 @@ python3 -m unittest discover -s tests
 import io
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parents[1]
@@ -113,12 +114,28 @@ class RaporIlerletTesti(unittest.TestCase):
 
     def test_kuru_metni_yeni_isleri_basar(self):
         cikti = io.StringIO()
-        with redirect_stdout(cikti):
+        with mock.patch.object(zamanla.sys, "platform", "darwin"), redirect_stdout(cikti):
             self.assertEqual(zamanla.main(["--kuru"]), 0)
         metin = cikti.getvalue()
         self.assertIn("rapor · hafta içi 09:30", metin)
         self.assertIn("ilerlet · her 10 dk", metin)
         self.assertIn("<key>StartInterval</key>", metin)
+
+
+class LinuxReddiTesti(unittest.TestCase):
+    def test_linuxta_reddeder(self):
+        for bayrak in ("--kur", "--kuru", "--durum"):
+            hata = io.StringIO()
+            with mock.patch.object(zamanla.sys, "platform", "linux"), \
+                 mock.patch.object(zamanla, "kur") as kur, \
+                 redirect_stderr(hata):
+                self.assertEqual(zamanla.main([bayrak]), 2, bayrak)
+            self.assertIn("deploy/docker/compose.yaml", hata.getvalue())
+            kur.assert_not_called()
+
+    def test_macte_calisir(self):
+        with mock.patch.object(zamanla.sys, "platform", "darwin"), redirect_stdout(io.StringIO()):
+            self.assertEqual(zamanla.main(["--kuru"]), 0)
 
 
 if __name__ == "__main__":

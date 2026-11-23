@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+yanitlar/
+sirket-log/
+deploy/*.json
+formlar/
+kasa/
+gelen/
+takimlar/*/kosu/
+takimlar/*/cikti/
+takimlar/*/gelen/
+takimlar/*/veri/
+takimlar/*/defter.md
+takimlar/*/durum.json
+**/*.jsonl

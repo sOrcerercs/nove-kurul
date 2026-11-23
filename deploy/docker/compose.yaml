@@ -1,0 +1,36 @@
+# Nove Kurul Ofisi — sunucu paketi. Sırlar (.env) bağlı depodan okunur: servisler dosyayı kendisi
+# yükler, buraya sır ya da ortam dosyası yazılmaz. Panel yalnız loopback'te yayınlanır; dışarıya
+# ters vekil (deploy/Caddyfile.example) açar.
+#
+# Veritabanı ayrı bir Docker ağındaysa yazılımcı aşağıdaki iki bloğu açar ve ağ adını yazar:
+#
+#   x-ortak içine, her servisin altına:   networks: [veritabani]
+#   dosyanın sonuna:
+#     networks:
+#       veritabani:
+#         external: true
+#         name: <veritabani-agi-adi>
+name: nove-kurul
+x-ortak: &ortak
+  image: nove-kurul:yerel
+  working_dir: /srv/nove-kurul
+  volumes:
+    - "${NOVE_KOK:-/srv/nove-kurul}:/srv/nove-kurul"
+    - claude-ev:/home/nove-ajan/.claude
+  restart: unless-stopped
+  init: true
+  logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
+services:
+  panel:
+    <<: *ortak
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args: {UID: "${NOVE_UID:-1000}", GID: "${NOVE_GID:-1000}"}
+    command: ["python3", "bin/panel.py", "--adres", "0.0.0.0", "--https-arkasinda"]
+    ports: ["127.0.0.1:${NOVE_PORT:-8770}:8770"]
+  zamanlayici:
+    <<: *ortak
+    command: ["supercronic", "deploy/docker/crontab"]
+volumes:
+  claude-ev:
