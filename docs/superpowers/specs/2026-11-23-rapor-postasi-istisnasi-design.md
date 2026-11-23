@@ -1,8 +1,8 @@
 ---
 durum: yazildi
 guncelleme: 2026-11-23
-dal: docs/rapor-postasi-istisnasi
-pr: 31
+dal: feature/rapor-postasi
+pr: 31 (metin) · betik: -
 bekleyen: kullanici — metni ANAYASA.md §1 sonuna işlemek
 onay: Kağan, 23.11.2026 (seçenek A — yalnız haber)
 ---
@@ -53,10 +53,48 @@ yalnız haber verir.
 - **Olumsuz yorum uyarısı:** yorum ajanı olumsuzluğu LLM ile değerlendirirse "kuralla üretilmiş uyarı"ya girmez;
   ya iki onaydan geçer ya da metne yeni madde eklenir. Yorum takibine dönünce karar verilir; metin şimdilik sıkı.
 
-## Kurulumda kalan (betik işi)
+## Betik tasarımı (Kağan onayı 23.11.2026, dal `feature/rapor-postasi`)
 
-- Gönderen adres + SMTP bilgisi (`.env`) — Kağan.
-- `bin/rapor_postasi.py`: alıcı dosyasından okur, gövdeyi sabit şablondan kurar (ad, tarih, bağlantı); gövdeye
-  rakam ve ad girmediği testle kanıtlanır; tavan `bin/ayar.py`'de.
-- Panel bağlantısı sunucu adresini ister — sunucuya taşımadan sonra.
+### Yaklaşımlar
+
+| | Nasıl | Artısı | Eksisi |
+|---|---|---|---|
+| A — iletimin içinden | `soru_kapisi.ilet()` defteri yazınca maili atar | En kısa yol | SMTP hatası iletim adımına girer; yarım "iletildi" kaydı, yeniden deneme zor |
+| **B — giden kutusu (seçildi)** | `bin/rapor_postasi.py` Yanıt defterini tarar, haberi gitmemiş onaylı raporları gönderir, `sirket-log/posta/`'ya kaydeder | `ilet()`'e dokunulmaz; mail hatası raporu bozmaz; sonraki çağrı yeniden dener, aynı haber iki kez gitmez | Bir dosya ve bir kayıt klasörü fazla |
+
+### Kararlar
+
+- **Hangi raporlar:** Yanıt defterinde `- gorunurluk:` taşıyan (zamanlı rapor) ve `- etiket: onaylı` olan kayıtlar.
+  "CEO kontrolü yapılmadı" ve "onaylanamadı" kayıtlarına haber gitmez (§3 iki onay).
+- **Rapor türü:** kayıt id'sinden — `rapor-<danışman>-YYYYMMDD` → `<danışman>-gunluk` (ör. `kalite-gunluk`).
+  Bu kalıba uymayan kayıt atlanır.
+- **Tetik:** dağıtıcı başarılı her iletimden sonra betiği çağırır; hata dağıtıcıyı durdurmaz (yalnız loglanır).
+  Elle de çalışır.
+- **Mail:** sabit şablon. Konu: `<Rapor adı> hazır — GG.AA.YYYY`; gövde: tek cümle + panel bağlantısı. Rapor adı
+  sabit bir eşlemeden gelir (`kalite-gunluk` → "Kalite günlük raporu"); tarih kayıt id'sinden. Gövdeye rapor
+  metninden hiçbir şey girmez — rakam ve ad girmediği testle kanıtlanır.
+- **Bağlantı:** `<PANEL_ADRES>/?soru=<id>`; `PANEL_ADRES` `.env`'den. Panel `?soru=` parametresini tanır: girişten
+  sonra o kaydı açar (yetkisi yoksa açmaz, sunucu süzmesi değişmez).
+- **Alıcılar:** `deploy/posta-alicilari.json` — `{"kalite-gunluk": ["a@nove.group", …]}`; git dışı, örneği
+  `deploy/posta-alicilari.json.example` (sahte adreslerle). Ajana kapalı: `.claude/settings.json` deny listesine
+  `Read/Write/Edit(./deploy/posta-alicilari.json)` — Kağan onaylar. Rapor türü dosyada yoksa haber gitmez,
+  kayıt "alıcı yok" olarak düşer.
+- **Kilitler** (biri tutmazsa gönderim yok, nedeni yazılır):
+  1. `ANAYASA.md`'de `İstisna — rapor postası` metni var;
+  2. `.env`'de SMTP bilgisi (`POSTA_SMTP_SUNUCU`, `POSTA_SMTP_PORT`, `POSTA_KULLANICI`, `POSTA_SIFRE`,
+     `POSTA_GONDEREN`) ve `PANEL_ADRES` var;
+  3. `CLAUDECODE` ortamında değil — ajan yalnız `--kuru` koşturur (formdan_takim K1 deseni).
+- **Kayıt:** `sirket-log/posta/<id>.json` — gönderildi / alıcı yok / hata; zaman, alıcı **sayısı** (adres değil).
+  Gönderildi kaydı varsa tekrar gönderilmez. Hata kaydı sonraki çağrıda yeniden denenir.
+- **Tavan:** `ayar.POSTA_GUNLUK_TAVAN` (gün başına mail sayısı). Aşılırsa kalan haber ertesi çağrıya kalır,
+  nedeni loglanır; sessiz durmaz.
+- **Test:** gerçek SMTP yok — `smtplib` sahte sınıfla değiştirilir. Kilitler, idempotentlik, tavan, şablonun veri
+  taşımaması, alıcı yokken davranış.
+
+## Kurulumda kalan (Kağan)
+
+- Metni `ANAYASA.md` §1 sonuna işlemek.
+- Gönderen adres + SMTP bilgisi + `PANEL_ADRES` (`.env`).
+- `deploy/posta-alicilari.json` ve deny listesi satırları.
+- Panel bağlantısı sunucu adresini ister — sunucuya taşımadan sonra gerçek deneme.
 - `NOVE-KURULUM.md` ve `CLAUDE.md` Yasaklar satırı istisnayı anar (metin işlendikten sonra).

@@ -101,6 +101,7 @@ madde kimlikleriyle işler (Faz 3):
 - `r-` maddesine CEO'nun **bulgularını** not olarak koyarsın; danışman neyi düzelteceğini oradan okur.
 - Her soru için **en fazla bir** `r-` açılır (`ayar.CEO_MAKS_RED = 1`). İkinci CEO reddinde yeni madde açmazsın;
   yanıt kurula gitmez, Q&A Danışmanı "onaylanamadı" der (§2).
+- Yanıt kurula iletildikten sonra (CEO onayı) `bin/rapor_postasi.py` çağrılır; hatası dağıtımı durdurmaz.
 - Denetçi'nin reddi zincire girmez: danışman **aynı oturumda** düzeltir (en fazla 2), sana iş düşmez.
 - **Aynı kimlik iki kez açılmaz.** Kuyrukta aynı `s-` ya da `r-` maddesi varsa dokunmazsın; zincir iki kez
   tetiklenirse yeni iş açılmaz. *(kagan-sirketi `kuyruga_yaz` kuralı)*
