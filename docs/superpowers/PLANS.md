@@ -11,3 +11,4 @@
 | 2026-11-13 | [OKR Danışmanı](plans/2026-11-13-okr-danismani.md) · [spec](specs/2026-11-13-okr-danismani-design.md) | tamamlandi · PR #21 | - |
 | 2026-10-19 | [Panelde kurul yanıtı kart olarak](plans/2026-10-19-answer-card-rendering.md) | tamamlandi (#29) | - |
 | 2026-11-23 | [Rapor postası](plans/2026-11-23-rapor-postasi.md) · [spec](specs/2026-11-23-rapor-postasi-istisnasi-design.md) | tamamlandi (#32) | Kağan — kurulum elle adımları (spec) |
+| 2026-11-23 | [Sunucu teslimi — Docker Compose paketi](plans/2026-11-23-sunucu-docker.md) · [spec](specs/2026-11-23-sunucu-teslim-design.md) | acik | - |
