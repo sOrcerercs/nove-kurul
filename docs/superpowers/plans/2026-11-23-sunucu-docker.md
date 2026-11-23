@@ -1,8 +1,9 @@
 ---
-durum: acik
+durum: beklemede
 guncelleme: 2026-11-23
 dal: feature/sunucu-docker
 pr: -
+bekleyen: kullanici — PR merge; KURULUM.md yazılımcıya; geçiş günü
 spec: docs/superpowers/specs/2026-11-23-sunucu-teslim-design.md
 ---
 
@@ -667,6 +668,24 @@ Docker geçidi (172.19.0.1). Yanlış parolayla POST `/api/giris`, sırasıyla o
 (`test_danisman_defteri_git_disinda` kalite/finans/satis-muduru, `test_onayli_formlar_git_disinda_sablon_izleniyor`):
 `git archive` kökünde `.git` yok, `git check-ignore` çalışmıyor; test ortamı artefaktı, planın dokunduğu modül değil.
 Çözüm önerisi: bu testler `.git` yoksa atlansın.
+
+## Son inceleme ve düzeltme turu (23.11.2026)
+
+Görev incelemeleri temiz; Fable 5.2 dal incelemesi "düzeltmelerle hazır" dedi: 2 önemli (konteynerdeki vekil için ağ
+rehberi; arşiv okuma izni ve yanıltıcı ileti) + 7 küçük. Hepsi tek turda düzeltildi (`20ee27b`, `9f7d269`, `4b46c5e`),
+kapsamlı yeniden inceleme temiz. Bu turda ayrıca ortaya çıktı ve kapandı: sonu kesik gzip, eşleşen `.sha256` ile
+kabul edilip yazılıyordu → artık "arşiv okunamadı", hiçbir şey yazılmaz. Tam takım: Ran 1085 · OK (skipped=9).
+
+### Sonraya kalan küçükler
+
+- `tasima.py`: arşiv bellekte açılıyor (boyut sınırı yok; arşiv operatörden ve sha'lı); kök içindeki sembolik klasör
+  aynı dosyaları iki yoldan paketleyebilir; yedek klasörü altındaki arşiv üyesi reddedilmiyor; reddedilen `--ac`
+  hedefte boş `.kos.lock` bırakır; `DIZIN_KURALLARI ⊆ TASINANLAR` için test yok.
+- Testler: IPv6 vekil durumları (`::1`, `::ffff:127.0.0.1`, `2001:db8::5`); `test_sunucu_kontrol` root `skipTest` sırası
+  ve zayıf sahiplik iddiası; `DefterGitTesti` `.git`'siz kökte (yalnız duman fikstüründe) düşer — `.git` yoksa atlansın.
+- Docker: taban imajlar etiketle sabit (digest değil); UID değişip imaj yeniden derlenirse `claude-ev` volume'u eski
+  sahipte kalır; konteynerdeki Caddy userland-proxy arkasında gerçek IP'yi göremezse 403 verir (kapalı kalır) — §9'a satır.
+- Kağan'a soru: `takimlar/*/veri/`, `kasa/`, `gelen/` taşınmıyor (S-1 listesinde yok) — sunucuda gerekmediği doğru mu?
 
 ## Kağan'ın elle adımları (ajan yapmaz)
 
